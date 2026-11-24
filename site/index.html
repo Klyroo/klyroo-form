@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr" data-theme="dark">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -185,7 +185,11 @@ footer { padding: 36px 0; font-size: 12.5px; color: var(--text-muted); display: 
           <h1>Schema-driven forms<br /><span class="accent">without boilerplate.</span></h1>
         </div>
         <div>
-          <p class="lead">Moteur de formulaires déclaratif 100% NativeAOT dans Lux.Form.Core : 31 types de champs (FormFieldKind), visibilité conditionnelle réactive, suivi dirty/touched précis, transformations de sortie, assistants multi-étapes avec SkipWhen, FormPage et modales programmatiques via FormService.</p>
+          <p class="lead">Declarative, 100% NativeAOT form engine in Lux.Form.Core: 31 field kinds (FormFieldKind), reactive conditional visibility, dirty/touched diffing, output transforms, multi-step wizards with SkipWhen, sectioned FormPage layouts, and programmatic modal/drawer overlays via FormService.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:18px">
+            <a class="btn btn-accent" href="../docs/getting-started.md">Read Documentation →</a>
+            <a class="btn" href="../docs/api-reference.md">API Reference</a>
+          </div>
           <div class="install-stack">
             <button class="cmd mono" type="button" onclick="copyCmd(this,'dotnet add package Lux.Form')">
               <span>$ dotnet add package <strong>Lux.Form</strong> <span class="comment"># Blazor + MAUI Hybrid</span></span>
@@ -196,7 +200,7 @@ footer { padding: 36px 0; font-size: 12.5px; color: var(--text-muted); display: 
               <span class="copy-tag">Copy</span>
             </button>
           </div>
-          <div class="platforms"><span class="plat mono">Headless C# / NativeAOT</span><span class="plat mono">.NET MAUI Native C#</span><span class="plat mono">Blazor Web &amp; MAUI Hybrid</span><span class="plat mono">Overlay FormService</span></div>
+          <div class="platforms"><span class="plat mono">Headless C# / NativeAOT</span><span class="plat mono">.NET MAUI Native C#</span><span class="plat mono">Blazor Server / WASM / Auto</span><span class="plat mono">.NET MAUI Blazor Hybrid</span></div>
         </div>
       </div>
 
@@ -232,7 +236,7 @@ footer { padding: 36px 0; font-size: 12.5px; color: var(--text-muted); display: 
     <div class="wrap">
       <div class="eyebrow mono">Why Lux.Form</div>
       <h2>Headless C# engine.<br /><span style="color:var(--accent)">Production-ready UI.</span></h2>
-      <div class="grid-4"><article class="card"><span class="tag mono">31 Field Kinds</span><h3>31 types de champs déclaratifs</h3><p>Text, Password (jauge d&#x27;exigences), Number, Select, AutoComplete, Checkbox, Switch, Slider, Arrays répétables et Tabs pilotés par FormSchema.</p></article><article class="card"><span class="tag mono">Reactive Engine</span><h3>Conditions &amp; Transformations</h3><p>Évalue Condition = f =&gt; ... en temps réel, ignore les champs masqués à la validation et applique TransformOutput au submit.</p></article><article class="card"><span class="tag mono">Wizard Flow</span><h3>Assistants Multi-Étapes &amp; SkipWhen</h3><p>Découpage en FormStepSchema avec saut conditionnel d&#x27;étapes (SkipWhen), validation par palier et reset dirty après soumission.</p></article><article class="card"><span class="tag mono">Overlay Host</span><h3>FormPage &amp; FormService modal</h3><p>Sections suivies (BxFormPage) et ouverture programmatique de formulaires en modale ou tiroir via FormService + BxFormProvider.</p></article></div>
+      <div class="grid-4"><article class="card"><span class="tag mono">31 Field Kinds</span><h3>31 Declarative Field Kinds</h3><p>Text, Password (with requirement checklist), Number, Select, AutoComplete, Checkbox, Switch, Slider, Repeatable Arrays, and Tabs driven by FormSchema.</p></article><article class="card"><span class="tag mono">Reactive Engine</span><h3>Reactive Conditions &amp; Transforms</h3><p>Evaluates Condition = f =&gt; ... live, automatically skips hidden fields during validation and output building, and applies TransformOutput on submit.</p></article><article class="card"><span class="tag mono">Wizard Flow</span><h3>Multi-Step Wizards with SkipWhen</h3><p>Split complex flows into FormStepSchema with conditional SkipWhen branching, per-step validation, and automatic dirty re-baselining after submit.</p></article><article class="card"><span class="tag mono">Overlay Host</span><h3>FormPage &amp; Overlay FormService</h3><p>Sectioned pages with completion indicators (BxFormPage) and programmatic modal/drawer form hosts via FormService + BxFormProvider.</p></article></div>
     </div>
   </section>
 
@@ -273,12 +277,27 @@ var ok = await form.SubmitAsync();</code></pre>
 
   <section class="band">
     <div class="wrap">
-      <div class="eyebrow mono">Package Exports &amp; Components</div>
+      <div class="eyebrow mono">Exhaustive Documentation</div>
+      <h2>Guides, Architecture &amp; API Reference</h2>
+      <div class="grid-4" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">
+            <a class="card" href="../docs/getting-started.md"><span class="tag mono">GUIDE</span><h3>Getting Started</h3><p>Package installation, DI setup, namespace imports, and your first example.</p></a>
+            <a class="card" href="../docs/architecture.md"><span class="tag mono">CORE + UI</span><h3>Architecture</h3><p>Strict two-layer headless NativeAOT Core vs Blazor &amp; MAUI Hybrid UI split.</p></a>
+            <a class="card" href="../docs/api-reference.md"><span class="tag mono">EXHAUSTIVE API</span><h3>Complete API Reference</h3><p>Every public class, enum, property, method, and Razor parameter extracted from source.</p></a>
+            <a class="card" href="../docs/maui-and-aot.md"><span class="tag mono">MULTIPLATFORM</span><h3>.NET MAUI &amp; NativeAOT</h3><p>Setup for iOS, Android, macOS Catalyst, Windows, and NativeAOT builds.</p></a>
+            <a class="card" href="../docs/recipes.md"><span class="tag mono">RECIPES</span><h3>Recipes &amp; Testing</h3><p>Production patterns and xUnit / bUnit testing examples.</p></a>
+            <a class="card" href="http://localhost:5180/docs/lux-form"><span class="tag mono">PLAYGROUND</span><h3>Interactive Playground Docs</h3><p>Live documentation page with interactive examples and XML-backed API tables.</p></a>
+            </div>
+    </div>
+  </section>
+
+  <section class="band">
+    <div class="wrap">
+      <div class="eyebrow mono">Package Exports</div>
       <h2>Included in Lux.Form</h2>
       <div class="table-wrap">
         <table>
           <thead><tr><th>Export</th><th>Layer</th><th>NuGet Package</th><th>Description</th></tr></thead>
-          <tbody><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormSchema</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Schéma déclaratif : 31 kinds, étapes, sections, règles &amp; transforms.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormController</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Machine à états NativeAOT : valeurs, erreurs, dirty paths et wizard.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormService</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Service programmatique pour ouvrir des formulaires en modale/tiroir.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">BxFormEngine</td><td><span class="mono layer-ui">UI</span></td><td class="mono">Lux.Form</td><td style="color:var(--text-muted)">Rendu automatique Blazor/MAUI de FormSchema et wizards.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">BxFormPage</td><td><span class="mono layer-ui">UI</span></td><td class="mono">Lux.Form</td><td style="color:var(--text-muted)">Page formulaire à sections avec suivi d&#x27;avancement en direct.</td></tr></tbody>
+          <tbody><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">&lt;BxFormEngine&gt;</td><td><span class="mono layer-ui">UI</span></td><td class="mono">Lux.Form</td><td style="color:var(--text-muted)">8 Razor parameters · <code>src/Lux.Form/BxFormEngine.razor</code></td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">&lt;BxFormPage&gt;</td><td><span class="mono layer-ui">UI</span></td><td class="mono">Lux.Form</td><td style="color:var(--text-muted)">2 Razor parameters · <code>src/Lux.Form/BxFormPage.razor</code></td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">&lt;BxFormProvider&gt;</td><td><span class="mono layer-ui">UI</span></td><td class="mono">Lux.Form</td><td style="color:var(--text-muted)">1 Razor parameters · <code>src/Lux.Form/BxFormProvider.razor</code></td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormValidationMode</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Validation mode of a `FormController`.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormValidationTrigger</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Validation trigger timing for a `FormFieldSchema`.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormShellMode</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Shell layout of a `BxFormEngine` or `FormService` overlay.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormPageSectionStatus</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Completion status of a `FormPageSectionSchema` in `BxFormPage`.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormFieldKind</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Supported field kinds in the schema-driven Form Engine.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormOptionItem</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">An option item for choice and select fields in `BxFormEngine`.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormPasswordRequirement</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">A password requirement rule on a `FormFieldKind.Password` field.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormValidatorRule</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">A named validator rule on a `FormFieldSchema`.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormTabItemSchema</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">A tab definition inside a `FormFieldKind.Tabs` container field.</td></tr><tr><td class="mono" style="font-weight:600;color:var(--text-strong)">FormFieldSchema</td><td><span class="mono layer-core">Core</span></td><td class="mono">Lux.Form.Core</td><td style="color:var(--text-muted)">Declarative definition of a field in `FormSchema`.</td></tr></tbody>
         </table>
       </div>
     </div>
