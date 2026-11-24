@@ -1,6 +1,6 @@
 # Architecture — Lux.Form
 
-Lux.Form follows the strict TanStack two-layer architecture shared across every repository in **LuxStack**:
+Lux.Form follows the strict headless two-layer architecture shared across every repository in **LuxStack**:
 
 ```text
 +-------------------------------------------------------------------+
