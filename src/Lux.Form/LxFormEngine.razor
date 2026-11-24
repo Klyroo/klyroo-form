@@ -47,7 +47,7 @@
                             if (step.SkipWhen?.Invoke(form) == true) continue;
                             var isCurrent = idx == form.CurrentStepIndex;
                             var isDone = idx < form.CurrentStepIndex;
-                            <li class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium @(isCurrent ? "bg-(--lux-primary) text-white" : isDone ? "bg-(--lux-success)/15 text-(--lux-success-text)" : "bg-(--lux-bg-muted) text-(--lux-text-muted)")"
+                            <li class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium @(isCurrent ? "bg-(--lux-primary) text-(--lux-primary-contrast)" : isDone ? "bg-(--lux-success)/15 text-(--lux-success-text)" : "bg-(--lux-bg-muted) text-(--lux-text-muted)")"
                                 aria-current="@(isCurrent ? "step" : null)"
                                 data-slot="form-step-badge"
                                 data-step="@step.Key">
@@ -105,7 +105,7 @@
                 @if (form.IsStepped && !form.IsLastStep)
                 {
                     <button type="button"
-                            class="inline-flex h-9 items-center rounded-(--lux-radius) bg-(--lux-primary) px-4 text-xs font-semibold text-white hover:opacity-90"
+                            class="inline-flex h-9 items-center rounded-(--lux-radius) bg-(--lux-primary) px-4 text-xs font-semibold text-(--lux-primary-contrast) hover:opacity-90"
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-next"
                             @onclick="@(() => form.NextStepAsync())">
@@ -115,7 +115,7 @@
                 else
                 {
                     <button type="submit"
-                            class="inline-flex h-9 items-center rounded-(--lux-radius) bg-(--lux-primary) px-4 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
+                            class="inline-flex h-9 items-center rounded-(--lux-radius) bg-(--lux-primary) px-4 text-xs font-semibold text-(--lux-primary-contrast) hover:opacity-90 disabled:opacity-50"
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-submit">
                         @(form.IsSubmitting ? "Saving…" : SubmitLabel)
@@ -357,7 +357,7 @@
                            @oninput="@(e => form.SetValue(field.Key, e.Value?.ToString()))"
                            @onblur="@(() => form.MarkTouched(field.Key))" />
                     <button type="button"
-                            class="absolute end-2 rounded-(--lux-radius) px-1.5 py-0.5 text-[11px] font-medium text-(--lux-text-muted) hover:text-(--lux-text)"
+                            class="absolute end-1.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-(--lux-radius) px-2 py-0.5 text-[11px] font-medium text-(--lux-text-muted) hover:text-(--lux-text)"
                             aria-label="@(revealed ? "Hide password" : "Show password")"
                             data-slot="form-password-toggle"
                             @onclick="@(() => TogglePasswordReveal(field.Key))">
