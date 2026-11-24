@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Lux.Form.Core/Lux.Form.Core.csproj" />
+    <Project Path="src/Lux.Form/Lux.Form.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Lux.Form.Tests/Lux.Form.Tests.csproj" />
+  </Folder>
+  <Folder Name="/examples/">
+    <Project Path="examples/HeadlessFormExample/HeadlessFormExample.csproj" />
+  </Folder>
+</Solution>

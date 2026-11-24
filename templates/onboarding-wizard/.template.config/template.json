@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json.schemastore.org/template",
+  "author": "LuxStack contributors",
+  "classifications": [ "Web", "Blazor", "MAUI", "LuxStack" ],
+  "identity": "Lux.Form.Wizard",
+  "name": "LuxStack Form Multi-Step Wizard",
+  "shortName": "lux-form-wizard",
+  "sourceName": "LuxApp",
+  "preferNameDirectory": true,
+  "tags": {
+    "language": "C#",
+    "type": "project",
+    "luxstack": "form"
+  }
+}
