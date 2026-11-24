@@ -2,7 +2,7 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Blux.UI.Tools.Tests;
+namespace Lux.Form.Tests;
 
 public sealed class FormEngineTests : BunitContext
 {

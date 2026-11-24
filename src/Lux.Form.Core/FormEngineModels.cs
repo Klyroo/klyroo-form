@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Blux.UI.Tools;
+namespace Lux.Form;
 
 /// <summary>Validation mode of a <c>FormController</c>.</summary>
 public enum FormValidationMode

@@ -41,7 +41,7 @@ builder.Services.AddLuxForm();
 ### Headless Core (`Lux.Form.Core`)
 
 ```csharp
-using Blux.UI.Tools;
+using Lux.Form;
 
 var schema = new FormSchema
 {

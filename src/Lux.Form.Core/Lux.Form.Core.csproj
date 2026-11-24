@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>Blux.UI.Tools</RootNamespace>
+    <RootNamespace>Lux.Form</RootNamespace>
     <PackageId>Lux.Form.Core</PackageId>
     <Description>LuxStack Form Core: Headless schema-driven form controller, validation, dirty tracking and multi-step wizard engine. Zero UI dependency, NativeAOT compatible.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

@@ -27,8 +27,8 @@ builder.Services.AddLuxForm();
 In `_Imports.razor`:
 
 ```razor
-@using Blux.UI
-@using Blux.UI.Tools
+@using Lux.UI
+@using Lux.Form
 
 ```
 
@@ -37,7 +37,7 @@ In `_Imports.razor`:
 ### Headless C# (`Lux.Form.Core`)
 
 ```csharp
-using Blux.UI.Tools;
+using Lux.Form;
 
 var schema = new FormSchema
 {
