@@ -192,7 +192,7 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     }
 
     [Fact]
-    public void BxFormEngine_and_BxFormPage_render_fields_sections_and_validation_in_bUnit()
+    public void LxFormEngine_and_LxFormPage_render_fields_sections_and_validation_in_bUnit()
     {
         var schema = new FormSchema
         {
@@ -206,7 +206,7 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         };
 
         var ctrl = new FormController(schema);
-        var cut = Render<BxFormEngine>(p => p.Add(x => x.Form, ctrl));
+        var cut = Render<LxFormEngine>(p => p.Add(x => x.Form, ctrl));
         Assert.Contains("Organization Name", cut.Markup);
         Assert.Contains("Plan", cut.Markup);
 
@@ -221,15 +221,15 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
             ]
         };
         var pageCtrl = new FormController(pageSchema);
-        var pageCut = Render<BxFormPage>(p => p.Add(x => x.Form, pageCtrl));
+        var pageCut = Render<LxFormPage>(p => p.Add(x => x.Form, pageCtrl));
         Assert.Contains("General", pageCut.Markup);
         Assert.Contains("Notes", pageCut.Markup);
     }
 
     [Fact]
-    public async Task BxFormProvider_and_FormService_handle_both_Submit_and_Cancel_outcomes()
+    public async Task LxFormProvider_and_FormService_handle_both_Submit_and_Cancel_outcomes()
     {
-        var provider = Render<BxFormProvider>();
+        var provider = Render<LxFormProvider>();
         var svc = Services.GetRequiredService<FormService>();
 
         var schema = new FormSchema

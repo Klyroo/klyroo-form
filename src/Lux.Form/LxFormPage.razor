@@ -1,5 +1,5 @@
 @namespace Lux.Form
-@inherits BxComponentBase
+@inherits LxComponentBase
 @implements IDisposable
 
 @if (Form is not null)
@@ -10,19 +10,19 @@
     <div class="@RootClass" data-slot="form-page" @attributes="AdditionalAttributes">
         @if (!string.IsNullOrEmpty(Form.Schema.Title) || !string.IsNullOrEmpty(Form.Schema.Description))
         {
-            <header class="flex flex-wrap items-start justify-between gap-4 border-b border-(--blux-border) pb-4" data-slot="form-page-header">
+            <header class="flex flex-wrap items-start justify-between gap-4 border-b border-(--lux-border) pb-4" data-slot="form-page-header">
                 <div class="flex flex-col gap-1">
                     @if (!string.IsNullOrEmpty(Form.Schema.Eyebrow))
                     {
-                        <span class="text-xs font-bold uppercase tracking-wider text-(--blux-primary-text)">@Form.Schema.Eyebrow</span>
+                        <span class="text-xs font-bold uppercase tracking-wider text-(--lux-primary-text)">@Form.Schema.Eyebrow</span>
                     }
-                    <h1 class="m-0 text-xl font-bold text-(--blux-text-highlighted)" data-slot="form-page-title">@Form.Schema.Title</h1>
+                    <h1 class="m-0 text-xl font-bold text-(--lux-text-highlighted)" data-slot="form-page-title">@Form.Schema.Title</h1>
                     @if (!string.IsNullOrEmpty(Form.Schema.Description))
                     {
-                        <p class="m-0 text-xs text-(--blux-text-muted)">@Form.Schema.Description</p>
+                        <p class="m-0 text-xs text-(--lux-text-muted)">@Form.Schema.Description</p>
                     }
                 </div>
-                <div class="flex items-center gap-2 text-xs text-(--blux-text-muted)" data-slot="form-page-summary">
+                <div class="flex items-center gap-2 text-xs text-(--lux-text-muted)" data-slot="form-page-summary">
                     <span>@(blockingCount == 0 ? "Everything is ready." : $"{blockingCount} left to complete.")</span>
                 </div>
             </header>
@@ -33,25 +33,25 @@
             @if (sectionStates.Count > 0)
             {
                 <aside class="lg:col-span-3" data-slot="form-page-nav">
-                    <nav class="sticky top-4 flex flex-col gap-1 rounded-(--blux-radius-md) border border-(--blux-border) bg-(--blux-bg) p-3"
+                    <nav class="sticky top-4 flex flex-col gap-1 rounded-(--lux-radius-md) border border-(--lux-border) bg-(--lux-bg) p-3"
                          aria-label="Form sections">
-                        <span class="mb-1 px-2 text-[11px] font-bold uppercase tracking-wider text-(--blux-text-muted)">Form sections</span>
+                        <span class="mb-1 px-2 text-[11px] font-bold uppercase tracking-wider text-(--lux-text-muted)">Form sections</span>
                         @foreach (var sec in sectionStates)
                         {
                             var statusBadge = sec.Status switch
                             {
-                                FormPageSectionStatus.Complete => ("Completed", BxColor.Success),
-                                FormPageSectionStatus.Invalid => ("To fix", BxColor.Error),
-                                FormPageSectionStatus.Optional => ("Optional", BxColor.Neutral),
-                                _ => ($"{sec.RequiredCount - sec.MissingCount} of {sec.RequiredCount}", BxColor.Warning),
+                                FormPageSectionStatus.Complete => ("Completed", LxColor.Success),
+                                FormPageSectionStatus.Invalid => ("To fix", LxColor.Error),
+                                FormPageSectionStatus.Optional => ("Optional", LxColor.Neutral),
+                                _ => ($"{sec.RequiredCount - sec.MissingCount} of {sec.RequiredCount}", LxColor.Warning),
                             };
                             <a href="@($"#{sec.Key}")"
-                               class="flex items-center justify-between gap-2 rounded-(--blux-radius) px-2.5 py-1.5 text-xs font-medium text-(--blux-text) hover:bg-(--blux-bg-muted)"
+                               class="flex items-center justify-between gap-2 rounded-(--lux-radius) px-2.5 py-1.5 text-xs font-medium text-(--lux-text) hover:bg-(--lux-bg-muted)"
                                data-slot="form-page-nav-item"
                                data-section="@sec.Key"
                                data-status="@sec.Status.ToString().ToLowerInvariant()">
                                 <span class="truncate">@sec.Label</span>
-                                <BxBadge Label="@statusBadge.Item1" Color="statusBadge.Item2" Variant="BxVariant.Subtle" Size="BxSize.Sm" />
+                                <LxBadge Label="@statusBadge.Item1" Color="statusBadge.Item2" Variant="LxVariant.Subtle" Size="LxSize.Sm" />
                             </a>
                         }
                     </nav>
@@ -64,23 +64,23 @@
                 {
                     var state = sectionStates.First(s => s.Key == sectionSchema.Key);
                     <section id="@sectionSchema.Key"
-                             class="flex flex-col gap-3 rounded-(--blux-radius-md) border @(state.Dirty ? "border-(--blux-primary-text)" : "border-(--blux-border)") bg-(--blux-bg) p-4"
+                             class="flex flex-col gap-3 rounded-(--lux-radius-md) border @(state.Dirty ? "border-(--lux-primary-text)" : "border-(--lux-border)") bg-(--lux-bg) p-4"
                              data-slot="form-page-section"
                              data-key="@sectionSchema.Key"
                              data-dirty="@(state.Dirty ? "true" : "false")"
                              data-status="@state.Status.ToString().ToLowerInvariant()">
-                        <div class="flex items-start justify-between gap-2 border-b border-(--blux-border) pb-2.5">
+                        <div class="flex items-start justify-between gap-2 border-b border-(--lux-border) pb-2.5">
                             <div class="flex flex-col gap-0.5">
-                                <h2 class="m-0 text-sm font-bold text-(--blux-text-highlighted)" data-slot="form-section-title">@sectionSchema.Label</h2>
+                                <h2 class="m-0 text-sm font-bold text-(--lux-text-highlighted)" data-slot="form-section-title">@sectionSchema.Label</h2>
                                 @if (!string.IsNullOrEmpty(sectionSchema.Description))
                                 {
-                                    <p class="m-0 text-xs text-(--blux-text-muted)">@sectionSchema.Description</p>
+                                    <p class="m-0 text-xs text-(--lux-text-muted)">@sectionSchema.Description</p>
                                 }
                             </div>
                             @if (state.Dirty)
                             {
                                 <button type="button"
-                                        class="rounded-(--blux-radius) px-2 py-1 text-xs font-medium text-(--blux-primary-text) hover:bg-(--blux-bg-muted)"
+                                        class="rounded-(--lux-radius) px-2 py-1 text-xs font-medium text-(--lux-primary-text) hover:bg-(--lux-bg-muted)"
                                         data-slot="form-section-reset"
                                         @onclick="@(() => Form.ResetSection(sectionSchema.Key))">
                                     Reset
@@ -97,21 +97,21 @@
                                      class="flex flex-col gap-1"
                                      data-slot="form-page-field"
                                      data-form-field="@field.Key">
-                                    <label class="text-xs font-semibold text-(--blux-text-highlighted)">
+                                    <label class="text-xs font-semibold text-(--lux-text-highlighted)">
                                         @field.Label
                                         @if (Form.IsFieldRequired(field))
                                         {
-                                            <span class="ms-0.5 text-(--blux-error-text)">*</span>
+                                            <span class="ms-0.5 text-(--lux-error-text)">*</span>
                                         }
                                     </label>
                                     <input type="text"
                                            value="@val"
                                            placeholder="@field.Placeholder"
-                                           class="h-9 w-full rounded-(--blux-radius) border @(err is not null ? "border-(--blux-error)" : "border-(--blux-border)") bg-(--blux-bg) px-3 text-xs"
+                                           class="h-9 w-full rounded-(--lux-radius) border @(err is not null ? "border-(--lux-error)" : "border-(--lux-border)") bg-(--lux-bg) px-3 text-xs"
                                            @oninput="@(e => Form.SetValue(field.Key, e.Value?.ToString(), markTouched: true))" />
                                     @if (!string.IsNullOrEmpty(err))
                                     {
-                                        <p class="m-0 text-xs font-medium text-(--blux-error-text)" role="alert" data-slot="form-field-error">@err</p>
+                                        <p class="m-0 text-xs font-medium text-(--lux-error-text)" role="alert" data-slot="form-field-error">@err</p>
                                     }
                                 </div>
                             }
@@ -121,7 +121,7 @@
 
                 <div class="flex justify-end gap-2 pt-2">
                     <button type="button"
-                            class="inline-flex h-9 items-center rounded-(--blux-radius) bg-(--blux-primary) px-4 text-xs font-semibold text-white hover:opacity-90"
+                            class="inline-flex h-9 items-center rounded-(--lux-radius) bg-(--lux-primary) px-4 text-xs font-semibold text-white hover:opacity-90"
                             data-slot="form-page-submit"
                             @onclick="OnSubmitClickAsync">
                         Submit
@@ -139,7 +139,7 @@
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
 
     private string RootClass =>
-        $"flex w-full flex-col gap-6 text-sm text-(--blux-text) {Class}".Trim();
+        $"flex w-full flex-col gap-6 text-sm text-(--lux-text) {Class}".Trim();
 
     protected override void OnParametersSet()
     {

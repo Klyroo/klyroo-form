@@ -3,7 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Lux.Form</RootNamespace>
     <PackageId>Lux.Form</PackageId>
-    <Description>LuxStack Form for Blazor Web &amp; .NET MAUI Hybrid: BxFormEngine, BxFormPage, BxFormProvider.</Description>
+    <Description>LuxStack Form for Blazor Web &amp; .NET MAUI Hybrid: LxFormEngine, LxFormPage, LxFormProvider.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;BL0007</NoWarn>
     <IsTrimmable>true</IsTrimmable>

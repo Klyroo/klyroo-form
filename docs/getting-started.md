@@ -58,7 +58,7 @@ var ok = await form.SubmitAsync();
 ### Blazor / MAUI Hybrid (`Lux.Form`)
 
 ```razor
-<BxFormEngine Form="@_form"
+<LxFormEngine Form="@_form"
               SubmitLabel="Save profile"
               ShowReset="true"
               OnSubmit="@HandleSubmit" />

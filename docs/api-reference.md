@@ -4,8 +4,8 @@ Complete public API reference extracted directly from the source code of `Lux.Fo
 
 ## Razor Components
 
-### `<BxFormEngine>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/BxFormEngine.razor`
+### `<LxFormEngine>`
+*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormEngine.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -18,16 +18,16 @@ Complete public API reference extracted directly from the source code of `Lux.Fo
 | `OnSubmit` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 | `OnCancel` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 
-### `<BxFormPage>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/BxFormPage.razor`
+### `<LxFormPage>`
+*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormPage.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `Form` | `FormController` | — |
 | `OnSubmit` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 
-### `<BxFormProvider>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/BxFormProvider.razor`
+### `<LxFormProvider>`
+*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormProvider.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -61,7 +61,7 @@ Validation trigger timing for a `FormFieldSchema`.
 ### `enum FormShellMode`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-Shell layout of a `BxFormEngine` or `FormService` overlay.
+Shell layout of a `LxFormEngine` or `FormService` overlay.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -73,7 +73,7 @@ Shell layout of a `BxFormEngine` or `FormService` overlay.
 ### `enum FormPageSectionStatus`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-Completion status of a `FormPageSectionSchema` in `BxFormPage`.
+Completion status of a `FormPageSectionSchema` in `LxFormPage`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -124,7 +124,7 @@ Supported field kinds in the schema-driven Form Engine.
 ### `record FormOptionItem`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-An option item for choice and select fields in `BxFormEngine`.
+An option item for choice and select fields in `LxFormEngine`.
 
 ### `record FormPasswordRequirement`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
@@ -213,7 +213,7 @@ One step in a multi-step `FormSchema`.
 ### `class FormPageSectionSchema`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-One section in a `BxFormPage` schema.
+One section in a `LxFormPage` schema.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -233,7 +233,7 @@ Computed runtime state of a `FormPageSectionSchema`.
 ### `class FormSchema`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-Top-level declarative schema for `BxFormEngine`, `BxFormPage` and `FormService`.
+Top-level declarative schema for `LxFormEngine`, `LxFormPage` and `FormService`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -309,7 +309,7 @@ Stateful runtime controller for a `FormSchema`: manages internal state, initial 
 ### `class FormService`
 *Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
 
-Scoped service managing programmatic overlay forms opened in `BxFormProvider`.
+Scoped service managing programmatic overlay forms opened in `LxFormProvider`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -319,7 +319,7 @@ Scoped service managing programmatic overlay forms opened in `BxFormProvider`.
 | `CreateFormAsync(
         FormSchema schema,
         IReadOnlyDictionary<string, object?>? input = null,
-        FormShellMode mode = FormShellMode.Modal)` | `Task<FormSubmitOutcome>` | Opens a `FormSchema` inside the mounted `BxFormProvider` and awaits completion or cancellation. |
+        FormShellMode mode = FormShellMode.Modal)` | `Task<FormSubmitOutcome>` | Opens a `FormSchema` inside the mounted `LxFormProvider` and awaits completion or cancellation. |
 | `SubmitActiveFormAsync()` | `Task<bool>` | — |
 | `CloseForm()` | `void` | — |
 

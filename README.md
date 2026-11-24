@@ -21,7 +21,7 @@ Declarative, 100% NativeAOT form engine in Lux.Form.Core: 31 field kinds (FormFi
 - **31 Declarative Field Kinds** (`31 Field Kinds`) — Text, Password (with requirement checklist), Number, Select, AutoComplete, Checkbox, Switch, Slider, Repeatable Arrays, and Tabs driven by FormSchema.
 - **Reactive Conditions & Transforms** (`Reactive Engine`) — Evaluates Condition = f => ... live, automatically skips hidden fields during validation and output building, and applies TransformOutput on submit.
 - **Multi-Step Wizards with SkipWhen** (`Wizard Flow`) — Split complex flows into FormStepSchema with conditional SkipWhen branching, per-step validation, and automatic dirty re-baselining after submit.
-- **FormPage & Overlay FormService** (`Overlay Host`) — Sectioned pages with completion indicators (BxFormPage) and programmatic modal/drawer form hosts via FormService + BxFormProvider.
+- **FormPage & Overlay FormService** (`Overlay Host`) — Sectioned pages with completion indicators (LxFormPage) and programmatic modal/drawer form hosts via FormService + LxFormProvider.
 
 ## Installation
 
@@ -62,7 +62,7 @@ var ok = await form.SubmitAsync();
 ### Blazor Web & .NET MAUI Hybrid (`Lux.Form`)
 
 ```razor
-<BxFormEngine Form="@_form"
+<LxFormEngine Form="@_form"
               SubmitLabel="Save profile"
               ShowReset="true"
               OnSubmit="@HandleSubmit" />
@@ -85,30 +85,30 @@ var ok = await form.SubmitAsync();
 | :--- | :--- | :--- | :--- |
 | `FormValidationMode` | `enum` | `Lux.Form.Core` | Validation mode of a `FormController`. |
 | `FormValidationTrigger` | `enum` | `Lux.Form.Core` | Validation trigger timing for a `FormFieldSchema`. |
-| `FormShellMode` | `enum` | `Lux.Form.Core` | Shell layout of a `BxFormEngine` or `FormService` overlay. |
-| `FormPageSectionStatus` | `enum` | `Lux.Form.Core` | Completion status of a `FormPageSectionSchema` in `BxFormPage`. |
+| `FormShellMode` | `enum` | `Lux.Form.Core` | Shell layout of a `LxFormEngine` or `FormService` overlay. |
+| `FormPageSectionStatus` | `enum` | `Lux.Form.Core` | Completion status of a `FormPageSectionSchema` in `LxFormPage`. |
 | `FormFieldKind` | `enum` | `Lux.Form.Core` | Supported field kinds in the schema-driven Form Engine. |
-| `FormOptionItem` | `record` | `Lux.Form.Core` | An option item for choice and select fields in `BxFormEngine`. |
+| `FormOptionItem` | `record` | `Lux.Form.Core` | An option item for choice and select fields in `LxFormEngine`. |
 | `FormPasswordRequirement` | `record` | `Lux.Form.Core` | A password requirement rule on a `FormFieldKind.Password` field. |
 | `FormValidatorRule` | `record` | `Lux.Form.Core` | A named validator rule on a `FormFieldSchema`. |
 | `FormTabItemSchema` | `class` | `Lux.Form.Core` | A tab definition inside a `FormFieldKind.Tabs` container field. |
 | `FormFieldSchema` | `class` | `Lux.Form.Core` | Declarative definition of a field in `FormSchema`. |
 | `FormStepSchema` | `class` | `Lux.Form.Core` | One step in a multi-step `FormSchema`. |
-| `FormPageSectionSchema` | `class` | `Lux.Form.Core` | One section in a `BxFormPage` schema. |
+| `FormPageSectionSchema` | `class` | `Lux.Form.Core` | One section in a `LxFormPage` schema. |
 | `FormPageSectionState` | `record` | `Lux.Form.Core` | Computed runtime state of a `FormPageSectionSchema`. |
-| `FormSchema` | `class` | `Lux.Form.Core` | Top-level declarative schema for `BxFormEngine`, `BxFormPage` and `FormService`. |
+| `FormSchema` | `class` | `Lux.Form.Core` | Top-level declarative schema for `LxFormEngine`, `LxFormPage` and `FormService`. |
 | `FormSubmitOutcome` | `record` | `Lux.Form.Core` | Result returned when a form submit or overlay session completes. |
 | `FormController` | `class` | `Lux.Form.Core` | Stateful runtime controller for a `FormSchema`: manages internal state, initial snapshot, dirty path tracking, touch &amp; validation rules, multi-step navigation, array item management, and submission. |
-| `FormService` | `class` | `Lux.Form.Core` | Scoped service managing programmatic overlay forms opened in `BxFormProvider`. |
+| `FormService` | `class` | `Lux.Form.Core` | Scoped service managing programmatic overlay forms opened in `LxFormProvider`. |
 | `LuxFormServiceCollectionExtensions` | `class` | `Lux.Form` | Public API type |
 
 ## Razor Components
 
 | Component | Package | Parameters | Source |
 | :--- | :--- | :--- | :--- |
-| `<BxFormEngine>` | `Lux.Form` | 8 parameters | `src/Lux.Form/BxFormEngine.razor` |
-| `<BxFormPage>` | `Lux.Form` | 2 parameters | `src/Lux.Form/BxFormPage.razor` |
-| `<BxFormProvider>` | `Lux.Form` | 1 parameters | `src/Lux.Form/BxFormProvider.razor` |
+| `<LxFormEngine>` | `Lux.Form` | 8 parameters | `src/Lux.Form/LxFormEngine.razor` |
+| `<LxFormPage>` | `Lux.Form` | 2 parameters | `src/Lux.Form/LxFormPage.razor` |
+| `<LxFormProvider>` | `Lux.Form` | 1 parameters | `src/Lux.Form/LxFormProvider.razor` |
 
 ## Building & Testing
 
