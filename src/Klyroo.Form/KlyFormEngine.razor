@@ -132,15 +132,32 @@
     private readonly HashSet<string> _revealedPasswords = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _activeTabs = new(StringComparer.Ordinal);
 
+    /// <summary>The controller to render. Use it when you need to read or change the form from code. Takes precedence over <see cref="Schema"/>.</summary>
     [Parameter] public FormController? Form { get; set; }
+
+    /// <summary>The schema to render when no <see cref="Form"/> is given. The component creates and owns the controller, and creates a new one when the schema instance changes.</summary>
     [Parameter] public FormSchema? Schema { get; set; }
+
+    /// <summary>Initial values by field key for the controller created from <see cref="Schema"/>. Ignored when <see cref="Form"/> is set.</summary>
     [Parameter] public IReadOnlyDictionary<string, object?>? Input { get; set; }
+
+    /// <summary>How the form is presented. Anything other than <see cref="FormShellMode.Inline"/> adds a close button to the header when <see cref="OnCancel"/> is bound.</summary>
     [Parameter] public FormShellMode Shell { get; set; } = FormShellMode.Inline;
+
+    /// <summary>Text of the submit button. The default is <c>Submit</c>.</summary>
     [Parameter] public string SubmitLabel { get; set; } = "Submit";
+
+    /// <summary>Shows a reset button in the footer while the form is dirty. The default is <c>true</c>.</summary>
     [Parameter] public bool ShowReset { get; set; } = true;
+
+    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully, that is after validation and the schema hooks passed.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
+
+    /// <summary>Called with the current output when the user presses Cancel or the close button. When bound, the Cancel button is shown.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnCancel { get; set; }
 
+
+    /// <summary>The controller in use: <see cref="Form"/> if set, otherwise the one the component created from <see cref="Schema"/>.</summary>
     public FormController? EffectiveController => Form ?? _internalController;
 
     private string RootClass =>

@@ -135,8 +135,12 @@
 @code {
     private FormController? _subscribed;
 
+    /// <summary>The controller to render. Its schema must declare <see cref="FormSchema.Sections"/>.</summary>
     [Parameter] public required FormController Form { get; set; }
+
+    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
+
 
     private string RootClass =>
         $"flex w-full flex-col gap-6 text-sm text-(--klyroo-text) {Class}".Trim();
