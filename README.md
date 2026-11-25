@@ -28,13 +28,17 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 
 ## Installation
 
-    dotnet add package Klyroo.Form --prerelease
+```bash
+dotnet add package Klyroo.Form --prerelease
+```
 
 For the engine alone, without Blazor, install `Klyroo.Form.Core` instead.
 
 Register the services in `Program.cs` (or `MauiProgram.cs`). It also registers Klyroo.UI:
 
 ```csharp
+using Klyroo.Form;
+
 builder.Services.AddKlyrooForm();
 ```
 

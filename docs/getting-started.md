@@ -88,6 +88,8 @@ The package builds on Klyroo.UI and brings it in as a dependency.
 Call `AddKlyrooForm()` in `Program.cs`. It registers `FormService` and calls `AddKlyrooUi()`:
 
 ```csharp
+using Klyroo.Form;
+
 builder.Services.AddKlyrooForm();
 ```
 

@@ -51,6 +51,8 @@ The form relies on Klyroo.UI tokens for color, border and radius, so with only `
 Register the services in `MauiProgram.cs`, after `AddMauiBlazorWebView()`:
 
 ```csharp
+using Klyroo.Form;
+
 builder.Services.AddMauiBlazorWebView();
 builder.Services.AddKlyrooForm();
 ```
