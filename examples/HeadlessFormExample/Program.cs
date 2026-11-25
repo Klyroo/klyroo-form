@@ -1,4 +1,4 @@
-using Lux.Form;
+using Klyroo.Form;
 
 var schema = new FormSchema
 {
@@ -10,6 +10,6 @@ var schema = new FormSchema
     ]
 };
 var controller = new FormController(schema);
-controller.SetValue("email", "alice@luxstack.dev", markTouched: true);
+controller.SetValue("email", "alice@klyroo.dev", markTouched: true);
 await controller.SubmitAsync();
 Console.WriteLine($"Submitted email: {controller.BuildOutput()["email"]}");

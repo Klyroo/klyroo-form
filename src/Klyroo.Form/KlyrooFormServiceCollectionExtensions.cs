@@ -1,14 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
-namespace Lux.Form;
+namespace Klyroo.Form;
 
-public static class LuxFormServiceCollectionExtensions
+public static class KlyrooFormServiceCollectionExtensions
 {
-    public static IServiceCollection AddLuxForm(this IServiceCollection services)
+    public static IServiceCollection AddKlyrooForm(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        services.AddLuxUi();
+        services.AddKlyrooUi();
         services.TryAddScoped<FormService>();
         return services;
     }

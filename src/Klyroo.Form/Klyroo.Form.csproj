@@ -1,16 +1,16 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
-    <RootNamespace>Lux.Form</RootNamespace>
-    <PackageId>Lux.Form</PackageId>
-    <Description>LuxStack Form for Blazor Web &amp; .NET MAUI Hybrid: LxFormEngine, LxFormPage, LxFormProvider.</Description>
+    <RootNamespace>Klyroo.Form</RootNamespace>
+    <PackageId>Klyroo.Form</PackageId>
+    <Description>Klyroo Form for Blazor Web &amp; .NET MAUI Hybrid: KlyFormEngine, KlyFormPage, KlyFormProvider.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591;BL0007</NoWarn>
     <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Lux.Form.Core\Lux.Form.Core.csproj" />
-    <ProjectReference Include="..\..\..\lux-ui\src\Lux.UI\Lux.UI.csproj" />
+    <ProjectReference Include="..\Klyroo.Form.Core\Klyroo.Form.Core.csproj" />
+    <ProjectReference Include="..\..\..\klyroo-ui\src\Klyroo.UI\Klyroo.UI.csproj" />
   </ItemGroup>
   <ItemGroup>
     <SupportedPlatform Include="browser" />
@@ -20,6 +20,6 @@
     <SupportedPlatform Include="windows" />
   </ItemGroup>
   <ItemGroup>
-    <Using Include="Lux.UI" />
+    <Using Include="Klyroo.UI" />
   </ItemGroup>
 </Project>

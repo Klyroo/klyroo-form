@@ -12,37 +12,37 @@ web
 
 ## Product Purpose
 
-`lux-form` pairs a headless NativeAOT reactive form engine (`Lux.Form.Core`) with `LxFormEngine` and imperative form shells (`Lux.Form`, supporting Drawer, Modal, and Page presentation) for Blazor Web and `.NET MAUI Blazor Hybrid`.
+`klyroo-form` pairs a headless NativeAOT reactive form engine (`Klyroo.Form.Core`) with `KlyFormEngine` and imperative form shells (`Klyroo.Form`, supporting Drawer, Modal, and Page presentation) for Blazor Web and `.NET MAUI Blazor Hybrid`.
 
-Success means developers define a `FormSchema` once and automatically get conditional field visibility, dynamic required rules, dirty tracking and diffs, typed validation, secret-field handling, and seamless `Lux.Agent` registration without hand-wiring boilerplate form state.
+Success means developers define a `FormSchema` once and automatically get conditional field visibility, dynamic required rules, dirty tracking and diffs, typed validation, secret-field handling, and seamless `Klyroo.Agent` registration without hand-wiring boilerplate form state.
 
 ## Positioning
 
-Unlike manual `EditForm` markup that duplicates validation, conditional visibility, and shell orchestration per screen, `Lux.Form` executes reactive field graphs, conditional rules, and dirty diffs in a zero-UI NativeAOT `FormController` (`Lux.Form.Core`) that works across Page, Modal, and Drawer shells and exposes controls semantically to `Lux.Agent`.
+Unlike manual `EditForm` markup that duplicates validation, conditional visibility, and shell orchestration per screen, `Klyroo.Form` executes reactive field graphs, conditional rules, and dirty diffs in a zero-UI NativeAOT `FormController` (`Klyroo.Form.Core`) that works across Page, Modal, and Drawer shells and exposes controls semantically to `Klyroo.Agent`.
 
 ## Operating Context
 
-- **Packages**: `Lux.Form.Core` (`FormSchema`, `FormFieldSchema`, `FormController`, validation, dirty diff) and `Lux.Form` (`LxFormEngine`, `FormService`, `FormShellMode.Drawer`/`Modal`/`Page`, `lux-form.css`).
-- **Integration**: Built on `Lux.UI` form primitives and natively registrable in `Lux.Agent` (`AgentBridgeService.RegisterForm`) with password/OTP redaction and submit confirmation policies.
-- **Showcase**: Powers both the reactive `New Account` Drawer (with conditional EU VAT field) and the Copilot-bound `Quick Deal` form in `Lux.Stack.Site` `/showcase`.
+- **Packages**: `Klyroo.Form.Core` (`FormSchema`, `FormFieldSchema`, `FormController`, validation, dirty diff) and `Klyroo.Form` (`KlyFormEngine`, `FormService`, `FormShellMode.Drawer`/`Modal`/`Page`, `klyroo-form.css`).
+- **Integration**: Built on `Klyroo.UI` form primitives and natively registrable in `Klyroo.Agent` (`AgentBridgeService.RegisterForm`) with password/OTP redaction and submit confirmation policies.
+- **Showcase**: Powers both the reactive `New Account` Drawer (with conditional EU VAT field) and the Copilot-bound `Quick Deal` form in `Klyroo.Stack.Site` `/showcase`.
 
 ## Capabilities and Constraints
 
-- `Lux.Form.Core` is 100% headless with `<IsAotCompatible>true</IsAotCompatible>` and `<IsTrimmable>true</IsTrimmable>`.
+- `Klyroo.Form.Core` is 100% headless with `<IsAotCompatible>true</IsAotCompatible>` and `<IsTrimmable>true</IsTrimmable>`.
 - Supports conditional field visibility (`Condition`), dynamic required predicates (`RequiredWhen`), default values, dirty diff tracking, and sensitive field kinds (`Password`, `OneTimeCode`).
-- Ships precompiled zero-friction CSS (`lux-form.css`) alongside native Tailwind CSS v4 compatibility.
-- 100% MIT open-source license; strict `Lux.Form*` / `LxForm*` / `--lux-*` naming.
+- Ships precompiled zero-friction CSS (`klyroo-form.css`) alongside native Tailwind CSS v4 compatibility.
+- 100% MIT open-source license; strict `Klyroo.Form*` / `KlyForm*` / `--klyroo-*` naming.
 
 ## Brand Commitments
 
-- **Name**: `Lux.Form` (`lux-form`), part of the **LuxStack** ecosystem.
+- **Name**: `Klyroo.Form` (`klyroo-form`), part of the **Klyroo** ecosystem.
 - **Voice**: Clear, engineering-focused, and ergonomic.
 
 ## Evidence on Hand
 
-- Passing unit and bUnit test suite (`tests/Lux.Form.Tests`) plus NativeAOT publish verification in CI.
-- Live Drawer CRUD and Copilot-connected form demonstrations in `Lux.Stack.Site` `/showcase` and product docs at `/form`.
-- Verified precompiled standalone CSS (`lux-form.css`).
+- Passing unit and bUnit test suite (`tests/Klyroo.Form.Tests`) plus NativeAOT publish verification in CI.
+- Live Drawer CRUD and Copilot-connected form demonstrations in `Klyroo.Stack.Site` `/showcase` and product docs at `/form`.
+- Verified precompiled standalone CSS (`klyroo-form.css`).
 - **Explicit absences (do not fabricate)**: No NuGet download stats, customer logos, or third-party testimonials exist yet.
 
 ## Product Principles

@@ -1,25 +1,25 @@
-# Getting Started with Lux.Form
+# Getting Started with Klyroo.Form
 
-Declarative, 100% NativeAOT form engine in Lux.Form.Core: 31 field kinds (FormFieldKind), reactive conditional visibility, dirty/touched diffing, output transforms, multi-step wizards with SkipWhen, sectioned FormPage layouts, and programmatic modal/drawer overlays via FormService.
+Declarative, 100% NativeAOT form engine in Klyroo.Form.Core: 31 field kinds (FormFieldKind), reactive conditional visibility, dirty/touched diffing, output transforms, multi-step wizards with SkipWhen, sectioned FormPage layouts, and programmatic modal/drawer overlays via FormService.
 
 ## 1. Choose Your Package
 
 | Use Case | Package to Install |
 | :--- | :--- |
-| Headless C#, Minimal APIs, Workers, CLI, or native C# .NET MAUI ViewModels | `Lux.Form.Core` |
-| Blazor Web App (Server, WebAssembly, Auto, Static SSR) or `.NET MAUI Blazor Hybrid` | `Lux.Form` |
+| Headless C#, Minimal APIs, Workers, CLI, or native C# .NET MAUI ViewModels | `Klyroo.Form.Core` |
+| Blazor Web App (Server, WebAssembly, Auto, Static SSR) or `.NET MAUI Blazor Hybrid` | `Klyroo.Form` |
 
 ```bash
-dotnet add package Lux.Form.Core
-dotnet add package Lux.Form
+dotnet add package Klyroo.Form.Core
+dotnet add package Klyroo.Form
 ```
 
 ## 2. Register Services
 
-Call `builder.Services.AddLuxForm();` in `Program.cs` (both Server and Client projects when using Blazor Interactive Auto) or `MauiProgram.cs` (after `AddMauiBlazorWebView()`):
+Call `builder.Services.AddKlyrooForm();` in `Program.cs` (both Server and Client projects when using Blazor Interactive Auto) or `MauiProgram.cs` (after `AddMauiBlazorWebView()`):
 
 ```csharp
-builder.Services.AddLuxForm();
+builder.Services.AddKlyrooForm();
 ```
 
 ## 3. Add Namespace Imports
@@ -27,17 +27,17 @@ builder.Services.AddLuxForm();
 In `_Imports.razor`:
 
 ```razor
-@using Lux.UI
-@using Lux.Form
+@using Klyroo.UI
+@using Klyroo.Form
 
 ```
 
 ## 4. First Example
 
-### Headless C# (`Lux.Form.Core`)
+### Headless C# (`Klyroo.Form.Core`)
 
 ```csharp
-using Lux.Form;
+using Klyroo.Form;
 
 var schema = new FormSchema
 {
@@ -55,10 +55,10 @@ var form = new FormController(schema, new Dictionary<string, object?> { ["name"]
 var ok = await form.SubmitAsync();
 ```
 
-### Blazor / MAUI Hybrid (`Lux.Form`)
+### Blazor / MAUI Hybrid (`Klyroo.Form`)
 
 ```razor
-<LxFormEngine Form="@_form"
+<KlyFormEngine Form="@_form"
               SubmitLabel="Save profile"
               ShowReset="true"
               OnSubmit="@HandleSubmit" />

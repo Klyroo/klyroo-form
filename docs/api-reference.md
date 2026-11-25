@@ -1,11 +1,11 @@
-# API Reference — Lux.Form
+# API Reference — Klyroo.Form
 
-Complete public API reference extracted directly from the source code of `Lux.Form.Core` and `Lux.Form`.
+Complete public API reference extracted directly from the source code of `Klyroo.Form.Core` and `Klyroo.Form`.
 
 ## Razor Components
 
-### `<LxFormEngine>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormEngine.razor`
+### `<KlyFormEngine>`
+*Package*: `Klyroo.Form` · *Source*: `src/Klyroo.Form/KlyFormEngine.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -18,16 +18,16 @@ Complete public API reference extracted directly from the source code of `Lux.Fo
 | `OnSubmit` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 | `OnCancel` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 
-### `<LxFormPage>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormPage.razor`
+### `<KlyFormPage>`
+*Package*: `Klyroo.Form` · *Source*: `src/Klyroo.Form/KlyFormPage.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `Form` | `FormController` | — |
 | `OnSubmit` | `EventCallback<IReadOnlyDictionary<string, object?>>` | — |
 
-### `<LxFormProvider>`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LxFormProvider.razor`
+### `<KlyFormProvider>`
+*Package*: `Klyroo.Form` · *Source*: `src/Klyroo.Form/KlyFormProvider.razor`
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -36,7 +36,7 @@ Complete public API reference extracted directly from the source code of `Lux.Fo
 ## C# Types, Controllers, Models & Enums
 
 ### `enum FormValidationMode`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Validation mode of a `FormController`.
 
@@ -48,7 +48,7 @@ Validation mode of a `FormController`.
 | `None` | `enum member` | — |
 
 ### `enum FormValidationTrigger`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Validation trigger timing for a `FormFieldSchema`.
 
@@ -59,9 +59,9 @@ Validation trigger timing for a `FormFieldSchema`.
 | `Submit` | `enum member` | — |
 
 ### `enum FormShellMode`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-Shell layout of a `LxFormEngine` or `FormService` overlay.
+Shell layout of a `KlyFormEngine` or `FormService` overlay.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -71,9 +71,9 @@ Shell layout of a `LxFormEngine` or `FormService` overlay.
 | `Fullscreen` | `enum member` | — |
 
 ### `enum FormPageSectionStatus`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-Completion status of a `FormPageSectionSchema` in `LxFormPage`.
+Completion status of a `FormPageSectionSchema` in `KlyFormPage`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -83,7 +83,7 @@ Completion status of a `FormPageSectionSchema` in `LxFormPage`.
 | `Optional` | `enum member` | — |
 
 ### `enum FormFieldKind`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Supported field kinds in the schema-driven Form Engine.
 
@@ -122,22 +122,22 @@ Supported field kinds in the schema-driven Form Engine.
 | `ArrayTable` | `enum member` | — |
 
 ### `record FormOptionItem`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-An option item for choice and select fields in `LxFormEngine`.
+An option item for choice and select fields in `KlyFormEngine`.
 
 ### `record FormPasswordRequirement`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 A password requirement rule on a `FormFieldKind.Password` field.
 
 ### `record FormValidatorRule`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 A named validator rule on a `FormFieldSchema`.
 
 ### `class FormTabItemSchema`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 A tab definition inside a `FormFieldKind.Tabs` container field.
 
@@ -149,7 +149,7 @@ A tab definition inside a `FormFieldKind.Tabs` container field.
 | `Condition` | `Func<FormController, bool>?` | — |
 
 ### `class FormFieldSchema`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Declarative definition of a field in `FormSchema`.
 
@@ -197,7 +197,7 @@ Declarative definition of a field in `FormSchema`.
 | `DisplayTone` | `string?` | — |
 
 ### `class FormStepSchema`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 One step in a multi-step `FormSchema`.
 
@@ -211,9 +211,9 @@ One step in a multi-step `FormSchema`.
 | `SkipWhen` | `Func<FormController, bool>?` | — |
 
 ### `class FormPageSectionSchema`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-One section in a `LxFormPage` schema.
+One section in a `KlyFormPage` schema.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -226,14 +226,14 @@ One section in a `LxFormPage` schema.
 | `Fields` | `IReadOnlyList<FormFieldSchema>` | — |
 
 ### `record FormPageSectionState`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Computed runtime state of a `FormPageSectionSchema`.
 
 ### `class FormSchema`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-Top-level declarative schema for `LxFormEngine`, `LxFormPage` and `FormService`.
+Top-level declarative schema for `KlyFormEngine`, `KlyFormPage` and `FormService`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -254,12 +254,12 @@ Top-level declarative schema for `LxFormEngine`, `LxFormPage` and `FormService`.
 | `OnBeforePrevious` | `Func<FormController, int, Task<bool>>?` | — |
 
 ### `record FormSubmitOutcome`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Result returned when a form submit or overlay session completes.
 
 ### `class FormController`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
 Stateful runtime controller for a `FormSchema`: manages internal state, initial snapshot, dirty path tracking, touch &amp; validation rules, multi-step navigation, array item management, and submission.
 
@@ -307,9 +307,9 @@ Stateful runtime controller for a `FormSchema`: manages internal state, initial 
 | `Reset(IReadOnlyDictionary<string, object?>? newInput = null)` | `void` | — |
 
 ### `class FormService`
-*Package*: `Lux.Form.Core` · *Source*: `src/Lux.Form.Core/FormEngineModels.cs`
+*Package*: `Klyroo.Form.Core` · *Source*: `src/Klyroo.Form.Core/FormEngineModels.cs`
 
-Scoped service managing programmatic overlay forms opened in `LxFormProvider`.
+Scoped service managing programmatic overlay forms opened in `KlyFormProvider`.
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
@@ -319,13 +319,13 @@ Scoped service managing programmatic overlay forms opened in `LxFormProvider`.
 | `CreateFormAsync(
         FormSchema schema,
         IReadOnlyDictionary<string, object?>? input = null,
-        FormShellMode mode = FormShellMode.Modal)` | `Task<FormSubmitOutcome>` | Opens a `FormSchema` inside the mounted `LxFormProvider` and awaits completion or cancellation. |
+        FormShellMode mode = FormShellMode.Modal)` | `Task<FormSubmitOutcome>` | Opens a `FormSchema` inside the mounted `KlyFormProvider` and awaits completion or cancellation. |
 | `SubmitActiveFormAsync()` | `Task<bool>` | — |
 | `CloseForm()` | `void` | — |
 
-### `class LuxFormServiceCollectionExtensions`
-*Package*: `Lux.Form` · *Source*: `src/Lux.Form/LuxFormServiceCollectionExtensions.cs`
+### `class KlyrooFormServiceCollectionExtensions`
+*Package*: `Klyroo.Form` · *Source*: `src/Klyroo.Form/KlyrooFormServiceCollectionExtensions.cs`
 
 | Member | Type | Description |
 | :--- | :--- | :--- |
-| `AddLuxForm(this IServiceCollection services)` | `IServiceCollection` | — |
+| `AddKlyrooForm(this IServiceCollection services)` | `IServiceCollection` | — |

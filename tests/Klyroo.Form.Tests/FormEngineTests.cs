@@ -2,13 +2,13 @@ using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Lux.Form.Tests;
+namespace Klyroo.Form.Tests;
 
 public sealed class FormEngineTests : BunitContext
 {
     public FormEngineTests()
     {
-        Services.AddLuxForm();
+        Services.AddKlyrooForm();
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class FormEngineTests : BunitContext
         var controller = new FormController(schema, new Dictionary<string, object?> { ["name"] = "Alice" });
         Assert.False(controller.IsDirty);
 
-        var cut = Render<LxFormEngine>(p => p.Add(x => x.Form, controller));
+        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, controller));
         Assert.Equal("User Profile", cut.Find("[data-slot=form-title]").TextContent);
 
         // Company is visible because age default is 25 >= 21, and required
@@ -91,7 +91,7 @@ public sealed class FormEngineTests : BunitContext
     }
 
     [Fact]
-    public async Task LxFormEngine_supports_multi_step_wizard_with_skipStep_and_array_fields()
+    public async Task KlyFormEngine_supports_multi_step_wizard_with_skipStep_and_array_fields()
     {
         var schema = new FormSchema
         {
@@ -137,7 +137,7 @@ public sealed class FormEngineTests : BunitContext
         };
 
         var controller = new FormController(schema);
-        var cut = Render<LxFormEngine>(p => p.Add(x => x.Form, controller));
+        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, controller));
 
         // Step 0 ("account") -> Next should skip Step 1 ("billing", since plan == "free") and land on Step 2 ("team")
         Assert.Equal(0, controller.CurrentStepIndex);
@@ -147,12 +147,12 @@ public sealed class FormEngineTests : BunitContext
         // Add an array item on Step 2
         cut.Find("[data-slot=form-array-add]").Click();
         Assert.Single(controller.GetArrayItems("members"));
-        cut.Find("[data-slot=form-array-input]").Input("dev@lux.ui");
-        Assert.Equal("dev@lux.ui", controller.GetArrayItems("members")[0]["email"]);
+        cut.Find("[data-slot=form-array-input]").Input("dev@klyroo.dev");
+        Assert.Equal("dev@klyroo.dev", controller.GetArrayItems("members")[0]["email"]);
     }
 
     [Fact]
-    public async Task LxFormPage_and_LxFormProvider_track_section_statuses_and_resolve_overlay_forms()
+    public async Task KlyFormPage_and_LxFormProvider_track_section_statuses_and_resolve_overlay_forms()
     {
         var pageSchema = new FormSchema
         {
@@ -183,7 +183,7 @@ public sealed class FormEngineTests : BunitContext
         };
 
         var pageController = new FormController(pageSchema);
-        var pageCut = Render<LxFormPage>(p => p.Add(x => x.Form, pageController));
+        var pageCut = Render<KlyFormPage>(p => p.Add(x => x.Form, pageController));
 
         var statuses = pageController.GetSectionStates();
         Assert.Equal(FormPageSectionStatus.Pending, statuses[0].Status);
@@ -195,8 +195,8 @@ public sealed class FormEngineTests : BunitContext
         Assert.Equal(FormPageSectionStatus.Complete, pageController.GetSectionStates()[0].Status);
         Assert.Contains("Everything is ready.", pageCut.Find("[data-slot=form-page-summary]").TextContent);
 
-        // Test programmatic overlay via FormService + LxFormProvider
-        var providerCut = Render<LxFormProvider>();
+        // Test programmatic overlay via FormService + KlyFormProvider
+        var providerCut = Render<KlyFormProvider>();
         var formService = Services.GetRequiredService<FormService>();
         var modalSchema = new FormSchema
         {

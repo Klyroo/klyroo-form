@@ -1,8 +1,8 @@
 using Bunit;
-using Lux.Form;
+using Klyroo.Form;
 using Xunit;
 
-namespace Lux.Form.Tests;
+namespace Klyroo.Form.Tests;
 
 public sealed class ComprehensiveFormTests : BunitContext
 {
@@ -78,7 +78,7 @@ public sealed class ComprehensiveFormTests : BunitContext
 
         Assert.True(wizard.IsStepped);
         wizard.AddArrayItem(itemsField);
-        wizard.SetArrayItemValue("items", 0, "sku", "LUX-01");
+        wizard.SetArrayItemValue("items", 0, "sku", "KLY-01");
         Assert.Single(wizard.GetArrayItems("items"));
 
         Assert.True(await wizard.NextStepAsync());

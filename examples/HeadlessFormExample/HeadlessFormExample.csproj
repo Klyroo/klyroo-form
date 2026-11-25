@@ -5,6 +5,6 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Lux.Form.Core\Lux.Form.Core.csproj" />
+    <ProjectReference Include="..\..\src\Klyroo.Form.Core\Klyroo.Form.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -1,6 +1,6 @@
 using System.Globalization;
 
-namespace Lux.Form;
+namespace Klyroo.Form;
 
 /// <summary>Validation mode of a <c>FormController</c>.</summary>
 public enum FormValidationMode
@@ -19,7 +19,7 @@ public enum FormValidationTrigger
     Submit,
 }
 
-/// <summary>Shell layout of a <c>LxFormEngine</c> or <c>FormService</c> overlay.</summary>
+/// <summary>Shell layout of a <c>KlyFormEngine</c> or <c>FormService</c> overlay.</summary>
 public enum FormShellMode
 {
     Inline,
@@ -28,7 +28,7 @@ public enum FormShellMode
     Fullscreen,
 }
 
-/// <summary>Completion status of a <c>FormPageSectionSchema</c> in <c>LxFormPage</c>.</summary>
+/// <summary>Completion status of a <c>FormPageSectionSchema</c> in <c>KlyFormPage</c>.</summary>
 public enum FormPageSectionStatus
 {
     Complete,
@@ -73,7 +73,7 @@ public enum FormFieldKind
     ArrayTable,
 }
 
-/// <summary>An option item for choice and select fields in <c>LxFormEngine</c>.</summary>
+/// <summary>An option item for choice and select fields in <c>KlyFormEngine</c>.</summary>
 public sealed record FormOptionItem(
     string Value,
     string Label,
@@ -173,7 +173,7 @@ public sealed class FormStepSchema
     public Func<FormController, bool>? SkipWhen { get; init; }
 }
 
-/// <summary>One section in a <c>LxFormPage</c> schema.</summary>
+/// <summary>One section in a <c>KlyFormPage</c> schema.</summary>
 public sealed class FormPageSectionSchema
 {
     public required string Key { get; init; }
@@ -196,7 +196,7 @@ public sealed record FormPageSectionState(
     bool Dirty,
     FormPageSectionStatus Status);
 
-/// <summary>Top-level declarative schema for <c>LxFormEngine</c>, <c>LxFormPage</c> and <c>FormService</c>.</summary>
+/// <summary>Top-level declarative schema for <c>KlyFormEngine</c>, <c>KlyFormPage</c> and <c>FormService</c>.</summary>
 public sealed class FormSchema
 {
     public string FormKey { get; init; } = "form";
@@ -921,7 +921,7 @@ public sealed class FormController
     }
 }
 
-/// <summary>Scoped service managing programmatic overlay forms opened in <c>LxFormProvider</c>.</summary>
+/// <summary>Scoped service managing programmatic overlay forms opened in <c>KlyFormProvider</c>.</summary>
 public sealed class FormService
 {
     public event Action? Changed;
@@ -932,7 +932,7 @@ public sealed class FormService
 
     public bool IsOpen => ActiveForm is not null;
 
-    /// <summary>Opens a <c>FormSchema</c> inside the mounted <c>LxFormProvider</c> and awaits completion or cancellation.</summary>
+    /// <summary>Opens a <c>FormSchema</c> inside the mounted <c>KlyFormProvider</c> and awaits completion or cancellation.</summary>
     public Task<FormSubmitOutcome> CreateFormAsync(
         FormSchema schema,
         IReadOnlyDictionary<string, object?>? input = null,

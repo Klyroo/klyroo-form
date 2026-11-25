@@ -1,10 +1,10 @@
 <Solution>
   <Folder Name="/src/">
-    <Project Path="src/Lux.Form.Core/Lux.Form.Core.csproj" />
-    <Project Path="src/Lux.Form/Lux.Form.csproj" />
+    <Project Path="src/Klyroo.Form.Core/Klyroo.Form.Core.csproj" />
+    <Project Path="src/Klyroo.Form/Klyroo.Form.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/Lux.Form.Tests/Lux.Form.Tests.csproj" />
+    <Project Path="tests/Klyroo.Form.Tests/Klyroo.Form.Tests.csproj" />
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/HeadlessFormExample/HeadlessFormExample.csproj" />

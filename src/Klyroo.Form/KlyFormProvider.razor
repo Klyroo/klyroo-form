@@ -1,5 +1,5 @@
-@namespace Lux.Form
-@inherits LxComponentBase
+@namespace Klyroo.Form
+@inherits KlyComponentBase
 @implements IDisposable
 @inject FormService FormApi
 
@@ -13,9 +13,9 @@
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
          role="dialog" aria-modal="true" aria-label="@(activeForm.Schema.Title ?? "Form")"
          data-slot="form-provider-overlay" data-mode="@FormApi.ActiveMode.ToString().ToLowerInvariant()">
-        <div class="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-(--lux-radius-lg) border border-(--lux-border) bg-(--lux-bg) p-5 shadow-xl"
+        <div class="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-(--klyroo-radius-lg) border border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl"
              data-slot="form-provider-dialog">
-            <LxFormEngine Form="@activeForm"
+            <KlyFormEngine Form="@activeForm"
                           Shell="@FormApi.ActiveMode"
                           OnSubmit="@(_ => FormApi.SubmitActiveFormAsync())"
                           OnCancel="@(_ => FormApi.CloseForm())" />

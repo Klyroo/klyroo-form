@@ -1,4 +1,4 @@
-# Recipes & Testing — Lux.Form
+# Recipes & Testing — Klyroo.Form
 
 ## Recipe 1: Multi-Step Wizard with SkipWhen Branching
 
@@ -17,7 +17,7 @@ var onboarding = new FormSchema
 
 ## Recipe 2: Headless Unit Testing (`xUnit`)
 
-Test all business logic in `Lux.Form.Core` without spinning up a browser or Blazor renderer:
+Test all business logic in `Klyroo.Form.Core` without spinning up a browser or Blazor renderer:
 
 ```csharp
 using Xunit;
@@ -27,7 +27,7 @@ public sealed class FormUnitTests
     [Fact]
     public void Headless_core_runs_without_ui_host()
     {
-        // Arrange & Act using Lux.Form.Core directly
+        // Arrange & Act using Klyroo.Form.Core directly
         // Assert deterministic outputs with zero JSInterop setup
     }
 }
@@ -44,9 +44,9 @@ public sealed class FormComponentTests : BunitContext
 {
     public FormComponentTests()
     {
-        Services.AddLuxForm();
+        Services.AddKlyrooForm();
     }
 }
 ```
 
-> **Tip**: Always register LuxStack services on `Services` **before** calling `SetRendererInfo(...)` in bUnit tests.
+> **Tip**: Always register Klyroo services on `Services` **before** calling `SetRendererInfo(...)` in bUnit tests.

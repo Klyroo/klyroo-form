@@ -1,15 +1,15 @@
 using Bunit;
-using Lux.Form;
+using Klyroo.Form;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
-namespace Lux.Form.Tests;
+namespace Klyroo.Form.Tests;
 
 public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
 {
     public FormEngineUiAndEdgeCaseTests()
     {
-        Services.AddLuxForm();
+        Services.AddKlyrooForm();
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
@@ -55,9 +55,9 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         Assert.False(ctrl.Validate());
         Assert.NotNull(ctrl.GetError("code"));
 
-        ctrl.SetValue("code", "LUX42");
+        ctrl.SetValue("code", "KLY42");
         ctrl.SetValue("seats", 25.0);
-        ctrl.SetValue("domain", "luxstack.dev");
+        ctrl.SetValue("domain", "klyroo.dev");
         Assert.True(ctrl.Validate());
         Assert.Null(ctrl.GetError("code"));
         Assert.Null(ctrl.GetError("seats"));
@@ -192,7 +192,7 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     }
 
     [Fact]
-    public void LxFormEngine_and_LxFormPage_render_fields_sections_and_validation_in_bUnit()
+    public void KlyFormEngine_and_LxFormPage_render_fields_sections_and_validation_in_bUnit()
     {
         var schema = new FormSchema
         {
@@ -206,7 +206,7 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         };
 
         var ctrl = new FormController(schema);
-        var cut = Render<LxFormEngine>(p => p.Add(x => x.Form, ctrl));
+        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, ctrl));
         Assert.Contains("Organization Name", cut.Markup);
         Assert.Contains("Plan", cut.Markup);
 
@@ -221,22 +221,22 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
             ]
         };
         var pageCtrl = new FormController(pageSchema);
-        var pageCut = Render<LxFormPage>(p => p.Add(x => x.Form, pageCtrl));
+        var pageCut = Render<KlyFormPage>(p => p.Add(x => x.Form, pageCtrl));
         Assert.Contains("General", pageCut.Markup);
         Assert.Contains("Notes", pageCut.Markup);
     }
 
     [Fact]
-    public async Task LxFormProvider_and_FormService_handle_both_Submit_and_Cancel_outcomes()
+    public async Task KlyFormProvider_and_FormService_handle_both_Submit_and_Cancel_outcomes()
     {
-        var provider = Render<LxFormProvider>();
+        var provider = Render<KlyFormProvider>();
         var svc = Services.GetRequiredService<FormService>();
 
         var schema = new FormSchema
         {
             FormKey = "modal-create",
             Title = "Create Project",
-            Fields = [new FormFieldSchema { Key = "name", Label = "Name", Required = true, DefaultValue = "LuxApp" }]
+            Fields = [new FormFieldSchema { Key = "name", Label = "Name", Required = true, DefaultValue = "KlyrooApp" }]
         };
 
         // 1. Open in Modal & submit
@@ -248,7 +248,7 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         Assert.True(ok);
         var outcome1 = await task1;
         Assert.True(outcome1.IsCompleted);
-        Assert.Equal("LuxApp", outcome1.FormData["name"]);
+        Assert.Equal("KlyrooApp", outcome1.FormData["name"]);
 
         // 2. Open in Drawer & close (cancel)
         var task2 = svc.CreateFormAsync(schema, mode: FormShellMode.Drawer);

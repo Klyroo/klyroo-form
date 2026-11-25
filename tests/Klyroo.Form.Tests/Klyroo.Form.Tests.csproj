@@ -7,7 +7,7 @@
   <ItemGroup>
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="bunit" />
-    <ProjectReference Include="..\..\src\Lux.Form.Core\Lux.Form.Core.csproj" />
-    <ProjectReference Include="..\..\src\Lux.Form\Lux.Form.csproj" />
+    <ProjectReference Include="..\..\src\Klyroo.Form.Core\Klyroo.Form.Core.csproj" />
+    <ProjectReference Include="..\..\src\Klyroo.Form\Klyroo.Form.csproj" />
   </ItemGroup>
 </Project>
