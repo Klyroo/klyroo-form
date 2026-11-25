@@ -73,10 +73,6 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 
 Declarative definition of one field, or of a layout element such as a section heading, a container or a repeatable list. Fields are immutable; build them with object initializers.
 
-| Constructor | Description |
-| :--- | :--- |
-| `FormFieldSchema()` |  |
-
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `AddItemLabel` (init) | `string?` | Label of the add button of a repeatable list. The default is `Add item`. |
@@ -129,10 +125,6 @@ Declarative definition of one field, or of a layout element such as a section he
 
 One section of a sectioned form, declared in `FormSchema.Sections` and rendered by `KlyFormPage`.
 
-| Constructor | Description |
-| :--- | :--- |
-| `FormPageSectionSchema()` |  |
-
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `Condition` (init) | `Func<FormController, bool>?` | Returns `false` to hide the section and leave it out of `FormController.GetSectionStates`. Its fields are still validated and output. |
@@ -148,10 +140,6 @@ One section of a sectioned form, declared in `FormSchema.Sections` and rendered 
 `Klyroo.Form` · class
 
 Declarative description of a form: its fields, optional steps or sections, validation mode and submit hooks. A schema is plain data and can be shared between controllers.
-
-| Constructor | Description |
-| :--- | :--- |
-| `FormSchema()` |  |
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
@@ -177,10 +165,6 @@ Declarative description of a form: its fields, optional steps or sections, valid
 
 Opens a form as an overlay and returns its result as a task. Register it with `AddKlyrooForm()` (scoped) and mount one `KlyFormProvider` in the layout so the form has somewhere to render.
 
-| Constructor | Description |
-| :--- | :--- |
-| `FormService()` |  |
-
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `ActiveForm` | `FormController?` | The controller of the open form, or `null` when none is open. |
@@ -199,10 +183,6 @@ Opens a form as an overlay and returns its result as a task. Register it with `A
 
 One step of a multi-step form, declared in `FormSchema.Steps`.
 
-| Constructor | Description |
-| :--- | :--- |
-| `FormStepSchema()` |  |
-
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `Description` (init) | `string?` | Optional description. Not rendered by the built-in components. |
@@ -217,10 +197,6 @@ One step of a multi-step form, declared in `FormSchema.Steps`.
 `Klyroo.Form` · class
 
 One tab of a `FormFieldKind.Tabs` field.
-
-| Constructor | Description |
-| :--- | :--- |
-| `FormTabItemSchema()` |  |
 
 | Property | Type | Description |
 | :--- | :--- | :--- |
@@ -413,7 +389,7 @@ Controls when a field is validated while the user edits it, set through `FormFie
 
 ## Klyroo.Form
 
-Components (3) · Static classes and extensions (1) · Classes (1)
+Components (3) · Static classes and extensions (1)
 
 ### Components
 
@@ -476,13 +452,3 @@ Dependency injection registration for Klyroo.Form.
 | Method | Returns | Description |
 | :--- | :--- | :--- |
 | `static AddKlyrooForm(IServiceCollection services)` | `IServiceCollection` | Registers `FormService` as a scoped service and calls `AddKlyrooUi()`, because the components build on Klyroo.UI. In a Blazor Web App with interactive WebAssembly or Auto, call it in the server project and in the client project. |
-
-### Classes
-
-#### `_Imports`
-
-`Klyroo.Form` · class
-
-| Constructor | Description |
-| :--- | :--- |
-| `_Imports()` |  |
