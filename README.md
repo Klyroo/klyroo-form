@@ -1,143 +1,170 @@
 # Klyroo.Form
 
-*Part of [Klyroo](https://klyroo.dev): Build better. Compose freely.*
+Schema-driven forms, validation and wizards for .NET developers, with a headless engine and Blazor components.
 
-[![CI](https://github.com/klyroo/klyroo-form/actions/workflows/ci.yml/badge.svg)](https://github.com/klyroo/klyroo-form/actions/workflows/ci.yml) [![NuGet](https://img.shields.io/badge/NuGet-0.1.0--preview.1-004880.svg)](https://www.nuget.org/packages/Klyroo.Form) [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4.svg)](https://dotnet.microsoft.com/) [![NativeAOT](https://img.shields.io/badge/NativeAOT-Compatible-10b981.svg)](https://klyroo.dev/why) [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/klyroo/klyroo-form/actions/workflows/ci.yml/badge.svg)](https://github.com/klyroo/klyroo-form/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/vpre/Klyroo.Form.svg)](https://www.nuget.org/packages/Klyroo.Form)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-> **31-kind schema-driven form engine, reactive conditions, dirty diffing & wizards**
+You describe a form as data (fields, conditions, validators, steps) and a `FormController` holds its state: values, touched fields, errors, dirty tracking and step navigation. The controller has no UI dependency, so the same schema can be unit tested, run in a view model, or rendered by the Blazor components. The Blazor layer builds on Klyroo.UI and runs in Interactive Server, WebAssembly and Auto render modes, and in .NET MAUI Blazor Hybrid.
 
-Declarative, 100% NativeAOT form engine in Klyroo.Form.Core: 31 field kinds (FormFieldKind), reactive conditional visibility, dirty/touched diffing, output transforms, multi-step wizards with SkipWhen, sectioned FormPage layouts, and programmatic modal/drawer overlays via FormService.
+## Features
 
-[![MAUI Hybrid](https://img.shields.io/badge/.NET%20MAUI-Blazor%20Hybrid-8b5cf6.svg)](./docs/maui-and-aot.md)
+- **Headless controller**: `FormController` manages values, touched state, errors, dirty tracking, steps and submission with no UI dependency, and `Klyroo.Form.Core` is NativeAOT compatible.
+- **Declarative schema**: `FormSchema` and `FormFieldSchema` describe the form as data. `FormFieldKind` has 31 values; `KlyFormEngine` renders 22 of them with a dedicated control and falls back to a text input for the other nine (see the [FAQ](docs/faq.md)).
+- **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, four validation modes and three triggers (blur, input, submit).
+- **Server errors**: `SetError` attaches a message to a field, optionally blocking submission until the user edits it.
+- **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields are left out of validation and output.
+- **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.
+- **Wizards and pages**: multi-step forms with skippable steps and async before-next hooks, and sectioned pages that show a completion status per section.
+- **Overlays**: `FormService.CreateFormAsync` opens a form in a dialog hosted by `KlyFormProvider` and returns the result as a task.
 
----
+## Packages
 
-## Architecture (Two-Layer Headless Split)
-
-- **`Klyroo.Form.Core`** — 100% headless C#, zero UI dependencies, `<IsAotCompatible>true</IsAotCompatible>`, `<IsTrimmable>true</IsTrimmable>`. Runs in Minimal APIs, background workers, CLI apps, and native C# .NET MAUI ViewModels.
-- **`Klyroo.Form`** — Multiplatform Blazor Web (Static SSR, Interactive Server, WebAssembly, Auto) & `.NET MAUI Blazor Hybrid` (`browser`, `ios`, `android`, `maccatalyst`, `windows`).
-
-## Highlights
-
-- **31 Declarative Field Kinds** (`31 Field Kinds`) — Text, Password (with requirement checklist), Number, Select, AutoComplete, Checkbox, Switch, Slider, Repeatable Arrays, and Tabs driven by FormSchema.
-- **Reactive Conditions & Transforms** (`Reactive Engine`) — Evaluates Condition = f => ... live, automatically skips hidden fields during validation and output building, and applies TransformOutput on submit.
-- **Multi-Step Wizards with SkipWhen** (`Wizard Flow`) — Split complex flows into FormStepSchema with conditional SkipWhen branching, per-step validation, and automatic dirty re-baselining after submit.
-- **FormPage & Overlay FormService** (`Overlay Host`) — Sectioned pages with completion indicators (KlyFormPage) and programmatic modal/drawer form hosts via FormService + KlyFormProvider.
-
-## Prerequisites
-
-- .NET 10 SDK or later.
-- A Blazor Web App (Static SSR, Interactive Server, WebAssembly or Auto) or a .NET MAUI Blazor Hybrid app for the UI
-  package; the `.Core` package runs anywhere .NET 10 runs, NativeAOT included.
-- For .NET MAUI: the `maui` workload (`dotnet workload install maui`).
+| Package | Description |
+| :--- | :--- |
+| [`Klyroo.Form.Core`](https://www.nuget.org/packages/Klyroo.Form.Core) | Headless engine: `FormSchema`, `FormController` and `FormService`. No UI dependency, trimmable, NativeAOT compatible. |
+| [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyFormEngine`, `KlyFormPage` and `KlyFormProvider`, and the `AddKlyrooForm()` registration. Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
 
 ## Installation
 
-```bash
-dotnet add package Klyroo.Form.Core   # Headless C# / NativeAOT / MAUI C#
-dotnet add package Klyroo.Form        # Blazor Web & .NET MAUI Blazor Hybrid
-```
+    dotnet add package Klyroo.Form --prerelease
 
-Register services in `Program.cs` (Blazor Web App) or `MauiProgram.cs` (.NET MAUI Blazor Hybrid):
+For the engine alone, without Blazor, install `Klyroo.Form.Core` instead.
+
+Register the services in `Program.cs` (or `MauiProgram.cs`). It also registers Klyroo.UI:
 
 ```csharp
 builder.Services.AddKlyrooForm();
 ```
 
-## Quick Start
+Add the namespace to `_Imports.razor`:
 
-### Headless Core (`Klyroo.Form.Core`)
+```razor
+@using Klyroo.Form
+```
+
+Load the stylesheets in `App.razor`. The theme tokens come from Klyroo.UI and the form classes from this package:
+
+```razor
+<link rel="stylesheet" href="@Assets["_content/Klyroo.UI/klyroo.preflight.css"]" />
+<link rel="stylesheet" href="@Assets["_content/Klyroo.UI/klyroo.css"]" />
+<link rel="stylesheet" href="@Assets["_content/Klyroo.Form/klyroo-form.css"]" />
+```
+
+## Quick start
+
+Headless: define a schema, drive it with a controller.
 
 ```csharp
 using Klyroo.Form;
 
 var schema = new FormSchema
 {
-    FormKey = "profile",
-    Title = "User Profile",
+    FormKey = "contact",
     Fields =
     [
-        new FormFieldSchema { Key = "name", Label = "Full Name", Required = true, TransformOutput = v => v?.ToString()?.Trim() },
-        new FormFieldSchema { Key = "age", Label = "Age", Kind = FormFieldKind.Number, DefaultValue = 25.0 },
-        new FormFieldSchema { Key = "company", Label = "Company", Required = true, Condition = f => f.GetValue<double>("age") >= 21 }
-    ]
+        new FormFieldSchema { Key = "name", Label = "Name", Required = true },
+        new FormFieldSchema
+        {
+            Key = "email",
+            Label = "Email",
+            Required = true,
+            Validators =
+            [
+                new FormValidatorRule("email", "Enter a valid email address",
+                    (value, _) => value?.ToString()?.Contains('@') == true),
+            ],
+        },
+    ],
+    OnSubmit = form =>
+    {
+        Console.WriteLine($"Send a reply to {form.GetValue<string>("email")}");
+        return Task.CompletedTask;
+    },
 };
 
-var form = new FormController(schema, new Dictionary<string, object?> { ["name"] = "Alice" });
-var ok = await form.SubmitAsync();
+var form = new FormController(schema);
+
+form.SetValue("name", "Alice", markTouched: true);
+form.SetValue("email", "alice", markTouched: true);
+Console.WriteLine(form.GetError("email"));    // Enter a valid email address
+Console.WriteLine(await form.SubmitAsync());  // False
+
+form.SetValue("email", "alice@example.com");
+Console.WriteLine(await form.SubmitAsync());  // True
+Console.WriteLine(form.IsDirty);              // False
 ```
 
-### Blazor Web & .NET MAUI Hybrid (`Klyroo.Form`)
+Blazor: render a schema with `KlyFormEngine`.
 
 ```razor
-<KlyFormEngine Form="@_form"
-              SubmitLabel="Save profile"
-              ShowReset="true"
-              OnSubmit="@HandleSubmit" />
+@page "/contact"
+@rendermode InteractiveServer
+
+<KlyFormEngine Schema="_schema" SubmitLabel="Send" OnSubmit="Send" />
+
+@code {
+    private readonly FormSchema _schema = new()
+    {
+        FormKey = "contact",
+        Fields =
+        [
+            new FormFieldSchema { Key = "name", Label = "Name", Required = true },
+            new FormFieldSchema { Key = "email", Label = "Email", Required = true },
+        ],
+    };
+
+    private Task Send(IReadOnlyDictionary<string, object?> data)
+    {
+        // data holds the validated output: data["name"], data["email"]
+        return Task.CompletedTask;
+    }
+}
 ```
+
+Keep the schema in a field, as above. `KlyFormEngine` creates a new controller whenever it receives a different `FormSchema` instance, which discards what the user typed.
 
 ## Documentation
 
-| Guide | Description |
+| | |
 | :--- | :--- |
-| [Online documentation](https://docs.klyroo.dev/form) | Guides, live examples and API reference |
-| [Getting Started](./docs/getting-started.md) | Installation, DI registration, stylesheets, and first working example |
-| [Architecture](./docs/architecture.md) | Headless `.Core` vs UI split, NativeAOT guarantees, and platform matrix |
-| [API Reference](./docs/api-reference.md) | Exhaustive reference of every public class, enum, property, method, and Razor parameter |
-| [MAUI & NativeAOT](./docs/maui-and-aot.md) | `.NET MAUI Blazor Hybrid` (`iOS`, `Android`, `macOS`, `Windows`) and NativeAOT deployment |
-| [Recipes & Testing](./docs/recipes.md) | End-to-end production patterns and `xUnit` / `bUnit` testing recipes |
-| [AI Agent Skill](./skills/klyroo-form/SKILL.md) | Machine-readable guidance for coding agents |
+| [Getting started](docs/getting-started.md) | Step-by-step first integration |
+| [Guides](docs/guides.md) | Task-oriented recipes |
+| [Concepts](docs/concepts.md) | How the library works |
+| [Platforms](docs/platforms.md) | Render modes, .NET MAUI, NativeAOT |
+| [API reference](docs/api-reference.md) | Every public type and member |
+| [FAQ](docs/faq.md) | Troubleshooting and limitations |
 
-## Key Public Types
+## Requirements
 
-| Type | Kind | Package | Summary |
-| :--- | :--- | :--- | :--- |
-| `FormValidationMode` | `enum` | `Klyroo.Form.Core` | Validation mode of a `FormController`. |
-| `FormValidationTrigger` | `enum` | `Klyroo.Form.Core` | Validation trigger timing for a `FormFieldSchema`. |
-| `FormShellMode` | `enum` | `Klyroo.Form.Core` | Shell layout of a `KlyFormEngine` or `FormService` overlay. |
-| `FormPageSectionStatus` | `enum` | `Klyroo.Form.Core` | Completion status of a `FormPageSectionSchema` in `KlyFormPage`. |
-| `FormFieldKind` | `enum` | `Klyroo.Form.Core` | Supported field kinds in the schema-driven Form Engine. |
-| `FormOptionItem` | `record` | `Klyroo.Form.Core` | An option item for choice and select fields in `KlyFormEngine`. |
-| `FormPasswordRequirement` | `record` | `Klyroo.Form.Core` | A password requirement rule on a `FormFieldKind.Password` field. |
-| `FormValidatorRule` | `record` | `Klyroo.Form.Core` | A named validator rule on a `FormFieldSchema`. |
-| `FormTabItemSchema` | `class` | `Klyroo.Form.Core` | A tab definition inside a `FormFieldKind.Tabs` container field. |
-| `FormFieldSchema` | `class` | `Klyroo.Form.Core` | Declarative definition of a field in `FormSchema`. |
-| `FormStepSchema` | `class` | `Klyroo.Form.Core` | One step in a multi-step `FormSchema`. |
-| `FormPageSectionSchema` | `class` | `Klyroo.Form.Core` | One section in a `KlyFormPage` schema. |
-| `FormPageSectionState` | `record` | `Klyroo.Form.Core` | Computed runtime state of a `FormPageSectionSchema`. |
-| `FormSchema` | `class` | `Klyroo.Form.Core` | Top-level declarative schema for `KlyFormEngine`, `KlyFormPage` and `FormService`. |
-| `FormSubmitOutcome` | `record` | `Klyroo.Form.Core` | Result returned when a form submit or overlay session completes. |
-| `FormController` | `class` | `Klyroo.Form.Core` | Stateful runtime controller for a `FormSchema`: manages internal state, initial snapshot, dirty path tracking, touch &amp; validation rules, multi-step navigation, array item management, and submission. |
-| `FormService` | `class` | `Klyroo.Form.Core` | Scoped service managing programmatic overlay forms opened in `KlyFormProvider`. |
-| `KlyrooFormServiceCollectionExtensions` | `class` | `Klyroo.Form` | Public API type |
+- .NET 10 SDK.
+- `Klyroo.Form.Core` targets `net10.0`, has no dependencies, is marked trimmable and AOT compatible, and a console app that references it publishes and runs with `PublishAot`.
+- `Klyroo.Form` works in Interactive Server, Interactive WebAssembly and Interactive Auto render modes. In Static SSR the markup renders but the controls are not interactive.
+- `Klyroo.Form` declares `browser`, `ios`, `android`, `maccatalyst` and `windows` as supported platforms for .NET MAUI Blazor Hybrid. The test suite runs in bUnit, not on devices.
+- `Klyroo.Form` is marked trimmable and does not declare NativeAOT compatibility.
 
-## Razor Components
+## Klyroo ecosystem
 
-| Component | Package | Parameters | Source |
-| :--- | :--- | :--- | :--- |
-| `<KlyFormEngine>` | `Klyroo.Form` | 8 parameters | `src/Klyroo.Form/KlyFormEngine.razor` |
-| `<KlyFormPage>` | `Klyroo.Form` | 2 parameters | `src/Klyroo.Form/KlyFormPage.razor` |
-| `<KlyFormProvider>` | `Klyroo.Form` | 1 parameters | `src/Klyroo.Form/KlyFormProvider.razor` |
+Klyroo is a family of independent .NET libraries that compose. Each one has its own repository, versions and releases.
 
-## Building & Testing
-
-```bash
-dotnet build
-dotnet test
-dotnet pack -c Release
-```
+| Library | Description |
+| :--- | :--- |
+| [Klyroo.UI](https://github.com/klyroo/klyroo-ui) | Accessible Blazor and .NET MAUI Hybrid components styled with Tailwind CSS v4 |
+| [Klyroo.Query](https://github.com/klyroo/klyroo-query) | Typed query model, URL codecs and IQueryable / EF Core execution |
+| [Klyroo.Table](https://github.com/klyroo/klyroo-table) | Data lists and trees built on Klyroo.Query |
+| **[Klyroo.Form](https://github.com/klyroo/klyroo-form)** | Schema-driven forms, validation and wizards |
+| [Klyroo.Dashboard](https://github.com/klyroo/klyroo-dashboard) | Analytical dashboards with filters, comparisons and KPI blocks |
+| [Klyroo.Display](https://github.com/klyroo/klyroo-display) | Read-only display blocks, media players and file preview |
+| [Klyroo.Spreadsheet](https://github.com/klyroo/klyroo-spreadsheet) | CSV and TSV import with column mapping and validation |
+| [Klyroo.Agent](https://github.com/klyroo/klyroo-agent) | Bridge that lets AI agents read and act on a Blazor UI |
+| [Klyroo.Stack](https://github.com/klyroo/klyroo-stack) | Meta-package, MCP server and `dotnet new` templates |
 
 ## Contributing
 
-Issues and pull requests are welcome. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for the workflow (Conventional
-Commits, tests, documentation), follow the [Code of Conduct](./CODE_OF_CONDUCT.md), and report vulnerabilities
-privately as described in [SECURITY.md](./SECURITY.md).
-
-## Migrating from Lux
-
-This library was previously named `lux-form`. [MIGRATION.md](./MIGRATION.md) lists every renamed package, namespace,
-component, CSS token and build setting.
+Contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request, and follow the
+[code of conduct](CODE_OF_CONDUCT.md). Report security issues privately as described in [SECURITY.md](SECURITY.md).
 
 ## License
 
-MIT — see [LICENSE](./LICENSE). Part of the **[Klyroo](../klyroo-stack/README.md)** ecosystem.
+[MIT](LICENSE)

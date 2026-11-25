@@ -1,21 +1,23 @@
 # Changelog
 
-All notable changes to **klyroo-form** are documented in this file.
+All notable changes to this project are documented in this file. The format is based on
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
 
 ## [0.1.0-preview.1] - 2026-11-24
 
-### Changed
-- **BREAKING:** the project joins the Klyroo ecosystem. Packages, namespaces, types, components (`Lx*` to `Kly*`),
-  CSS tokens (`--lux-*` to `--klyroo-*`), MSBuild properties and diagnostics are renamed. See
-  [MIGRATION.md](./MIGRATION.md).
-- Klyroo visual identity: Klyroo Lime (`#b6ff00`) on Charcoal (`#0b0f14`) as the default primary palette.
-
 ### Added
-- Initial preview release on `.NET 10`: Declarative schema-driven form engine with 31 field kinds, reactive conditions, dirty diffing, SkipWhen wizards, and FormService overlays.
-- Clean two-layer architecture (`*.Core` 100% Headless / NativeAOT + multiplatform Blazor Web & .NET MAUI Blazor Hybrid UI).
-- Comprehensive xUnit / bUnit / EF Core SQLite test suite and GitHub Actions CI/Release NuGet pipelines.
-- Full English documentation, cross-library integration guides, and interactive live examples at https://klyroo.dev.
-- `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md`, `SECURITY.md`, `.editorconfig`, issue and pull request templates,
-  Dependabot configuration.
-- Release workflow with version/tag check, NuGet metadata verification, Trusted Publishing (OIDC), an approval gate
-  (`nuget` environment) and GitHub Release notes taken from this changelog.
+
+- `Klyroo.Form.Core`: a headless `FormController` driven by a declarative `FormSchema`, with 31 `FormFieldKind` values, no UI dependency and NativeAOT compatibility.
+- Validation with required and required-when checks, number bounds, password requirements, custom validator rules, four validation modes and three triggers, plus `SetError` for server-side errors.
+- Conditional fields (`Condition`, `RequiredWhen`, `DisabledWhen`) and value transforms (`TransformInput`, `TransformOutput`), with hidden fields left out of validation and output.
+- Dirty tracking against an initial snapshot, with per-field and per-section reset and a new snapshot after a successful submit.
+- Multi-step forms with skippable steps and async `OnBeforeNext` and `OnBeforePrevious` hooks, and sectioned page forms with a completion status per section.
+- Repeatable rows (`ArrayList` and `ArrayTable`) and tabbed, grouped and card containers.
+- `FormService` and `KlyFormProvider` to open a form as an overlay and await its `FormSubmitOutcome`.
+- `Klyroo.Form`: the `KlyFormEngine`, `KlyFormPage` and `KlyFormProvider` Blazor components and `AddKlyrooForm()`, building on Klyroo.UI.
+
+[Unreleased]: https://github.com/klyroo/klyroo-form/compare/v0.1.0-preview.1...HEAD
+[0.1.0-preview.1]: https://github.com/klyroo/klyroo-form/releases/tag/v0.1.0-preview.1
