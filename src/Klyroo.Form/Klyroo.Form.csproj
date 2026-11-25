@@ -5,7 +5,7 @@
     <PackageId>Klyroo.Form</PackageId>
     <Description>Klyroo Form for Blazor Web &amp; .NET MAUI Hybrid: KlyFormEngine, KlyFormPage, KlyFormProvider.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <NoWarn>$(NoWarn);CS1591;BL0007</NoWarn>
+    <NoWarn>$(NoWarn);BL0007</NoWarn>
     <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
