@@ -12,7 +12,7 @@ public enum FormValidationMode
     RequiredOnly,
     /// <summary>Runs number bounds, password requirements and custom validators, and skips required checks.</summary>
     ValidatorsOnly,
-    /// <summary>Runs no validation. <see cref="DynamicFormController.Validate"/> returns <c>true</c> unless a blocking error set with <see cref="DynamicFormController.SetError"/> exists.</summary>
+    /// <summary>Runs no rule. <see cref="DynamicFormController.Validate"/> returns <c>true</c> unless a blocking error set with <see cref="DynamicFormController.SetError"/> exists or, in a typed form, a control holds something that is not a value of the type of its member (<see cref="FormMessages.InvalidValue"/>), which no write could use.</summary>
     None,
 }
 

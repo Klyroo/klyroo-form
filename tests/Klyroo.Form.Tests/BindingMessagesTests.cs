@@ -29,12 +29,14 @@ public sealed class BindingMessagesTests
         {
             Assert.False(string.IsNullOrWhiteSpace(messages.WholeNumber), code);
             Assert.False(string.IsNullOrWhiteSpace(messages.InvalidIdentifier), code);
+            Assert.False(string.IsNullOrWhiteSpace(messages.InvalidValue), code);
             var range = messages.NumberOutOfRange("-128", "127");
             Assert.Contains("128", range, StringComparison.Ordinal);
             Assert.Contains("127", range, StringComparison.Ordinal);
             if (code == "en") continue;
             Assert.NotEqual(FormMessageLocales.En.WholeNumber, messages.WholeNumber);
             Assert.NotEqual(FormMessageLocales.En.InvalidIdentifier, messages.InvalidIdentifier);
+            Assert.NotEqual(FormMessageLocales.En.InvalidValue, messages.InvalidValue);
             Assert.NotEqual(FormMessageLocales.En.NumberOutOfRange("-128", "127"), range);
         }
     }

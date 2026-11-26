@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "Voer een geheel getal in",
         NumberOutOfRange = (min, max) => $"Voer een getal in tussen {Digits(min, ",")} en {Digits(max, ",")}",
         InvalidIdentifier = "Voer een geldige id in",
+        InvalidValue = "Voer een geldige waarde in",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

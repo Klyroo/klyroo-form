@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "Introduce un número entero",
         NumberOutOfRange = (min, max) => $"Introduce un número entre {Digits(min, ",")} y {Digits(max, ",")}",
         InvalidIdentifier = "Introduce un identificador válido",
+        InvalidValue = "Introduce un valor válido",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

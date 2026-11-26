@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "请输入整数",
         NumberOutOfRange = (min, max) => $"请输入介于 {Digits(min, ".")} 和 {Digits(max, ".")} 之间的数字",
         InvalidIdentifier = "请输入有效的标识符",
+        InvalidValue = "请输入有效的值",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ".", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

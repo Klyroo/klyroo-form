@@ -5,7 +5,7 @@ namespace Klyroo.Form;
 
 /// <summary>
 /// The built-in validation messages of <see cref="DynamicFormController"/>, which has no UI and so no locale of its own: the required, number bounds, text length,
-/// date range and file errors, and the errors the typed model binding adds for integers, numbers out of range and identifiers. A new instance holds the English messages. Build a variant with a <c>with</c> expression, give it to the controller with
+/// date range and file errors, and the errors the typed model binding adds for integers, numbers out of range, identifiers and values that are not of the type of the member. A new instance holds the English messages. Build a variant with a <c>with</c> expression, give it to the controller with
 /// <see cref="DynamicFormSchema.Messages"/> or <see cref="DynamicFormController.Messages"/>, or pick one of the twelve built-in sets (<see cref="FormMessageLocales"/>).
 /// The Blazor components do it for you: they give the controller the messages of the current Klyroo.UI locale, see <c>FormTexts</c>.
 /// </summary>
@@ -61,6 +61,9 @@ public sealed record FormMessages
 
     /// <summary>The error of a numeric member of a bound model whose value does not fit the type of the member, given the lowest and the highest value of the type as exact invariant text (<c>"Enter a number between -128 and 127"</c>). Added by the typed schema, see <c>FormSchema.For</c>.</summary>
     public Func<string, string, string> NumberOutOfRange { get; init; } = (min, max) => $"Enter a number between {min} and {max}";
+
+    /// <summary>The error of a field of a typed form whose control holds something that is not a value of the type of the member: text in a date field (from a draft, or a custom control that writes free text), two texts in a date range (<c>"Enter a valid value"</c>). The messages above keep their own wording for numbers and identifiers.</summary>
+    public string InvalidValue { get; init; } = "Enter a valid value";
 
     /// <summary>The error of a <see cref="Guid"/> member of a bound model whose text is not an identifier (<c>"Enter a valid identifier"</c>). Added by the typed schema, see <c>FormSchema.For</c>.</summary>
     public string InvalidIdentifier { get; init; } = "Enter a valid identifier";

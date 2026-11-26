@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "Введите целое число",
         NumberOutOfRange = (min, max) => $"Введите число от {Digits(min, ",")} до {Digits(max, ",")}",
         InvalidIdentifier = "Введите корректный идентификатор",
+        InvalidValue = "Введите допустимое значение",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["Б", "КБ", "МБ", "ГБ", "ТБ"]),
     };
 }

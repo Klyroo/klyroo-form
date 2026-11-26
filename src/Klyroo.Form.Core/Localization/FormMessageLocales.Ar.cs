@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "أدخل عددًا صحيحًا",
         NumberOutOfRange = (min, max) => $"أدخل رقمًا بين {Digits(min, ".")} و{Digits(max, ".")}",
         InvalidIdentifier = "أدخل معرّفًا صالحًا",
+        InvalidValue = "أدخل قيمة صالحة",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ".", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

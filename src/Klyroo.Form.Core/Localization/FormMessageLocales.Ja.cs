@@ -19,6 +19,7 @@ public static partial class FormMessageLocales
         WholeNumber = "整数を入力してください",
         NumberOutOfRange = (min, max) => $"{Digits(min, ".")} から {Digits(max, ".")} までの数値を入力してください",
         InvalidIdentifier = "有効な識別子を入力してください",
+        InvalidValue = "有効な値を入力してください",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ".", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

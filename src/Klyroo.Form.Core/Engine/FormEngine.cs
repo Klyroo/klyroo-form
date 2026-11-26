@@ -500,14 +500,6 @@ internal sealed partial class FormEngine : IDisposable
 
     internal bool Validate(bool currentStepOnly = false)
     {
-        if (Schema.ValidateMode == FormValidationMode.None)
-        {
-            _validationErrors.Clear();
-            _cellErrors.Clear();
-            Changed?.Invoke();
-            return !_customErrors.Values.Any(e => e.Blocking);
-        }
-
         var active = ActiveFields;
         var activeKeys = active.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var key in _validationErrors.Keys.Where(k => !activeKeys.Contains(k)).ToList())
@@ -686,7 +678,12 @@ internal sealed partial class FormEngine : IDisposable
     private string? CheckValue(FieldNode field, object? val, bool withAsync = true) =>
         CheckValueSync(field, val) ?? (withAsync ? CachedAsyncError(field, val) : null);
 
-    private string? CheckValueSync(FieldNode field, object? val)
+    // The rules of the field first, so their own messages win, then whether the control holds a value of the type of the member at all. The second check is not a
+    // rule and does not depend on the validation mode: a form that is written to a model cannot write text that is not a value.
+    private string? CheckValueSync(FieldNode field, object? val) =>
+        CheckRules(field, val) ?? (field.ControlCheck is { } check && !IsEmptyValue(val) && check(val) is not null ? Messages.InvalidValue : null);
+
+    private string? CheckRules(FieldNode field, object? val)
     {
         if (Schema.ValidateMode == FormValidationMode.None) return null;
         var isEmpty = IsEmptyValue(val);

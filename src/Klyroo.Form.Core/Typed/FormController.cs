@@ -304,7 +304,7 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
         _engine.Reset(Schema.ToInput(model));
     }
 
-    /// <summary>Validates every field in effect.</summary>
+    /// <summary>Validates every field in effect: its rules, and whether its control holds a value of the type of the member (a control can hold text that is not a value yet, from a draft or a custom control; that is an error of the field with the message <see cref="FormMessages.InvalidValue"/>, whatever the validation mode).</summary>
     /// <param name="currentStepOnly"><c>true</c> to validate only the current step.</param>
     /// <returns><c>true</c> when there is no error.</returns>
     public bool Validate(bool currentStepOnly = false) => _engine.Validate(currentStepOnly);
@@ -427,7 +427,7 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     /// <returns>The draft, which <see cref="FormDraft.ToJson"/> writes as JSON.</returns>
     public FormDraft ExportDraft(bool includeSensitive = false) => _engine.ExportState(includeSensitive);
 
-    /// <summary>Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields count as unsaved changes.</summary>
+    /// <summary>Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields count as unsaved changes. A value of the draft that is not a value of its field (<c>abc</c> for a date) is kept as the text it is and reported by <see cref="Validate"/> and <see cref="SubmitAsync()"/> as an error of the field. The rows of a restored list come from no item of a model, so a write creates new items for them.</summary>
     /// <param name="draft">The draft, from <see cref="ExportDraft"/> or <see cref="FormDraft.FromJson"/>.</param>
     public void RestoreDraft(FormDraft draft) => _engine.RestoreDraft(draft);
 

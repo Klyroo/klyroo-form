@@ -18,6 +18,7 @@ public static partial class FormMessageLocales
         WholeNumber = "Saisissez un nombre entier",
         NumberOutOfRange = (min, max) => $"Saisissez un nombre compris entre {Digits(min, ",")} et {Digits(max, ",")}",
         InvalidIdentifier = "Saisissez un identifiant valide",
+        InvalidValue = "Saisissez une valeur valide",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["o", "Ko", "Mo", "Go", "To"]),
     };
 }
