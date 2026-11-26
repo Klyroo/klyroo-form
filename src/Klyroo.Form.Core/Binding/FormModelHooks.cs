@@ -14,7 +14,16 @@ public delegate void FormModelValidator<in TModel>(TModel model, FormModelErrors
 /// <summary>Collects the errors of a <see cref="FormModelValidator{TModel}"/>. An error names the member it belongs to, or none for the form as a whole.</summary>
 public sealed class FormModelErrors
 {
+    private readonly HashSet<string> _active;
+
+    internal FormModelErrors(IEnumerable<string> activeKeys) => _active = new HashSet<string>(activeKeys, StringComparer.Ordinal);
+
     internal List<(string? Member, string Message)> Items { get; } = [];
+
+    /// <summary>Tells whether the field with this key is in effect: not hidden by a condition, in a hidden container or section, or in a skipped step. A check should leave the other fields alone, because their values are not the user's.</summary>
+    /// <param name="key">The key of the field.</param>
+    /// <returns><c>true</c> when the field is in effect.</returns>
+    public bool IsActive(string key) => _active.Contains(key);
 
     /// <summary>Reports an error on the form as a whole.</summary>
     /// <param name="message">The message to show.</param>

@@ -11,5 +11,6 @@
   </PropertyGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="Klyroo.Form" />
+    <InternalsVisibleTo Include="Klyroo.Form.DataAnnotations" />
   </ItemGroup>
 </Project>

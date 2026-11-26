@@ -209,7 +209,7 @@ public sealed class FormModel<[DynamicallyAccessedMembers(FormModelTrim.Members)
         foreach (var key in reported) controller.ClearError(key);
         reported.Clear();
 
-        var errors = new FormModelErrors();
+        var errors = new FormModelErrors(controller.ActiveFields.Select(f => f.Key));
         var model = Create(controller);
         foreach (var validator in _validators) validator(model, errors);
         foreach (var (member, message) in errors.Items)

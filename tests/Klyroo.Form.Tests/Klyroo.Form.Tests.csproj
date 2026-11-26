@@ -9,5 +9,6 @@
     <PackageReference Include="bunit" />
     <ProjectReference Include="..\..\src\Klyroo.Form.Core\Klyroo.Form.Core.csproj" />
     <ProjectReference Include="..\..\src\Klyroo.Form\Klyroo.Form.csproj" />
+    <ProjectReference Include="..\..\src\Klyroo.Form.DataAnnotations\Klyroo.Form.DataAnnotations.csproj" />
   </ItemGroup>
 </Project>

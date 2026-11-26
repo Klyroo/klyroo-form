@@ -2,6 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/Klyroo.Form.Core/Klyroo.Form.Core.csproj" />
     <Project Path="src/Klyroo.Form/Klyroo.Form.csproj" />
+    <Project Path="src/Klyroo.Form.DataAnnotations/Klyroo.Form.DataAnnotations.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Klyroo.Form.Tests/Klyroo.Form.Tests.csproj" />
