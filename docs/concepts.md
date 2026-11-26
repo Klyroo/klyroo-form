@@ -155,7 +155,7 @@ The split exists so that the behavior of a form (what is required, what is hidde
 
 The controller raises `Changed` synchronously, on the thread that made the change. `KlyFormEngine`, `KlyFormPage` and `KlyFormProvider` subscribe to it and re-render through `InvokeAsync`, so a change from another thread does not touch the renderer from the wrong context. The controller itself is made of plain dictionaries and is not thread safe: serialize access if more than one thread uses it.
 
-The components use only Blazor events and make no JavaScript interop calls of their own. In Static SSR the markup renders but there is nothing to run the event handlers, so the controls are not interactive. [Platforms](platforms.md) covers render modes, .NET MAUI and NativeAOT.
+The components use Blazor events for everything the form does. The only JavaScript interop is a best-effort call that moves focus (to the first invalid field after a failed submit or Next, or when an entry of the error summary is clicked), through the small `klyroo-form.js` module shipped with the package: when the call fails, as in prerendering or a test host without JavaScript, the form still works and focus just stays where it was. The overlay of `KlyFormProvider` is a Klyroo.UI modal, which brings its own script. In Static SSR the markup renders but there is nothing to run the event handlers, so the controls are not interactive. [Platforms](platforms.md) covers render modes, .NET MAUI and NativeAOT.
 
 ## Error handling
 
@@ -167,4 +167,4 @@ Validation failures are not exceptions. They are values: `Validate()` and `Submi
 - **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object.
 - **Synchronous validators, async hooks.** Rules are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Server checks go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
 - **A mutable controller with an event.** The state is mutated in place and `Changed` tells observers. It is small, and it also means you own synchronization if you share a controller across threads.
-- **Native controls, no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events only. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.
+- **Native controls, almost no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events, plus one optional focus helper. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.

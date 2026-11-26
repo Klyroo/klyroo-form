@@ -20,7 +20,7 @@ Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dep
 
 ## Render modes
 
-`KlyFormEngine`, `KlyFormPage`, `KlySchemaField` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls of their own. They need an interactive render mode to respond to input.
+`KlyFormEngine`, `KlyFormPage`, `KlySchemaField` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls except one best-effort focus helper (`klyroo-form.js`, loaded on demand; the form works without it). `KlyFormProvider` hosts its overlay in `KlyModal` and `KlySlideover` of Klyroo.UI, so it needs the Klyroo.UI script like those components do. They need an interactive render mode to respond to input.
 
 **Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `FormService` is registered as a scoped service, so it lives as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
 

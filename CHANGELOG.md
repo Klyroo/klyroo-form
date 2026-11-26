@@ -31,6 +31,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- `KlyFormProvider` hosts its overlay in `KlyModal` (`Modal`, `Fullscreen`) and `KlySlideover` (`Drawer`) of Klyroo.UI instead of a hand-made `div`: the native modal dialog traps focus, closes on Escape and on a click on the backdrop, and returns focus to the opener. It cannot be dismissed while the form saves. The `form-provider-dialog` and `form-provider-overlay` class names are gone; the overlay carries `data-slot="form-provider-overlay"`, `data-mode` and `data-open` on a wrapper and `data-form-dialog` on the dialog.
 - `GetValue<T>` no longer rounds a fraction into an integer type (`GetValue<int>` on 3.5 returned 4): it returns `default`, as it does for any other value that does not fit the type.
 - Per-field error messages no longer carry `role="alert"`: they stay linked to the control with `aria-describedby`, and the live region and the error summary announce errors once for the whole form.
 - `NextStepAsync` and `PreviousStepAsync` refuse a call while another step change is running, and `SubmitAsync` refuses one during a step change.
@@ -44,6 +45,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- The overlay of `KlyFormProvider` was a `div` with `role="dialog"`: focus was not trapped, Escape did nothing and focus was lost on close.
 - `GetValue<T>` returned `default` for `Nullable<T>`, `DateOnly`, `TimeOnly`, `DateTime`, `Guid` and enum targets, which `Convert.ChangeType` cannot produce from the strings the controls store.
 - A cross-field error stayed on screen after the other field was fixed (a confirm password that now matched, a `RequiredWhen` whose condition no longer held), and `HasBlockingErrors` stayed `true`. After a value changes, the controller now validates again the touched fields that show an error.
 - `Validate` ignored a blocking error set with `SetError` on a key that matches no field, so a form-level failure did not stop `SubmitAsync`. It now fails on any blocking error that is form-level or on a validated field.

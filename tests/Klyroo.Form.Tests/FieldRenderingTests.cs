@@ -472,20 +472,33 @@ public sealed class FieldRenderingTests : BunitContext
         Assert.Contains(cut.Find("[data-slot=form-password-requirements]").Id!, cut.Find("input[type=password]").GetAttribute("aria-describedby"), StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData(FormShellMode.Drawer, "justify-end", "max-w-md")]
-    [InlineData(FormShellMode.Fullscreen, "bg-(--klyroo-bg)", "h-dvh")]
-    public void Provider_lays_out_drawer_and_fullscreen_modes(FormShellMode mode, string overlayClass, string panelClass)
+    [Fact]
+    public void Provider_hosts_the_drawer_in_a_slideover_dialog()
     {
         var provider = Render<KlyFormProvider>();
         var service = Services.GetRequiredService<FormService>();
-        _ = service.CreateFormAsync(new FormSchema { Fields = [new FormFieldSchema { Key = "a" }] }, mode: mode);
+        _ = service.CreateFormAsync(new FormSchema { Title = "Edit", Fields = [new FormFieldSchema { Key = "a" }] }, mode: FormShellMode.Drawer);
         provider.Render();
 
-        Assert.Contains(overlayClass, provider.Find("[data-slot=form-provider-overlay]").ClassName, StringComparison.Ordinal);
-        var panel = provider.Find("[data-slot=form-provider-dialog]").ClassName!;
-        Assert.Contains(panelClass, panel, StringComparison.Ordinal);
-        Assert.DoesNotContain("max-w-2xl", panel, StringComparison.Ordinal);
+        Assert.Equal("drawer", provider.Find("[data-slot=form-provider-overlay]").GetAttribute("data-mode"));
+        var dialog = provider.Find("dialog[data-form-dialog]");
+        Assert.Equal("right", dialog.GetAttribute("data-side"));
+        Assert.Equal("Edit", dialog.GetAttribute("aria-label"));
+        Assert.NotNull(dialog.QuerySelector("[data-slot=form-engine]"));
+    }
+
+    [Fact]
+    public void Provider_hosts_fullscreen_in_a_modal_that_fills_the_viewport()
+    {
+        var provider = Render<KlyFormProvider>();
+        var service = Services.GetRequiredService<FormService>();
+        _ = service.CreateFormAsync(new FormSchema { Fields = [new FormFieldSchema { Key = "a" }] }, mode: FormShellMode.Fullscreen);
+        provider.Render();
+
+        var dialog = provider.Find("dialog[data-form-dialog]");
+        Assert.Contains("h-dvh", dialog.ClassName, StringComparison.Ordinal);
+        Assert.Contains("w-screen", dialog.ClassName, StringComparison.Ordinal);
+        Assert.DoesNotContain("max-w-2xl", dialog.ClassName, StringComparison.Ordinal);
     }
 
     [Fact]

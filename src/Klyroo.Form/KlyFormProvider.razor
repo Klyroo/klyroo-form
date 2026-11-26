@@ -8,48 +8,88 @@
     @ChildContent
 }
 
-@if (FormApi.IsOpen && FormApi.ActiveForm is { } activeForm)
+@* The overlay is a Klyroo.UI modal (or slideover): a native modal dialog, so focus stays inside, Escape closes it and focus goes back to
+   the element that opened it. It stays in the DOM once a form has been opened, closed, so that closing it also restores focus. *@
+@if (_everOpened)
 {
-    var mode = FormApi.ActiveMode;
-    var overlayClass = mode switch
-    {
-        FormShellMode.Drawer => "fixed inset-0 z-50 flex justify-end bg-black/55",
-        FormShellMode.Fullscreen => "fixed inset-0 z-50 flex bg-(--klyroo-bg)",
-        _ => "fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4",
-    };
-    var panelClass = mode switch
-    {
-        FormShellMode.Drawer => "h-dvh w-full max-w-md overflow-y-auto border-s border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl",
-        FormShellMode.Fullscreen => "h-dvh w-full overflow-y-auto bg-(--klyroo-bg) p-5 sm:p-8",
-        _ => "max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-(--klyroo-radius-lg) border border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl",
-    };
-    <div class="@overlayClass"
-         role="dialog" aria-modal="true" aria-label="@(activeForm.Schema.Title ?? "Form")"
-         data-slot="form-provider-overlay" data-mode="@mode.ToString().ToLowerInvariant()">
-        <div class="@panelClass" data-slot="form-provider-dialog">
-            <div class="@(mode == FormShellMode.Fullscreen ? "mx-auto w-full max-w-3xl" : "w-full")">
-                <KlyFormEngine Form="@activeForm"
-                              Shell="@mode"
-                              OnSubmit="@(_ => FormApi.CompleteSubmittedForm(activeForm))"
-                              OnCancel="@(_ => FormApi.CloseForm())" />
-            </div>
-        </div>
+    var active = FormApi.ActiveForm;
+    var open = active is not null;
+    var busy = active?.IsSubmitting == true;
+    var label = active?.Schema.Title ?? _lastTitle ?? "Form";
+    <div class="contents" data-slot="form-provider-overlay" data-mode="@_mode.ToString().ToLowerInvariant()" data-open="@(open ? "true" : "false")">
+        @if (_mode == FormShellMode.Drawer)
+        {
+            <KlySlideover Open="open" OpenChanged="OnOpenChanged" AriaLabel="@label" Close="false" Dismissible="!busy"
+                          Body="@FormBody(active, _mode)" data-form-dialog="true" />
+        }
+        else
+        {
+            <KlyModal Open="open" OpenChanged="OnOpenChanged" AriaLabel="@label" Close="false" Dismissible="!busy"
+                      Size="KlySize.Lg" Class="@(_mode == FormShellMode.Fullscreen ? FullscreenClass : null)"
+                      Body="@FormBody(active, _mode)" data-form-dialog="true" />
+        }
     </div>
 }
 
 @code {
+    private const string FullscreenClass = "m-0 h-dvh max-h-none w-screen max-w-none rounded-none";
+
+    private bool _everOpened;
+    private FormShellMode _mode = FormShellMode.Modal;
+    private string? _lastTitle;
+    private FormController? _subscribed;
+
     /// <summary>The content of the provider, usually the page body. Overlay forms render after it.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
     protected override void OnInitialized()
     {
+        Track();
         FormApi.Changed += OnFormApiChanged;
     }
 
-    private void OnFormApiChanged() => _ = InvokeAsync(StateHasChanged);
+    // Remember the mode and the title of the last open form: the closing render still needs them.
+    private void Track()
+    {
+        var form = FormApi.ActiveForm;
+        // The overlay cannot be dismissed while the form saves, so it re-renders when the controller starts and stops submitting.
+        if (!ReferenceEquals(_subscribed, form))
+        {
+            if (_subscribed is not null) _subscribed.Changed -= OnControllerChanged;
+            _subscribed = form;
+            if (_subscribed is not null) _subscribed.Changed += OnControllerChanged;
+        }
+        if (form is null) return;
+        _everOpened = true;
+        _mode = FormApi.ActiveMode;
+        _lastTitle = form.Schema.Title;
+    }
+
+    private RenderFragment FormBody(FormController? form, FormShellMode mode) => form is null ? @<text></text> :
+        @<div class="@(mode == FormShellMode.Fullscreen ? "mx-auto w-full max-w-3xl" : "w-full")">
+            <KlyFormEngine @key="form" Form="@form"
+                           Shell="@mode"
+                           OnSubmit="@(_ => FormApi.CompleteSubmittedForm(form))"
+                           OnCancel="@(_ => FormApi.CloseForm())" />
+        </div>;
+
+    // Escape, a click on the backdrop and the browser closing the dialog all arrive here.
+    private void OnOpenChanged(bool open)
+    {
+        if (!open) FormApi.CloseForm();
+    }
+
+    private void OnControllerChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private void OnFormApiChanged()
+    {
+        Track();
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     public void Dispose()
     {
         FormApi.Changed -= OnFormApiChanged;
+        if (_subscribed is not null) _subscribed.Changed -= OnControllerChanged;
     }
 }
