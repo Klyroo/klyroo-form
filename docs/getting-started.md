@@ -165,7 +165,7 @@ Three details to know:
 
 - `@rendermode InteractiveServer` is needed unless your app already renders interactively everywhere. In Static SSR the form appears but does not react to input.
 - Keep the schema in a field. `KlyFormEngine` creates a new controller whenever it receives a different `FormSchema` instance, which would discard what the user typed if the schema were built inline in the markup.
-- `OnSubmit` on the component runs after validation and the schema hooks succeed. It receives the same dictionary as `FormController.BuildOutput()`.
+- `OnSubmit` on the component runs after validation, the schema hooks and `OnSave` succeed. It receives the same dictionary as `FormController.BuildOutput()`. To call your API while the form shows its saving state, pass `OnSave` (it returns `true` on success): see [Save from the component](guides.md#save-from-the-component-and-keep-the-form-busy).
 
 ## Next steps
 

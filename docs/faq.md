@@ -40,6 +40,8 @@ Troubleshooting, known limitations and common questions. Each entry is something
 - `Validators` are synchronous. Use `AsyncValidators` for a per-field check that needs I/O (they do not apply to the cells of a repeatable list), and `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks on the whole submission.
 - A `Condition` on a child of a repeatable list hides that column in every row, and the column is left out of the output rows: it receives the controller, not the row, so it cannot hide a single cell.
 - Tabs have no arrow-key navigation: each tab button is reached with Tab.
+- `FormFieldContext` has the same name as the type Klyroo.UI uses for its own `KlyFormField`, in `Klyroo.UI.Theming`. Inside `Klyroo.Form` code the form's type wins, but a file that imports both namespaces needs the full name.
+- Async validators do not apply to the cells of a repeatable list, files are not part of drafts, and the file size and type shown by the browser come from the client, so check them again on the server.
 
 ## Questions
 

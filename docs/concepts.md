@@ -23,7 +23,9 @@ Klyroo.Form (Blazor, builds on Klyroo.UI)
   KlyFormEngine              renders a schema or a controller
   KlyFormPage                renders sections with a completion status
   KlySchemaField             renders one field; both components above use it
-  KlyFormProvider            hosts the overlay opened by FormService
+  KlyFormProvider            hosts the overlay opened by FormService, in a KlyModal or KlySlideover
+  KlyFormErrorSummary        lists the errors and announces them; both form components render it
+  KlyFormNavigationGuard     blocks navigation while the controller is dirty
 ```
 
 A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyFormEngine`, the controller it creates when you pass a schema.
