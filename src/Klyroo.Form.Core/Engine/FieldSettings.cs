@@ -62,9 +62,9 @@ internal sealed class FieldSettings
     public Func<object?, object?>? TransformOutput { get; set; }
     public Action<object?, FormEngine>? Watch { get; set; }
     public Func<FormEngine, Task>? OnClick { get; set; }
-    public string? DisplayKind { get; set; }
+    public FormInfoKind? DisplayKind { get; set; }
     public string? DisplayText { get; set; }
-    public string? DisplayTone { get; set; }
+    public FormInfoTone? DisplayTone { get; set; }
     public IReadOnlyList<FieldNode>? Fields { get; set; }
     public IReadOnlyList<TabNode>? Tabs { get; set; }
     public string? AddItemLabel { get; set; }

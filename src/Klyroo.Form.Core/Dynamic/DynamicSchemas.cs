@@ -139,12 +139,12 @@ public sealed class DynamicFieldSchema
     public Func<DynamicFormController, Task>? OnClick { get; init; }
 
     // Display / Info block
-    /// <summary>Presentation of a <see cref="FormFieldKind.Info"/> block: <c>callout</c> (the default) draws a tinted box with a border, <c>text</c> renders plain text without a box. Other values render as <c>callout</c>. Case is ignored.</summary>
-    public string? DisplayKind { get; init; }
+    /// <summary>Presentation of a <see cref="FormFieldKind.Info"/> block: <see cref="FormInfoKind.Callout"/> (the default when null) draws a tinted box with a border, <see cref="FormInfoKind.Text"/> renders plain text without a box.</summary>
+    public FormInfoKind? DisplayKind { get; init; }
     /// <summary>Text of a <see cref="FormFieldKind.Info"/> block. Falls back to <see cref="Description"/>.</summary>
     public string? DisplayText { get; init; }
-    /// <summary>Color of a <see cref="FormFieldKind.Info"/> block, from the Klyroo.UI theme: <c>neutral</c> (the default), <c>info</c>, <c>success</c>, <c>warning</c> or <c>error</c>. Other values render as <c>neutral</c>. Case is ignored.</summary>
-    public string? DisplayTone { get; init; }
+    /// <summary>Color of a <see cref="FormFieldKind.Info"/> block, from the Klyroo.UI theme: <see cref="FormInfoTone.Neutral"/> when null.</summary>
+    public FormInfoTone? DisplayTone { get; init; }
 
     // Container / Array children
     /// <summary>Child fields: the content of a container, or the columns of each row of a repeatable list. A container without children renders nothing.</summary>

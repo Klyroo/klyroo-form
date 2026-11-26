@@ -4,7 +4,7 @@
 
 ## Klyroo.Form.Core
 
-Static classes and extensions (3) · Classes (27) · Records (9) · Structs (2) · Interfaces (2) · Enums (5) · Delegates (1)
+Static classes and extensions (3) · Classes (27) · Records (9) · Structs (2) · Interfaces (2) · Enums (7) · Delegates (1)
 
 ### Static classes and extensions
 
@@ -460,7 +460,7 @@ Declares the fields and layout of one block of a typed form: the form itself, a 
 | `Field<TValue>(string key, Action<FormFieldBuilder<TModel, TValue>>? configure = null)` | `FormField<TModel, TValue>` | Declares a field that the form has and the model does not, such as a confirmation or the acceptance of the terms. It is read and written through the controller like any field, validated and part of the draft, and left out of the model. |
 | `Group<TNested>(Expression<Func<THolder, TNested>> member, Action<FormGroupBuilder<TModel, TNested>> configure, string? label = null, string? description = null, bool card = false, bool collapsible = false)` | `FormItem<TModel>` | Declares a group of fields for an object member of the model, laid out together. The fields are declared on the type of the member and keep the model-wide keys (`Address.City`). A null object is created when the model is written. |
 | `Heading(string key, string label, string? description = null, Func<FormController<TModel>, bool>? visibleWhen = null)` | `FormItem<TModel>` | Declares a heading made of a label and a description. |
-| `Info(string key, string text, string? title = null, string? tone = null, Func<FormController<TModel>, bool>? visibleWhen = null)` | `FormItem<TModel>` | Declares a read-only block of text. |
+| `Info(string key, string text, string? title = null, FormInfoTone? tone = null, Func<FormController<TModel>, bool>? visibleWhen = null)` | `FormItem<TModel>` | Declares a read-only block of text. |
 | `List<TItem>(Expression<Func<THolder, IEnumerable<TItem>>> member, Action<FormRowBuilder<TModel, TItem>> columns, string? addLabel = null, Action<FormFieldBuilder<TModel, IReadOnlyList<TItem>>>? configure = null, Func<TItem>? itemFactory = null)` | `FormListField<TModel, TItem>` | Declares a repeatable list of rows for a collection member. Each row is an item of the collection; its columns are declared in `columns`. |
 | `MultiSelect<TElement>(Expression<Func<THolder, IEnumerable<TElement>>> member, IEnumerable<FormOption<TElement>> options, Action<FormFieldBuilder<TModel, IReadOnlyList<TElement>>>? configure = null)` | `FormField<TModel, IReadOnlyList<TElement>>` | Declares a field for a collection member as a multiple choice: the user ticks several options and the member holds their values. |
 | `Tabs(string key, Action<FormTabsBuilder<TModel, THolder>> configure)` | `FormItem<TModel>` | Declares a tabbed container for fields of the same model. The fields of every visible tab are validated and written to the model, whether or not the tab is selected. |
@@ -533,9 +533,9 @@ Declarative definition of one field, or of a layout element such as a section he
 | `Disabled` (init) | `bool` | `true` to render the control disabled; on a repeatable list it also disables its cells and the add and remove buttons. This only affects rendering: a disabled field is still validated and included in the output. |
 | `DisabledReason` (init) | `string?` | Text shown under a disabled control to explain why it is disabled. |
 | `DisabledWhen` (init) | `Func<DynamicFormController, bool>?` | Disables the field while it returns `true`. Same scope as `DynamicFieldSchema.Disabled`. |
-| `DisplayKind` (init) | `string?` | Presentation of a `FormFieldKind.Info` block: `callout` (the default) draws a tinted box with a border, `text` renders plain text without a box. Other values render as `callout`. Case is ignored. |
+| `DisplayKind` (init) | `FormInfoKind?` | Presentation of a `FormFieldKind.Info` block: `FormInfoKind.Callout` (the default when null) draws a tinted box with a border, `FormInfoKind.Text` renders plain text without a box. |
 | `DisplayText` (init) | `string?` | Text of a `FormFieldKind.Info` block. Falls back to `DynamicFieldSchema.Description`. |
-| `DisplayTone` (init) | `string?` | Color of a `FormFieldKind.Info` block, from the Klyroo.UI theme: `neutral` (the default), `info`, `success`, `warning` or `error`. Other values render as `neutral`. Case is ignored. |
+| `DisplayTone` (init) | `FormInfoTone?` | Color of a `FormFieldKind.Info` block, from the Klyroo.UI theme: `FormInfoTone.Neutral` when null. |
 | `Fields` (init) | `IReadOnlyList<DynamicFieldSchema>?` | Child fields: the content of a container, or the columns of each row of a repeatable list. A container without children renders nothing. |
 | `Help` (init) | `string?` | Text shown under the control. |
 | `Hint` (init) | `string?` | Short text shown next to the label. |
@@ -1041,6 +1041,31 @@ Kind of a field in a `DynamicFieldSchema`. The kind decides how the field is sto
 | `ArrayTable` | Same value and behavior as `FormFieldKind.ArrayList`; `KlyFormEngine` renders both identically. |
 | `Custom` | A control you provide. `DynamicFieldSchema.CustomKey` names its renderer, a `RenderFragment<FormControlContext>` registered with `KlyrooFormOptions.CustomField` or passed in the `FieldTemplates` parameter of the components. The field is stateful like any input: it holds any value you store, is validated with `DynamicFieldSchema.Required` and `DynamicFieldSchema.Validators`, and is part of the output. The components render its label, description, help and error around your control. |
 | `File` | File input rendered with the Blazor `InputFile`. The value is a `FormFileValue` (or `null`), or a `List<FormFileValue>` with `DynamicFieldSchema.Multiple`. `DynamicFieldSchema.Accept`, `DynamicFieldSchema.MaxFileSize` and the number of files are checked on validation. A file is never part of a draft (`DynamicFormController.ExportState`), since its content cannot be restored. |
+
+#### `FormInfoKind`
+
+`Klyroo.Form` · enum
+
+How an info block (`FormFieldKind.Info`) is drawn.
+
+| Value | Description |
+| :--- | :--- |
+| `Callout` | A tinted box with a border (the default). |
+| `Text` | Plain text without a box. |
+
+#### `FormInfoTone`
+
+`Klyroo.Form` · enum
+
+The color of an info block (`FormFieldKind.Info`), from the Klyroo.UI theme.
+
+| Value | Description |
+| :--- | :--- |
+| `Neutral` | The muted default. |
+| `Info` | The info color. |
+| `Success` | The success color. |
+| `Warning` | The warning color. |
+| `Error` | The error color. |
 
 #### `FormPageSectionStatus`
 

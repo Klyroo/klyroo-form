@@ -319,10 +319,10 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
     /// <param name="key">A key for the block, unique in the form.</param>
     /// <param name="text">The text.</param>
     /// <param name="title">A heading for the block.</param>
-    /// <param name="tone">The color from the Klyroo.UI theme: <c>neutral</c> (the default), <c>info</c>, <c>success</c>, <c>warning</c> or <c>error</c>.</param>
+    /// <param name="tone">The color from the Klyroo.UI theme: <see cref="FormInfoTone.Neutral"/> when null.</param>
     /// <param name="visibleWhen">Hides the block while it returns <c>false</c>.</param>
     /// <returns>The handle of the block.</returns>
-    public FormItem<TModel> Info(string key, string text, string? title = null, string? tone = null, Func<FormController<TModel>, bool>? visibleWhen = null) =>
+    public FormItem<TModel> Info(string key, string text, string? title = null, FormInfoTone? tone = null, Func<FormController<TModel>, bool>? visibleWhen = null) =>
         Layout(key, new FieldNode { Key = key, Kind = FormFieldKind.Info, Label = title, DisplayText = text, DisplayTone = tone, Condition = Visible(visibleWhen) });
 
     /// <summary>Declares a horizontal rule.</summary>

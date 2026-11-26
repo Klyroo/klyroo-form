@@ -96,9 +96,9 @@ internal sealed class FieldNode
     public Func<FormEngine, Task>? OnClick { get; init; }
 
     // Display / Info block
-    public string? DisplayKind { get; init; }
+    public FormInfoKind? DisplayKind { get; init; }
     public string? DisplayText { get; init; }
-    public string? DisplayTone { get; init; }
+    public FormInfoTone? DisplayTone { get; init; }
 
     // Container / Array children
     public IReadOnlyList<FieldNode>? Fields { get; init; }

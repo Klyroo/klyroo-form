@@ -124,6 +124,30 @@ public enum FormFieldKind
     File,
 }
 
+/// <summary>The color of an info block (<see cref="FormFieldKind.Info"/>), from the Klyroo.UI theme.</summary>
+public enum FormInfoTone
+{
+    /// <summary>The muted default.</summary>
+    Neutral,
+    /// <summary>The info color.</summary>
+    Info,
+    /// <summary>The success color.</summary>
+    Success,
+    /// <summary>The warning color.</summary>
+    Warning,
+    /// <summary>The error color.</summary>
+    Error,
+}
+
+/// <summary>How an info block (<see cref="FormFieldKind.Info"/>) is drawn.</summary>
+public enum FormInfoKind
+{
+    /// <summary>A tinted box with a border (the default).</summary>
+    Callout,
+    /// <summary>Plain text without a box.</summary>
+    Text,
+}
+
 /// <summary>One choice of a <see cref="FormFieldKind.Select"/>, <see cref="FormFieldKind.AutoComplete"/>, <see cref="FormFieldKind.Radio"/> or <see cref="FormFieldKind.CheckboxGroup"/> field.</summary>
 /// <param name="Value">The value stored in the form when the option is selected.</param>
 /// <param name="Label">The text shown to the user.</param>

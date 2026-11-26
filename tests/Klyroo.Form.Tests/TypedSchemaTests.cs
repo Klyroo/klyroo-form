@@ -352,7 +352,7 @@ public sealed class TypedSchemaTests
         {
             var notify = s.Field(b => b.Notify);
             s.Heading("h", "Heading");
-            s.Info("i", "Be careful", tone: "warning", visibleWhen: c => c.Get(notify));
+            s.Info("i", "Be careful", tone: FormInfoTone.Warning, visibleWhen: c => c.Get(notify));
             s.Divider("d");
             s.Card("card", "Card", c => c.Field(b => b.Owner), collapsible: true);
             s.Tabs("tabs", t =>

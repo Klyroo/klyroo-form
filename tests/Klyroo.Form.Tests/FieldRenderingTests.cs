@@ -409,8 +409,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Info_blocks_apply_DisplayTone_and_DisplayKind()
     {
         var (cut, _) = Engine(
-            new DynamicFieldSchema { Key = "warn", Kind = FormFieldKind.Info, DisplayText = "Careful", DisplayTone = "Warning" },
-            new DynamicFieldSchema { Key = "plain", Kind = FormFieldKind.Info, DisplayText = "Note", DisplayKind = "text" });
+            new DynamicFieldSchema { Key = "warn", Kind = FormFieldKind.Info, DisplayText = "Careful", DisplayTone = FormInfoTone.Warning },
+            new DynamicFieldSchema { Key = "plain", Kind = FormFieldKind.Info, DisplayText = "Note", DisplayKind = FormInfoKind.Text });
 
         var warn = cut.Find("[data-form-field=warn]");
         Assert.Equal("warning", warn.GetAttribute("data-tone"));
@@ -418,6 +418,17 @@ public sealed class FieldRenderingTests : BunitContext
         var plain = cut.Find("[data-form-field=plain]");
         Assert.Equal("text", plain.GetAttribute("data-display-kind"));
         Assert.DoesNotContain("border", plain.ClassName, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void An_info_block_without_tone_or_kind_is_a_neutral_callout()
+    {
+        var (cut, _) = Engine(new DynamicFieldSchema { Key = "note", Kind = FormFieldKind.Info, DisplayText = "Note" });
+
+        var note = cut.Find("[data-form-field=note]");
+        Assert.Equal("neutral", note.GetAttribute("data-tone"));
+        Assert.Equal("callout", note.GetAttribute("data-display-kind"));
+        Assert.Contains("border", note.ClassName, StringComparison.Ordinal);
     }
 
     [Fact]
