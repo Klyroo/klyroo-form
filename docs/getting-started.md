@@ -167,9 +167,43 @@ Three details to know:
 - Keep the schema in a field. `KlyFormEngine` creates a new controller whenever it receives a different `FormSchema` instance, which would discard what the user typed if the schema were built inline in the markup.
 - `OnSubmit` on the component runs after validation, the schema hooks and `OnSave` succeed. It receives the same dictionary as `FormController.BuildOutput()`. To call your API while the form shows its saving state, pass `OnSave` (it returns `true` on success): see [Save from the component](guides.md#save-from-the-component-and-keep-the-form-busy).
 
+## 4. Bind a C# model (optional)
+
+If you would rather write a class than a dictionary, `Klyroo.Form.Core` builds the same form from a model, and `Klyroo.Form.DataAnnotations` reads the attributes on it:
+
+```csharp
+public sealed class Contact
+{
+    [Required, Display(Name = "Your name")]
+    public string Name { get; set; } = "";
+
+    [Required, EmailAddress]
+    public string Email { get; set; } = "";
+
+    [DataType(DataType.MultilineText)]
+    public string? Message { get; set; }
+}
+
+var form = FormModel.For<Contact>(b => b.FromDataAnnotations());
+```
+
+In the page, render `form.Schema` and receive a `Contact`:
+
+```razor
+<KlyFormEngine Schema="_form.Schema" OnSave="_form.OnSaveOutput(SendAsync)" />
+
+@code {
+    private static readonly FormModel<Contact> _form = FormModel.For<Contact>(b => b.FromDataAnnotations());
+
+    private Task<bool> SendAsync(Contact contact, CancellationToken ct) => Task.FromResult(true);
+}
+```
+
+Without the extra package the same works with explicit fields, `FormModel.For<Contact>(b => b.Field(c => c.Name, f => f.Required()))`. The [Bind a C# model](guides.md#bind-a-c-model) guide has the complete example and the limits.
+
 ## Next steps
 
-- [Guides](guides.md): validate against the server, build a wizard, open a form in a dialog, test your forms.
+- [Guides](guides.md): bind a C# model, validate against the server, build a wizard, open a form in a dialog, test your forms.
 - [Concepts](concepts.md): how the schema, the controller and the components fit together.
 - [Platforms](platforms.md): render modes, .NET MAUI Blazor Hybrid and NativeAOT.
 - [API reference](api-reference.md): every public type and member.

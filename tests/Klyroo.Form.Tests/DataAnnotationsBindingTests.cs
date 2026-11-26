@@ -383,4 +383,81 @@ public sealed class DataAnnotationsBindingTests : BunitContext
         [Range(18, 120)]
         public int Age { get; set; } = 18;
     }
+
+    public enum Plan { Free, Team, Business }
+
+    public sealed class GuideAddress
+    {
+        [Required]
+        public string? Street { get; set; }
+
+        [Required, Display(Name = "Town")]
+        public string? City { get; set; }
+    }
+
+    public sealed class GuideSignup : IValidatableObject
+    {
+        [Required, StringLength(80), Display(Name = "Full name", Prompt = "Ada Lovelace", Order = 1)]
+        public string Name { get; set; } = "";
+
+        [Required, EmailAddress, Display(Order = 2)]
+        public string Email { get; set; } = "";
+
+        [Range(18, 120), Display(Order = 3)]
+        public int Age { get; set; } = 18;
+
+        public Plan Plan { get; set; } = Plan.Free;
+
+        [DataType(DataType.Date), Display(Name = "Start date")]
+        public DateOnly? StartDate { get; set; }
+
+        [Required, DataType(DataType.Password), MinLength(8)]
+        public string Password { get; set; } = "";
+
+        [Compare(nameof(Password), ErrorMessage = "The passwords differ")]
+        [DataType(DataType.Password), Display(Name = "Confirm password")]
+        public string? ConfirmPassword { get; set; }
+
+        public GuideAddress Address { get; set; } = new();
+
+        public bool AcceptTerms { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext context)
+        {
+            if (!AcceptTerms)
+                yield return new ValidationResult("You must accept the terms", [nameof(AcceptTerms)]);
+        }
+    }
+
+    [Fact]
+    public async Task The_model_of_the_guide_binds_validates_and_saves()
+    {
+        var form = FormModel.For<GuideSignup>(b =>
+        {
+            b.Title = "Create your account";
+            b.Nested(s => s.Address, n => n.Field(a => a.Street).Field(a => a.City));
+            b.FromDataAnnotations();
+        });
+        Assert.Equal(["Name", "Email", "Age", "Address.Street", "Address.City", "Plan", "StartDate", "Password", "ConfirmPassword", "AcceptTerms"],
+            form.Fields.Select(f => f.Key));
+
+        var c = form.CreateController(new GuideSignup());
+        c.SetValue("Name", "Ada");
+        c.SetValue("Email", "ada@example.com");
+        c.SetValue("Address.Street", "1 rue X");
+        c.SetValue("Address.City", "Lyon");
+        c.SetValue("Password", "longenough");
+        c.SetValue("ConfirmPassword", "longenough");
+        Assert.False(await c.SubmitAsync());
+        Assert.Equal("You must accept the terms", c.GetError("AcceptTerms"));
+
+        c.SetValue("AcceptTerms", true);
+        c.SetValue("Plan", "Team");
+        c.SetValue("StartDate", "2027-01-15");
+        GuideSignup? saved = null;
+        Assert.True(await form.SubmitAsync(c, (s, _) => { saved = s; return Task.FromResult(true); }, cancellationToken: Xunit.TestContext.Current.CancellationToken));
+        Assert.Equal(Plan.Team, saved!.Plan);
+        Assert.Equal(new DateOnly(2027, 1, 15), saved.StartDate);
+        Assert.Equal("Lyon", saved.Address.City);
+    }
 }

@@ -37,6 +37,7 @@ Troubleshooting, known limitations and common questions. Each entry is something
 ## Known limitations
 
 - The controller is not thread safe.
+- A bound model only reaches fields that are in effect and have a public setter, collections of objects are not bound, and the messages of the attribute rules (`[MinLength]`, `[EmailAddress]`, `[RegularExpression]` and others) are not localized: see the questions below.
 - `Validators` are synchronous. Use `AsyncValidators` for a per-field check that needs I/O (they do not apply to the cells of a repeatable list), and `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks on the whole submission.
 - A `Condition` on a child of a repeatable list hides that column in every row, and the column is left out of the output rows: it receives the controller, not the row, so it cannot hide a single cell.
 - Tabs have no arrow-key navigation: each tab button is reached with Tab.
@@ -60,11 +61,19 @@ Text you write yourself is never translated: `Label`, `Hint`, `Help`, `Placehold
 
 ### Can I bind a form to a model class?
 
-Not directly. The output of a form is a flat dictionary, and the initial input is a dictionary too. Read the model into a dictionary when you create the controller and map `BuildOutput()` back when you save. For forms bound to a model with data annotations, see `KlyForm` in [Klyroo.UI](https://github.com/klyroo/klyroo-ui).
+Yes. `FormModel.For<TModel>(...)` in `Klyroo.Form.Core` declares a field per member with `b.Field(p => p.Name, f => ...)`, derives the key and the kind from the member, loads a model into a controller (`CreateController(model)`, `ToInput`, `Load`) and writes the values back (`Write`, `Create`, or a typed `SubmitAsync` and `OnSaveOutput`). See [Bind a C# model](guides.md#bind-a-c-model). You can still use the plain dictionary API next to it, and mix plain `FormFieldSchema` fields into a bound form with `b.Add(...)`.
 
 ### Does it integrate with DataAnnotations or FluentValidation?
 
-No. Validation is expressed with `Required`, `RequiredWhen`, `Min`, `Max`, `PasswordRequirements` and `Validators` on the schema. A `FormValidatorRule` can call any validator you already have.
+DataAnnotations, yes, through the `Klyroo.Form.DataAnnotations` package: `FormModel.For<TModel>(b => b.FromDataAnnotations())` reads `[Required]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[Range]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[Compare]`, `[Display]`, `[Editable]`, `[ReadOnly]` and `[DataType]`, and runs your own attributes and `IValidatableObject` at submit. FluentValidation, no: a `FormValidatorRule` or `OnBeforeSubmit` can call any validator you already have, and `SetError` puts its errors on the fields.
+
+### Why do some attribute messages look different from the other ones?
+
+`[Required]`, `[StringLength]`, `[MaxLength]` on a string and `[Range]` on a number are checked by the engine's own rules, so their messages follow the locale of the form. The engine has no built-in rule for a minimum length, a pattern, an email address, a phone number, a URL or a comparison, so `[MinLength]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[CreditCard]` and `[Compare]` run as validator rules with the message of the attribute, in English unless you set `ErrorMessage` or a resource message. The whole-integer and valid-identifier messages that the binding adds for `int` and `Guid` members are English as well: replace them with `Configure(s => s.Validators = ...)`.
+
+### Which members can a model bind?
+
+Properties of a class or record: strings, numbers, `bool`, enums (not `[Flags]`), `DateOnly`, `DateTime`, `DateTimeOffset`, `TimeOnly`, `TimeSpan`, `Guid`, lists of strings and the nullable variants, plus nested objects through `Nested` or a member chain such as `p => p.Address.City`. A member of another type needs `Kind(...)` and a value the engine can convert, or a plain `FormFieldSchema`. Collections of objects, fields and members of struct type on the way to a nested one are not supported, and an object on the way that is `null` is created only for members declared with `Nested`.
 
 ### What types do the values have?
 

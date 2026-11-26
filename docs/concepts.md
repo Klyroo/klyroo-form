@@ -154,7 +154,7 @@ The components add the texts of their own: `FormTexts`, one set per locale of Kl
 
 | | `Klyroo.Form.Core` | `Klyroo.Form` |
 | :--- | :--- | :--- |
-| Contains | Schema types, `FormController`, `FormService`, `FormMessages` | `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
+| Contains | Schema types, `FormController`, `FormService`, `FormMessages`, `FormModel` (typed binding) | `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
 | Dependencies | None | Klyroo.UI and `Klyroo.Form.Core` |
 | Runs in | Any .NET 10 host, including NativeAOT | Blazor (Interactive Server, WebAssembly, Auto) and .NET MAUI Blazor Hybrid |
 | Use it for | Tests, view models, background logic | Rendering |
@@ -173,8 +173,8 @@ Validation failures are not exceptions. They are values: `Validate()` and `Submi
 
 ## Design decisions and trade-offs
 
-- **Untyped values keyed by strings.** A form is a dictionary of `object?`, which makes forms that are built from data or change shape at runtime easy, and means there is no compile-time check that a key exists or that a value has the type you expect. You map the output dictionary to your own type.
-- **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object.
+- **Untyped values keyed by strings.** A form is a dictionary of `object?`, which makes forms that are built from data or change shape at runtime easy, and means there is no compile-time check that a key exists or that a value has the type you expect. You map the output dictionary to your own type, or let `FormModel` do it: it declares the fields from a model type with member expressions, so a rename is a compile error, and moves the values both ways (see [Bind a C# model](guides.md#bind-a-c-model)). The dictionary stays the truth underneath: the model is a typed view of it.
+- **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object. A bound model follows the convention: `p => p.Address.City` gives the key `Address.City`, and the values are copied into and out of the nested object when the model is loaded and written.
 - **Synchronous validators, async rules and hooks.** `Validators` are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Per-field server checks are `AsyncValidators`, which run apart from the synchronous path and are awaited by submission; checks that belong to the whole submission go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
 - **A mutable controller with an event.** The state is mutated in place and `Changed` tells observers. It is small, and it also means you own synchronization if you share a controller across threads.
 - **Native controls, almost no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events, plus one optional focus helper. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.

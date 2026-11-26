@@ -14,6 +14,8 @@ What runs where, what you must set up, and the limits that are known today. Ever
 | Blazor Interactive Auto | Not applicable | Yes |
 | Blazor Static SSR | Not applicable | Renders, not interactive |
 | .NET MAUI Blazor Hybrid | Not applicable | Supported platforms declared, not run on a device |
+
+`Klyroo.Form.DataAnnotations` references only `Klyroo.Form.Core`, so it runs wherever the core runs. It is marked trimmable and is not declared NativeAOT compatible.
 | .NET MAUI without a `BlazorWebView` | Yes, from view models | Not applicable |
 
 Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dependencies. `Klyroo.Form` depends on Klyroo.UI and on `Klyroo.Form.Core`.
@@ -73,7 +75,9 @@ If your pages do not use a `BlazorWebView`, reference only `Klyroo.Form.Core`. A
 
 ## NativeAOT and trimming
 
-`Klyroo.Form.Core` sets `IsAotCompatible` and `IsTrimmable` to `true`, and the solution builds with warnings as errors, so the AOT and trimming analyzers are part of every build. It was also checked end to end: a console app that references the project and sets `PublishAot` published and ran on `linux-x64` (value conversion in `GetValue<T>`, validation and submit all worked). The core uses no reflection over your types and no serialization: values are `object?` and conversions go through `Convert.ChangeType`.
+`Klyroo.Form.Core` sets `IsAotCompatible` and `IsTrimmable` to `true`, and the solution builds with warnings as errors, so the AOT and trimming analyzers are part of every build. It was also checked end to end: a console app that references the project and sets `PublishAot` published and ran on `linux-x64` (value conversion in `GetValue<T>`, validation and submit all worked). The controller uses no reflection over your types and no serialization: values are `object?` and conversions go through `Convert.ChangeType`. The typed binding (`FormModel`) reads expressions only to find the member, never compiles them, and reads and writes values with `PropertyInfo`. `TModel` and the type argument of `Nested` carry `DynamicallyAccessedMembers(PublicProperties | PublicParameterlessConstructor)`, so the trimmer keeps what the binding touches and the analyzers raise no warning; a member chain such as `p => p.Address.City` keeps the accessors of `Address` but not the setter of `City`, which is why `Nested` is the form to use in an app that is trimmed in full mode. The binding was checked with the analyzers, it was not published with `PublishAot` and run.
+
+`Klyroo.Form.DataAnnotations` sets `IsTrimmable` and is not declared AOT compatible. It never calls `Validator`, whose methods require unreferenced code, and builds its `ValidationContext` with a display name for the same reason, so the trim analyzer reports nothing. Attributes are read from the properties of the model, which the annotation on `TModel` keeps, and a `[Display]` with a `ResourceType` needs that resource type to be kept by your app.
 
 `Klyroo.Form` sets `IsTrimmable` to `true` but does not set `IsAotCompatible`. Whether a Blazor app that uses it can be trimmed or compiled ahead of time also depends on Klyroo.UI and on the Blazor runtime, and that combination was not tested here.
 

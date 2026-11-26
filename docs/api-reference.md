@@ -4,7 +4,7 @@
 
 ## Klyroo.Form.Core
 
-Static classes and extensions (1) · Classes (9) · Records (9) · Enums (5)
+Static classes and extensions (2) · Classes (16) · Records (9) · Enums (5) · Delegates (2)
 
 ### Static classes and extensions
 
@@ -34,6 +34,16 @@ The built-in `FormMessages`, one set per locale of Klyroo.UI and keyed by the sa
 | Method | Returns | Description |
 | :--- | :--- | :--- |
 | `static Resolve(string code)` | `FormMessages` | Picks the set for a culture name with the rules Klyroo.UI uses for its own texts: the exact code ("pt-BR"), then its parent cultures ("pt-PT" gets "pt", "zh-CN" gets "zh-Hans"), then English. A name the runtime has no data for (invariant globalization) is walked by trimming its last "-" segment. |
+
+#### `FormModel`
+
+`Klyroo.Form` · service
+
+Entry point of the typed binding: builds a `FormModel` from a C# model type.
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `static For<TModel>(Action<FormModelBuilder<TModel>> configure)` | `FormModel<TModel>` | Declares a form from the members of `TModel`. |
 
 ### Classes
 
@@ -154,6 +164,29 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 | `Validate(bool currentStepOnly = false)` | `bool` | Validates the fields in effect (see `FormController.ActiveFields`) according to `FormSchema.ValidateMode`, including each cell of their repeatable lists, and marks them touched so their errors show. Validation errors of fields that are not in effect, such as hidden ones, are removed. |
 | `ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = null)` | `Task<bool>` | Validates like `FormController.Validate`, then runs the asynchronous rules (see `FormFieldSchema.AsyncValidators`) of the validated fields that have a non-empty value, pass their synchronous checks and have no result yet for the current value, in parallel across fields, and validates again with their results. `FormController.SubmitAsync` and `FormController.NextStepAsync` call it. |
 
+#### `FormFieldBuilder<TValue>`
+
+`Klyroo.Form` · class
+
+Adjusts one field declared from a model member. Every call is applied after the defaults of the member type and after the conventions (`UseDataAnnotations()`), so it wins over both. Calls return the builder.
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Condition(Func<FormController, bool> condition)` | `FormFieldBuilder<TValue>` | Shows the field only while `condition` returns `true` (`FormFieldSchema.Condition`). A hidden field is not validated and its member is left as it is. |
+| `Configure(Action<FormFieldSettings> configure)` | `FormFieldBuilder<TValue>` | Changes any setting of the field. Use it for what the other methods do not cover: `FormFieldSettings.DependsOn`, `FormFieldSettings.AsyncValidators`, `FormFieldSettings.Trigger`, `FormFieldSettings.RequiredWhen` and the rest of `FormFieldSchema`. |
+| `Description(string? description)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Description`. |
+| `Disabled(bool disabled = true)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Disabled`. |
+| `Hint(string? hint)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Hint`. |
+| `Kind(FormFieldKind kind)` | `FormFieldBuilder<TValue>` | Uses another kind of control than the one the member type gets (a `Textarea` or a `Password` for a string, a `Radio` or a `Select` for an enum, a `Slider` for a number). |
+| `Label(string? label)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Label`. The default is the member name in words (`FirstName` gives `First name`). |
+| `MaxLength(int maxLength)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.MaxLength` of a text. |
+| `Options(params FormOptionItem[] options)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Options` for a choice kind, in place of the options an enum member gets by itself. |
+| `Placeholder(string? placeholder)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Placeholder`. |
+| `Range(double? min, double? max)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Min` and `FormFieldSchema.Max` of a number. |
+| `Required(bool required = true, string? message = null)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Required`. |
+| `Rule(string key, string message, Func<TValue, bool> isValid)` | `FormFieldBuilder<TValue>` | Adds a rule that gets the value as the member type. The value is `default` when the field is empty, so a rule on a nullable member sees `null`. |
+| `Span(int span)` | `FormFieldBuilder<TValue>` | Sets `FormFieldSchema.Span`, the width in columns. |
+
 #### `FormFieldSchema`
 
 `Klyroo.Form` · class
@@ -212,6 +245,64 @@ Declarative definition of one field, or of a layout element such as a section he
 | `Validators` (init) | `IReadOnlyList<FormValidatorRule>?` | Custom validation rules, run in order after the built-in checks. The first failing rule sets the error. |
 | `Watch` (init) | `Action<object?, FormController>?` | Called with the new value and the controller after the value of this field changes: after `FormController.SetValue`, after `FormController.ResetField` when it changes the value, and, for a repeatable list, after a row is added or removed or a cell changes. On a child of a repeatable list it is called with the cell value after `FormController.SetArrayItemValue`. It does not run for `FormController.Reset`, which loads a complete new state. |
 
+#### `FormFieldSettings`
+
+`Klyroo.Form` · class
+
+A mutable copy of the settings of a `FormFieldSchema`, which has init-only properties. A field declared from a model starts with the settings its member type gives it, and `FormModelBuilder` hands this object to the code that adjusts them (`FormFieldConvention`, `Configure`). The properties have the meaning and the defaults of the same-named properties of `FormFieldSchema`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Accept` (get, set) | `string?` | See `FormFieldSchema.Accept`. |
+| `AddItemLabel` (get, set) | `string?` | See `FormFieldSchema.AddItemLabel`. |
+| `AsyncValidators` (get, set) | `IReadOnlyList<FormAsyncValidatorRule>?` | See `FormFieldSchema.AsyncValidators`. |
+| `Clearable` (get, set) | `bool` | See `FormFieldSchema.Clearable`. |
+| `Collapsible` (get, set) | `bool` | See `FormFieldSchema.Collapsible`. |
+| `Condition` (get, set) | `Func<FormController, bool>?` | See `FormFieldSchema.Condition`. |
+| `CustomKey` (get, set) | `string?` | See `FormFieldSchema.CustomKey`. |
+| `DefaultCollapsed` (get, set) | `bool` | See `FormFieldSchema.DefaultCollapsed`. |
+| `DefaultFactory` (get, set) | `Func<FormController, object?>?` | See `FormFieldSchema.DefaultFactory`. |
+| `DefaultValue` (get, set) | `object?` | See `FormFieldSchema.DefaultValue`. |
+| `DependsOn` (get, set) | `IReadOnlyList<string>?` | See `FormFieldSchema.DependsOn`. |
+| `Description` (get, set) | `string?` | See `FormFieldSchema.Description`. |
+| `DirtyCheck` (get, set) | `bool` | See `FormFieldSchema.DirtyCheck`. |
+| `Disabled` (get, set) | `bool` | See `FormFieldSchema.Disabled`. |
+| `DisabledReason` (get, set) | `string?` | See `FormFieldSchema.DisabledReason`. |
+| `DisabledWhen` (get, set) | `Func<FormController, bool>?` | See `FormFieldSchema.DisabledWhen`. |
+| `DisplayKind` (get, set) | `string?` | See `FormFieldSchema.DisplayKind`. |
+| `DisplayText` (get, set) | `string?` | See `FormFieldSchema.DisplayText`. |
+| `DisplayTone` (get, set) | `string?` | See `FormFieldSchema.DisplayTone`. |
+| `Fields` (get, set) | `IReadOnlyList<FormFieldSchema>?` | See `FormFieldSchema.Fields`. |
+| `Help` (get, set) | `string?` | See `FormFieldSchema.Help`. |
+| `Hint` (get, set) | `string?` | See `FormFieldSchema.Hint`. |
+| `Ignore` (get, set) | `bool` | See `FormFieldSchema.Ignore`. |
+| `Key` | `string` | Key of the field. It is derived from the member and cannot change. |
+| `Kind` (get, set) | `FormFieldKind` | See `FormFieldSchema.Kind`. |
+| `Label` (get, set) | `string?` | See `FormFieldSchema.Label`. |
+| `Max` (get, set) | `double?` | See `FormFieldSchema.Max`. |
+| `MaxFileSize` (get, set) | `long?` | See `FormFieldSchema.MaxFileSize`. |
+| `MaxLength` (get, set) | `int?` | See `FormFieldSchema.MaxLength`. |
+| `Min` (get, set) | `double?` | See `FormFieldSchema.Min`. |
+| `Multiple` (get, set) | `bool` | See `FormFieldSchema.Multiple`. |
+| `OmitFromOutput` (get, set) | `bool` | See `FormFieldSchema.OmitFromOutput`. |
+| `OnClick` (get, set) | `Func<FormController, Task>?` | See `FormFieldSchema.OnClick`. |
+| `OnCreateOption` (get, set) | `Func<string, FormOptionItem?>?` | See `FormFieldSchema.OnCreateOption`. |
+| `Options` (get, set) | `IReadOnlyList<FormOptionItem>?` | See `FormFieldSchema.Options`. |
+| `OptionsFactory` (get, set) | `Func<FormController, IReadOnlyList<FormOptionItem>>?` | See `FormFieldSchema.OptionsFactory`. |
+| `PasswordRequirements` (get, set) | `IReadOnlyList<FormPasswordRequirement>?` | See `FormFieldSchema.PasswordRequirements`. |
+| `Placeholder` (get, set) | `string?` | See `FormFieldSchema.Placeholder`. |
+| `Required` (get, set) | `bool` | See `FormFieldSchema.Required`. |
+| `RequiredMessage` (get, set) | `string?` | See `FormFieldSchema.RequiredMessage`. |
+| `RequiredWhen` (get, set) | `Func<FormController, bool>?` | See `FormFieldSchema.RequiredWhen`. |
+| `Span` (get, set) | `int` | See `FormFieldSchema.Span`. |
+| `Step` (get, set) | `double?` | See `FormFieldSchema.Step`. |
+| `Tabs` (get, set) | `IReadOnlyList<FormTabItemSchema>?` | See `FormFieldSchema.Tabs`. |
+| `TransformInput` (get, set) | `Func<object?, object?>?` | See `FormFieldSchema.TransformInput`. |
+| `TransformOutput` (get, set) | `Func<object?, object?>?` | See `FormFieldSchema.TransformOutput`. |
+| `Trigger` (get, set) | `FormValidationTrigger` | See `FormFieldSchema.Trigger`. |
+| `Validators` (get, set) | `IReadOnlyList<FormValidatorRule>?` | See `FormFieldSchema.Validators`. |
+| `Watch` (get, set) | `Action<object?, FormController>?` | See `FormFieldSchema.Watch`. |
+
 #### `FormFileValue`
 
 `Klyroo.Form` · class
@@ -243,6 +334,105 @@ A file chosen in a `FormFieldKind.File` field, without any UI type: the name, si
 | `Matches(string? accept)` | `bool` | Tells whether the file matches an accept list in the syntax of the HTML `accept` attribute: comma-separated extensions (`.png`), content types (`image/png`) and wildcards (`image/*`), compared ignoring case. |
 | `OpenReadAsync(CancellationToken cancellationToken = null)` | `ValueTask<Stream>` | Opens a new stream over the content. Dispose it when done. |
 | `ToString()` | `string` |  |
+
+#### `FormMemberInfo`
+
+`Klyroo.Form` · class
+
+Describes the member of a model a field is declared from. A `FormFieldConvention` receives it to decide the settings of the field, and `Klyroo.Form.DataAnnotations` reads the attributes of `FormMemberInfo.Property`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `IsNullableValueType` | `bool` | `true` when the member is a `Nullable`. |
+| `Key` | `string` | The key of the field: the names of the members from the model down to this one, joined with dots (`Address.City`). It is the key of the value in the controller and in `FormController.BuildOutput`. |
+| `ModelType` | `Type` | The type of the model the form is declared for. |
+| `Name` | `string` | The name of the member itself (`City` for `Address.City`). |
+| `Path` | `IReadOnlyList<PropertyInfo>` | The members from the model to this one. The last one is `FormMemberInfo.Property`. |
+| `Property` | `PropertyInfo` | The member the field reads and writes. |
+| `Type` | `Type` | The declared type of the member, `Nullable` included. |
+| `UnderlyingType` | `Type` | The type of the member without `Nullable`. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `SiblingKey(string memberName)` | `string` | The key a sibling member of this one has: same parent, another member name. `Address.City` and `Zip` give `Address.Zip`. |
+
+#### `FormModel<TModel>`
+
+`Klyroo.Form` · class
+
+A form declared from a model type: the schema to give a `FormController` or a component, and the typed moves between a model and the values of a controller. It is immutable and can be shared, and the same instance serves any number of controllers.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Fields` | `IReadOnlyList<FormFieldSchema>` | The fields in form order: the ones declared from members and the plain fields added with `FormModelBuilder.Add`. Put them in the `FormStepSchema` or `FormPageSectionSchema` of a schema you build yourself, with `FormModel.OnBeforeSubmit`, to lay the form out in steps or sections. |
+| `OnBeforeSubmit` | `Func<FormController, Task<bool>>?` | The before-submit hook of the form, or `null` when nothing needs one. It builds the model from the values, runs the model checks (see `FormModelBuilder.Validate`), puts what they report on the fields they name or on the form, and returns `false` if there is any error. Then it runs the hook given to `FormModelBuilder.OnBeforeSubmit`. The errors are not blocking: they show until the user edits the field, and the checks run again at the next submit. Use it as `FormSchema.OnBeforeSubmit` of a schema you build yourself. |
+| `Schema` | `FormSchema` | The schema of the form: `FormModel.Fields` and the settings given to the builder (title, columns, validation mode, messages, hooks), with `FormModel.OnBeforeSubmit` as the before-submit hook. The same instance is returned every time. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Create(FormController controller)` | `TModel` | Creates a new model from the values of a controller (see `FormModel.Write`). |
+| `Create(IReadOnlyDictionary<string, object?> values)` | `TModel` | Creates a new model from values by field key (see `FormModel.Write`). |
+| `CreateController(TModel model = null)` | `FormController` | Creates a controller for `FormModel.Schema`. With `model` the controller starts from its values, which are also the baseline of dirty tracking. Without it, the controller starts from the values of a new model when a model can be created (the parameterless constructor or `FormModelBuilder.Factory`), so initializers of the model are the defaults of the form. |
+| `Field<TValue>(Expression<Func<TModel, TValue>> member)` | `FormFieldSchema` | Gets the field declared for a member, to place it in a step or a section. |
+| `Load(FormController controller, TModel model)` | `void` | Loads a model into a controller: it becomes the values and the baseline of dirty tracking, errors and touched state are cleared (see `FormController.Reset`). |
+| `OnSave(Func<TModel, CancellationToken, Task<bool>> save, TModel target = null)` | `Func<FormController, CancellationToken, Task<bool>>` | Wraps a typed save step as the handler of `FormController.SubmitAsync`. |
+| `OnSaveOutput(Func<TModel, CancellationToken, Task<bool>> save, TModel target = null)` | `Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>` | Wraps a typed save step as the `OnSave` parameter of `KlyFormEngine`, which passes the output dictionary. |
+| `SubmitAsync(FormController controller, Func<TModel, CancellationToken, Task<bool>> save, TModel target = null, CancellationToken cancellationToken = null)` | `Task<bool>` | Submits a controller with a typed save step: validation and the schema hooks run, then `save` gets the model, and the form stays dirty and editable when it returns `false` (see `FormController.SubmitAsync`). |
+| `ToInput(TModel model)` | `IReadOnlyDictionary<string, object?>` | Gets the initial values of a model in the form the controller stores: the `Input` of `KlyFormEngine` or the second argument of `FormController`. Keys follow the fields, and a member that is not declared is not in it. |
+| `Write(FormController controller, TModel target)` | `TModel` | Writes the values of a controller into `target`. Only the members of fields in effect are written: a hidden field, or one of a skipped step, leaves its member as it is, as does a member without a public setter. An empty value gives `null` for a nullable or reference member (an empty string for a string that is not declared nullable) and `default` for another value type. |
+| `Write(IReadOnlyDictionary<string, object?> values, TModel target)` | `TModel` | Writes values by field key, such as the dictionary `KlyFormEngine` gives `OnSubmit` and `OnSave`, into `target`. See `FormModel.Write` for the rules. |
+
+#### `FormModelBuilder<TModel>`
+
+`Klyroo.Form` · class
+
+Declares the fields of a form from the members of a model type. Create the form with `FormModel.For``.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Columns` (get, set) | `int` | The `FormSchema.Columns` of the schema. The default is 12. |
+| `Description` (get, set) | `string?` | The `FormSchema.Description` of the schema. |
+| `Eyebrow` (get, set) | `string?` | The `FormSchema.Eyebrow` of the schema. |
+| `FormKey` (get, set) | `string` | The `FormSchema.FormKey` of the schema. The default is `form`. |
+| `Messages` (get, set) | `FormMessages?` | The `FormSchema.Messages` of the schema, or `null` for the messages of the locale. |
+| `Title` (get, set) | `string?` | The `FormSchema.Title` of the schema. |
+| `ValidateMode` (get, set) | `FormValidationMode` | The `FormSchema.ValidateMode` of the schema. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Add(FormFieldSchema field)` | `FormModelBuilder<TModel>` | Adds a field that is not bound to a member, at this position of the form. Its value is in the output of the controller but never reaches the model. |
+| `AllMembers()` | `FormModelBuilder<TModel>` | Declares a field for every public readable and writable member of the model that is not declared yet, when its type has a default kind (string, numbers, `Boolean`, enums, dates, times, `Guid` and lists of strings). Members of other types are skipped. Call it after the explicit `Field` calls to keep their order, or alone for a form that is described by attributes. |
+| `Convention(FormFieldConvention convention)` | `FormModelBuilder<TModel>` | Adds a convention that adjusts every field declared from a member (see `FormFieldConvention`). |
+| `Factory(Func<TModel> factory)` | `FormModelBuilder<TModel>` | Sets how a new model is created from the form values (`FormModel.Create`, the typed submit and the model checks). The default is the parameterless constructor of the model. A record with required constructor parameters needs this. |
+| `Field<TValue>(Expression<Func<TModel, TValue>> member, Action<FormFieldBuilder<TValue>>? configure = null)` | `FormModelBuilder<TModel>` | Declares a field for a member. The key is the member name, or the names down to it joined with dots for a nested member (`p => p.Address.City` gives `Address.City`). The kind, label and bounds come from the member type, see `FormFieldBuilder` to change them. |
+| `Nested<TNested>(Expression<Func<TModel, TNested>> member, Action<FormNestedBuilder<TModel, TNested>> configure)` | `FormModelBuilder<TModel>` | Declares the fields of the members of a nested object, with the name of the object as the prefix of their keys. The object is created with its parameterless constructor when it is `null` and a value must be written, which is also what keeps the type safe to trim. |
+| `OnBeforeSubmit(Func<FormController, Task<bool>> hook)` | `FormModelBuilder<TModel>` | Sets `FormSchema.OnBeforeSubmit`. It runs after the model checks passed. |
+| `OnSubmit(Func<FormController, Task> hook)` | `FormModelBuilder<TModel>` | Sets `FormSchema.OnSubmit`. |
+| `Order(Func<FormMemberInfo, int?> order)` | `FormModelBuilder<TModel>` | Gives the position of a member in the form, or `null` to keep the order of declaration. Fields are sorted by it (stable), and fields without a position, plain fields included, count as 10000. |
+| `Validate(FormModelValidator<TModel> validator)` | `FormModelBuilder<TModel>` | Adds a check of the whole model, run at submit after the field rules passed. The model it receives is built from the values of the form, see `FormModelBuilder.Factory`. |
+
+#### `FormModelErrors`
+
+`Klyroo.Form` · class
+
+Collects the errors of a `FormModelValidator`. An error names the member it belongs to, or none for the form as a whole.
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Add(string message)` | `void` | Reports an error on the form as a whole. |
+| `Add(string member, string message)` | `void` | Reports an error on a member. `member` is a field key (`Address.City`) or a member name that only one field has (`City`). A name that matches no field makes the error a form-level one. |
+| `IsActive(string key)` | `bool` | Tells whether the field with this key is in effect: not hidden by a condition, in a hidden container or section, or in a skipped step. A check should leave the other fields alone, because their values are not the user's. |
+
+#### `FormNestedBuilder<TModel, TNested>`
+
+`Klyroo.Form` · class
+
+Declares the fields of the members of a nested object. Obtained from `FormModelBuilder.Nested``.
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Field<TValue>(Expression<Func<TNested, TValue>> member, Action<FormFieldBuilder<TValue>>? configure = null)` | `FormNestedBuilder<TModel, TNested>` | Declares a field for a member of the nested object. The key is the key of the nested object and the member name, joined with a dot. |
+| `Nested<TInner>(Expression<Func<TNested, TInner>> member, Action<FormNestedBuilder<TModel, TInner>> configure)` | `FormNestedBuilder<TModel, TNested>` | Declares the fields of a member of the nested object that is an object itself. |
 
 #### `FormPageSectionSchema`
 
@@ -592,6 +782,20 @@ Controls when a field is validated while the user edits it, set through `FormFie
 | `Input` | Marks the field touched and validates it on every change. |
 | `Submit` | Does not validate while editing. The field is validated by `FormController.Validate` and by submission, and a change clears its validation error without validating again. |
 
+### Delegates
+
+#### `FormFieldConvention`
+
+`Klyroo.Form` · delegate
+
+Adjusts the settings of a field declared from a model member. Conventions run after the defaults the member type gives and before the settings written in the `Field` call, so an explicit setting always wins. `UseDataAnnotations()` is one.
+
+#### `FormModelValidator<TModel>`
+
+`Klyroo.Form` · delegate
+
+A check of the whole model, run when the form is submitted, after the field rules passed.
+
 ## Klyroo.Form
 
 Components (6) · Static classes and extensions (2) · Classes (1) · Records (1)
@@ -801,3 +1005,20 @@ The built-in texts of `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlySch
 | `TagPlaceholder` (init) | `string` | The placeholder of a tag input without a `Placeholder` (`"Add a tag and press Enter"`). |
 | `Tags` (init) | `string` | The accessible name of the tag list of a field without a label (`"Tags"`). |
 | `UnsavedChanges` (init) | `string` | The question of the default confirmation of `KlyFormNavigationGuard` (`"You have unsaved changes. Leave this page and discard them?"`). |
+
+## Klyroo.Form.DataAnnotations
+
+Static classes and extensions (1)
+
+### Static classes and extensions
+
+#### `FormModelDataAnnotationsExtensions`
+
+`Klyroo.Form` · service
+
+Reads the `System.ComponentModel.DataAnnotations` attributes of a model into a form declared with `FormModel.For``.
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `static FromDataAnnotations<TModel>(FormModelBuilder<TModel> builder)` | `FormModelBuilder<TModel>` | Declares a field for every public readable and writable member of the model (see `FormModelBuilder.AllMembers`) and reads their data annotations (see `FormModelDataAnnotationsExtensions.UseDataAnnotations``). It is the whole declaration of a form that is described by attributes: fields are sorted by `[Display(Order = ...)]` and then by declaration. |
+| `static UseDataAnnotations<TModel>(FormModelBuilder<TModel> builder)` | `FormModelBuilder<TModel>` | Applies the data annotations of the members that have a field, and checks the rest at submit. `[Display]`: `Name` is the label, `Description` the description, `Prompt` the placeholder and `Order` the position.`[Editable(false)]` and `[ReadOnly(true)]` disable the field. `[DataType]` picks the kind for `Password`, `MultilineText`, `PhoneNumber`, `Date` and `DateTime`.`[Required]` is `FormFieldSchema.Required`, `[StringLength]` and `[MaxLength]` on a string are `FormFieldSchema.MaxLength`, and `[Range]` on a number is `FormFieldSchema.Min` and `FormFieldSchema.Max`, so the engine checks them with its own, localized messages.`[MinLength]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[CreditCard]`, `[Compare]` and the other built-in attributes the engine has no rule for become a `FormValidatorRule` that runs while the user edits, with the message of the attribute.An `ErrorMessage` (or a resource message) that the developer set replaces the engine message, also on `[Required]`, `[StringLength]`, `[MaxLength]` and `[Range]`.Any other `ValidationAttribute` (your own, or a subclass of a built-in one), attributes on the model class and `IValidatableObject` run at submit, on the model built from the values, after the field rules passed. Their errors go to the field of the member they name, or to the form. |

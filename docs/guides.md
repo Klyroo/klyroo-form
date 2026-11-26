@@ -12,6 +12,7 @@ Task-oriented recipes. Each one states a goal, shows complete code and explains 
 - [Open a form in a dialog from anywhere](#open-a-form-in-a-dialog-from-anywhere)
 - [Edit repeatable rows](#edit-repeatable-rows)
 - [Prefill and reset a form](#prefill-and-reset-a-form)
+- [Bind a C# model](#bind-a-c-model)
 - [Add your own control](#add-your-own-control)
 - [Upload files](#upload-files)
 - [Test your forms](#test-your-forms)
@@ -472,6 +473,119 @@ Goal: load existing data into a form, and restore it on demand.
 Pass a `FormController` to `KlyFormEngine` through `Form` when you need to read or change the form from code. `Reset(newInput)` clears errors and touched state, returns to the first step, loads the values and makes them the new baseline, so the form is not dirty afterwards. `Reset()` without input returns to the defaults. To restore a single field use `ResetField(key)`, and for a section `ResetSection(key)`; both go back to the baseline, not to the defaults.
 
 Keys of the input that match no field are kept in `InternalState` but never appear in the output.
+
+## Bind a C# model
+
+Goal: build a form from a C# class, validate it with the attributes you already put on it, and receive the class back on submit.
+
+Install the extra package. It brings `Klyroo.Form.Core` and works with the Blazor components of `Klyroo.Form`:
+
+```bash
+dotnet add package Klyroo.Form.DataAnnotations --prerelease
+```
+
+Describe the model with data annotations:
+
+```csharp
+using System.ComponentModel.DataAnnotations;
+
+public enum Plan { Free, Team, Business }
+
+public sealed class Address
+{
+    [Required]
+    public string? Street { get; set; }
+
+    [Required, Display(Name = "Town")]
+    public string? City { get; set; }
+}
+
+public sealed class Signup : IValidatableObject
+{
+    [Required, StringLength(80), Display(Name = "Full name", Prompt = "Ada Lovelace", Order = 1)]
+    public string Name { get; set; } = "";
+
+    [Required, EmailAddress, Display(Order = 2)]
+    public string Email { get; set; } = "";
+
+    [Range(18, 120), Display(Order = 3)]
+    public int Age { get; set; } = 18;
+
+    public Plan Plan { get; set; } = Plan.Free;
+
+    [DataType(DataType.Date), Display(Name = "Start date")]
+    public DateOnly? StartDate { get; set; }
+
+    [Required, DataType(DataType.Password), MinLength(8)]
+    public string Password { get; set; } = "";
+
+    [Compare(nameof(Password), ErrorMessage = "The passwords differ")]
+    [DataType(DataType.Password), Display(Name = "Confirm password")]
+    public string? ConfirmPassword { get; set; }
+
+    public Address Address { get; set; } = new();
+
+    public bool AcceptTerms { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext context)
+    {
+        if (!AcceptTerms)
+            yield return new ValidationResult("You must accept the terms", [nameof(AcceptTerms)]);
+    }
+}
+```
+
+Declare the form once and render it:
+
+```razor
+@page "/signup"
+@rendermode InteractiveServer
+@inject IAccountService Accounts
+
+<KlyFormEngine Schema="_form.Schema"
+               Input="_form.ToInput(_model)"
+               OnSave="_form.OnSaveOutput(SaveAsync)" />
+
+@code {
+    private static readonly FormModel<Signup> _form = FormModel.For<Signup>(b =>
+    {
+        b.Title = "Create your account";
+        b.Nested(s => s.Address, n => n
+            .Field(a => a.Street)
+            .Field(a => a.City));
+        b.FromDataAnnotations();
+    });
+
+    private readonly Signup _model = new();
+
+    private async Task<bool> SaveAsync(Signup signup, CancellationToken ct)
+    {
+        var result = await Accounts.CreateAsync(signup, ct);
+        return result.Succeeded;
+    }
+}
+```
+
+What happens when the user presses Submit:
+
+1. The field rules run. `[Required]`, `[StringLength]` and `[Range]` are the engine's own rules (`Required`, `MaxLength`, `Min` and `Max`), so their messages are the localized ones of the component. `[MinLength]`, `[EmailAddress]`, `[RegularExpression]`, `[Phone]`, `[Url]` and `[Compare]` run as validator rules with the message of the attribute, and they also run while the user edits the field.
+2. The model is built from the values, and attributes of your own and `IValidatableObject` run on it. The terms check above fails on `AcceptTerms`, because the result names that member. A result without a member name goes to the form-level error summary.
+3. `SaveAsync` receives a `Signup`. It runs inside the submit lifecycle, so the button shows its saving state and the form stays dirty and editable if you return `false`. Report a failure with `SetError` or `SetFormError` on the controller before returning `false`.
+
+To edit an existing record, pass it to `ToInput` and pass the same instance to `OnSaveOutput(SaveAsync, target)`: the values are written into it instead of into a new `Signup`. Without a Blazor component, use `_form.CreateController(model)`, then `await _form.SubmitAsync(controller, save, ct)`.
+
+Things to know:
+
+- **How the key and the kind are chosen.** The key of a field is the member name, and the names of the members down to it joined with dots for a nested one (`Address.City`), as `address.street` already was a plain key convention in the engine. The kind comes from the member type: text for a string, `Number` for numbers (an integer must be whole and inside the range of its type), `Checkbox` for a `bool`, `Select` with the members as options for an enum, `Date`, `DateTime` and `Time` for the date and time types, text for a `Guid`, and `Tag` for a list of strings. `[DataType]` can pick `Password`, `Textarea`, `PhoneNumber`, `Date` or `DateTime` instead.
+- **Settings written in code win.** Defaults come first, attributes second and the `Field(...)` call last, so `b.Field(s => s.Plan, f => f.Kind(FormFieldKind.Radio).Label("Your plan"))` overrides both. `Configure` gives access to every setting of `FormFieldSchema`.
+- **Without attributes.** `FormModel.For<Signup>(b => b.Field(s => s.Name, f => f.Required().Placeholder("Ada")).Field(s => s.Age, f => f.Range(18, 120)))` does the same in code, with no extra package. `AllMembers()` adds every other supported member with its default settings, and `Rule` adds a check that gets the value typed.
+- **Plain fields, steps and sections.** `b.Add(new FormFieldSchema { ... })` puts a field that is not bound to the model at that position, such as a "terms" checkbox or a button: its value is in the output and never reaches the model. For steps or sections, build the `FormSchema` yourself, take the bound fields with `_form.Field(s => s.Name)`, and set `OnBeforeSubmit = _form.OnBeforeSubmit` so the model checks still run.
+- **Hidden fields.** A field that a `Condition` hides, or that sits in a skipped step, is not written: its member keeps the value it had.
+- **Empty values.** An empty input gives `null` for a nullable member and for a nullable string (`string?`), an empty string for a string that is not nullable, and `default` for another value type. Numbers, enums and dates are converted with the invariant culture whatever the culture of the thread, so a `decimal` round-trips under `fr-FR`.
+- **A record without a parameterless constructor.** Tell the builder how to create one with `b.Factory(() => new Point(0, 0))`. The model is created for the typed submit and for the model checks, and a new controller also starts from the values of that empty model, so property initializers are the defaults of the form.
+- **Not supported.** Collections of objects (`List<Item>`): they would map onto a repeatable list, but the rows are dictionaries with their own cell validation, so declare that field with a `FormFieldSchema` of kind `ArrayList` and map the rows yourself. Flags enums, members of struct type nested in the model, fields (only properties are bound), and attributes on an enum member (`[Display]` on the members of an enum, give `Options` instead).
+
+The binding does not compile expressions: `p => p.Address.City` is only read to find the members. The values are read and written with `PropertyInfo`, the model type is annotated so its public properties and constructor are kept when an app is trimmed, and `Nested` annotates the type of a nested object the same way. `Klyroo.Form.DataAnnotations` is trim-correct and not declared AOT compatible, see [Platforms](platforms.md#nativeaot-and-trimming).
 
 ## Add your own control
 

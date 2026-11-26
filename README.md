@@ -13,6 +13,7 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 - **Headless controller**: `FormController` manages values, touched state, errors, dirty tracking, steps and submission with no UI dependency, and `Klyroo.Form.Core` is NativeAOT compatible.
 - **Declarative schema**: `FormSchema` and `FormFieldSchema` describe the form as data. `FormFieldKind` has 33 values, and `KlyFormEngine` and `KlyFormPage` render each one with a dedicated control (native inputs, `InputFile` for files, or your own renderer for `Custom`), from date ranges, ratings and tag inputs to collapsible containers, tabs and repeatable lists whose cells are validated.
 - **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, asynchronous rules with a pending state (debounced, stale runs cancelled, awaited by submit), four validation modes and three triggers (blur, input, submit).
+- **Typed model binding**: `FormModel.For<Person>(b => b.Field(p => p.Name, f => f.Required()))` declares fields from the members of a C# class with refactor-safe expressions (nested members give a dotted key), picks the kind from the member type, and loads and writes the model with culture-independent conversions. `Klyroo.Form.DataAnnotations` reads `[Required]`, `[Range]`, `[Display]` and the other attributes, and runs `IValidatableObject` at submit.
 - **Server errors**: `SetError` attaches a message to a field, optionally blocking submission until the user edits it.
 - **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields, the children of hidden containers and the fields of skipped steps are left out of validation and output.
 - **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.
@@ -28,6 +29,7 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 | :--- | :--- |
 | [`Klyroo.Form.Core`](https://www.nuget.org/packages/Klyroo.Form.Core) | Headless engine: `FormSchema`, `FormController` and `FormService`. No UI dependency, trimmable, NativeAOT compatible. |
 | [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyFormEngine`, `KlyFormPage`, `KlySchemaField` and `KlyFormProvider`, and the `AddKlyrooForm()` registration. Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
+| [`Klyroo.Form.DataAnnotations`](https://www.nuget.org/packages/Klyroo.Form.DataAnnotations) | Builds a form from a C# model and its DataAnnotations attributes, and runs `IValidatableObject` and your own validation attributes at submit. References `Klyroo.Form.Core` only, so it also works without Blazor. |
 
 ## Prerequisites
 

@@ -6,7 +6,7 @@
 
 ## How-to guides
 
-- [Guides](guides.md): custom validation, server errors, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, testing.
+- [Guides](guides.md): custom validation, server errors, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, binding a C# model with data annotations, testing.
 
 ## Reference
 
