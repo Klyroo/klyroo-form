@@ -1,15 +1,19 @@
 using Klyroo.Form;
 
-var schema = new FormSchema
+var schema = FormSchema.For<Signup>(s =>
 {
-    FormKey = "signup",
-    Fields =
-    [
-        new FormFieldSchema { Key = "email", Label = "Email", Required = true },
-        new FormFieldSchema { Key = "plan", Label = "Plan", DefaultValue = "pro" }
-    ]
-};
-var controller = new FormController(schema);
-controller.SetValue("email", "alice@klyroo.dev", markTouched: true);
-await controller.SubmitAsync();
-Console.WriteLine($"Submitted email: {controller.BuildOutput()["email"]}");
+    s.FormKey = "signup";
+    s.Field(m => m.Email, f => f.Required());
+    s.Field(m => m.Plan, f => f.Options([new FormOption<string>("free", "Free"), new FormOption<string>("pro", "Pro")]));
+});
+var controller = new FormController<Signup>(schema);
+controller.Set(schema.Field(m => m.Email), "alice@klyroo.dev", markTouched: true);
+await controller.SubmitAsync((signup, _) => Task.FromResult(true));
+Console.WriteLine($"Submitted email: {controller.CreateModel().Email}");
+
+public sealed class Signup
+{
+    public string Email { get; set; } = "";
+
+    public string Plan { get; set; } = "pro";
+}

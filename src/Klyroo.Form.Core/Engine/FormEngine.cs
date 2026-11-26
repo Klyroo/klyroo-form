@@ -1075,6 +1075,22 @@ internal sealed partial class FormEngine : IDisposable
         }
     }
 
+    // Puts every value back to the baseline snapshot (the creation, the last Reset with a state, or the last successful submission) and clears errors and
+    // touched state. Unlike Reset(input) it does not run TransformInput again on values that were transformed once already.
+    internal void ResetToSnapshot()
+    {
+        ClearValidationState();
+        _customErrors.Clear();
+        SubmitFailed = false;
+        SubmitFailureCount = 0;
+        CancelAllPendingValidations();
+        _asyncResults.Clear();
+        _state.Clear();
+        foreach (var (k, v) in _initialSnapshot) _state[k] = CloneValue(v);
+        CurrentStepIndex = FirstReachableStepIndex();
+        Changed?.Invoke();
+    }
+
     private void ClearValidationState()
     {
         _validationErrors.Clear();

@@ -6,12 +6,12 @@ namespace Klyroo.Form;
 // model (a ValidationContext), attributes of the class, and IValidatableObject. The built-in attributes the field rules cover are skipped.
 internal sealed class SubmitValidator<TModel>(List<FormMemberInfo> members)
 {
-    public void Validate(TModel model, FormModelErrors errors)
+    public void Validate(TModel model, FormModelErrors<TModel> errors)
     {
         ArgumentNullException.ThrowIfNull(model);
         foreach (var member in members)
         {
-            if (!errors.IsActive(member.Key)) continue;
+            if (member.ModelType != typeof(TModel) || !errors.IsActive(member.Key)) continue;
             var holder = Holder(model, member);
             if (holder is null) continue;
             var value = member.Property.GetValue(holder);
@@ -41,7 +41,7 @@ internal sealed class SubmitValidator<TModel>(List<FormMemberInfo> members)
         }
     }
 
-    private static void Report(ValidationResult result, FormModelErrors errors)
+    private static void Report(ValidationResult result, FormModelErrors<TModel> errors)
     {
         var message = result.ErrorMessage ?? "The form is not valid";
         var names = result.MemberNames.Where(n => !string.IsNullOrEmpty(n)).ToList();

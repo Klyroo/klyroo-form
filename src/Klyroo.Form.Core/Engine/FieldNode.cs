@@ -120,6 +120,22 @@ internal sealed class SectionNode
 
 internal sealed class FormDefinition
 {
+    // Every node of the form that is not a column of a list, containers included, whichever step, section or tab holds it.
+    public IEnumerable<FieldNode> AllNodes()
+    {
+        foreach (var node in Fields.SelectMany(Walk)) yield return node;
+        foreach (var node in Steps.SelectMany(s => s.Fields).SelectMany(Walk)) yield return node;
+        foreach (var node in Sections.SelectMany(s => s.Fields).SelectMany(Walk)) yield return node;
+    }
+
+    private static IEnumerable<FieldNode> Walk(FieldNode node)
+    {
+        yield return node;
+        if (node.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable) yield break;
+        foreach (var child in (node.Fields ?? []).SelectMany(Walk)) yield return child;
+        foreach (var child in (node.Tabs ?? []).SelectMany(t => t.Fields).SelectMany(Walk)) yield return child;
+    }
+
     public object? Source { get; init; }
 
     public string FormKey { get; init; } = "form";

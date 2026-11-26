@@ -21,8 +21,10 @@ internal static class DataAnnotationsConvention
     public static int? Order(FormMemberInfo member) =>
         member.Property.GetCustomAttributes(typeof(DisplayAttribute), true).OfType<DisplayAttribute>().FirstOrDefault()?.GetOrder();
 
-    public static void Apply(FormMemberInfo member, FormFieldSettings settings)
+    public static void Apply(FormFieldConventionContext context)
     {
+        var member = context.Member;
+        var settings = context.Settings;
         var attributes = member.Property.GetCustomAttributes(true);
         var display = attributes.OfType<DisplayAttribute>().FirstOrDefault();
         var name = display?.GetName() ?? settings.Label ?? member.Name;
@@ -37,7 +39,7 @@ internal static class DataAnnotationsConvention
 
         if (attributes.OfType<DataTypeAttribute>().FirstOrDefault() is { } dataType) ApplyDataType(member, dataType.DataType, settings);
 
-        var rules = new List<FormValidatorRule>();
+        var rules = new List<ValidatorRule>();
         foreach (var attribute in attributes.OfType<ValidationAttribute>())
         {
             Map(member, settings, attribute, name, rules);
@@ -45,7 +47,7 @@ internal static class DataAnnotationsConvention
         if (rules.Count > 0) settings.Validators = [.. settings.Validators ?? [], .. rules];
     }
 
-    private static void ApplyDataType(FormMemberInfo member, DataType dataType, FormFieldSettings settings)
+    private static void ApplyDataType(FormMemberInfo member, DataType dataType, FieldSettings settings)
     {
         var isText = member.UnderlyingType == typeof(string);
         var isMoment = member.UnderlyingType == typeof(DateTime) || member.UnderlyingType == typeof(DateTimeOffset);
@@ -69,7 +71,7 @@ internal static class DataAnnotationsConvention
         }
     }
 
-    private static void Map(FormMemberInfo member, FormFieldSettings settings, ValidationAttribute attribute, string display, List<FormValidatorRule> rules)
+    private static void Map(FormMemberInfo member, FieldSettings settings, ValidationAttribute attribute, string display, List<ValidatorRule> rules)
     {
         var type = attribute.GetType();
         var custom = HasMessage(attribute);
@@ -100,7 +102,7 @@ internal static class DataAnnotationsConvention
         {
             var other = member.SiblingKey(compare.OtherProperty);
             settings.DependsOn = [.. settings.DependsOn ?? [], other];
-            rules.Add(new FormValidatorRule("compare", attribute.FormatErrorMessage(display), (raw, form) => SameText(raw, form.GetValue(other)))
+            rules.Add(new ValidatorRule("compare", attribute.FormatErrorMessage(display), (raw, form) => SameText(raw, form.GetValue(other)))
             {
                 LocalizedMessage = _ => attribute.FormatErrorMessage(DisplayName(member, display)),
             });
@@ -120,7 +122,7 @@ internal static class DataAnnotationsConvention
     // The attribute checks the value as the member type, and an empty value is Required's business, as for model binding in ASP.NET Core. The message is the one of
     // the attribute, worked out again when the rule fails (with the [Display] name of that moment) so a resource message follows the UI culture of the validation,
     // not the one that was current when the form was built. The text computed now is only the default.
-    private static FormValidatorRule Rule(FormMemberInfo member, ValidationAttribute attribute, string display, string key) =>
+    private static ValidatorRule Rule(FormMemberInfo member, ValidationAttribute attribute, string display, string key) =>
         new(key, attribute.FormatErrorMessage(display), (raw, _) =>
         {
             if (FormModelRaw.IsEmpty(raw)) return true;
