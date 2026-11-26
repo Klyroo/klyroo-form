@@ -117,10 +117,10 @@ Runtime state of a `FormSchema`: the values of the fields, a baseline for dirty 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
 | `AddRow<TItem>(FormListField<TModel, TItem> list, TItem seed = null)` | `void` | Appends a row to a repeatable list. Each cell starts from the default of its column, or from `seed` when one is given. |
-| `ApplyTo(TModel target)` | `TModel` | Writes the values of the fields in effect into `target`. It is all or nothing: every value is converted and every object on the way is checked before the first member is set, and a setter that throws puts back the members already set. A member that nothing in the form changed keeps its value, with the precision and the kind the text of a control cannot hold. |
+| `ApplyTo(TModel target)` | `TModel` | Writes the values of the fields in effect into `target`. It is all or nothing: every value is converted and every object on the way is checked before the first member is set, and a setter that throws puts back the members already set. A member that nothing in the form changed keeps its value, with the precision and the kind the text of a control cannot hold. A repeatable list is written into the items its rows were loaded from (see `FormController.Rows``), so members that are not columns survive; a new item is created only for an added row, and the collection is left alone when no row was added or removed. |
 | `CancelPendingValidations()` | `void` | Cancels the asynchronous validations that are waiting for their debounce or running, without changing any value or error. |
 | `ClearErrors(FormItem<TModel>? item = null)` | `void` | Clears the errors of one field, or every error when no field is given. |
-| `CreateModel()` | `TModel` | Builds a new model from the values of the fields in effect. Fields that are hidden, or in a skipped step, keep the default of their member. |
+| `CreateModel()` | `TModel` | Builds a new model from the values of the fields in effect. Fields that are hidden, or in a skipped step, keep the default of their member. The items of a repeatable list are new items: they are never the items of a model the form was loaded from, which this method does not change. Use `FormController.ApplyTo` to keep them. |
 | `Dispose()` | `void` | Cancels the pending asynchronous validations and stops starting new ones. The values and errors stay readable. |
 | `ExportDraft(bool includeSensitive = false)` | `FormDraft` | Takes a snapshot of what the user has typed, for example to keep a long form across a page reload. Passwords and one-time codes are left out unless `includeSensitive` is set, and files never are part of a draft. |
 | `Get<TValue>(FormField<TModel, TValue> field)` | `TValue` | Gets the current value of a field as its type. |
@@ -139,16 +139,16 @@ Runtime state of a `FormSchema`: the values of the fields, a baseline for dirty 
 | `Reset(TModel model)` | `void` | Loads a model: its values become the new baseline, errors and touched state are cleared and the form goes back to its first step. |
 | `ResetField(FormItem<TModel> item)` | `void` | Restores a field to its baseline value and clears its errors and touched state. |
 | `ResetSection(string sectionKey)` | `void` | Resets every field of a section. |
-| `RestoreDraft(FormDraft draft)` | `void` | Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields count as unsaved changes. |
+| `RestoreDraft(FormDraft draft)` | `void` | Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields count as unsaved changes. A value of the draft that is not a value of its field (`abc` for a date) is kept as the text it is and reported by `FormController.Validate` and `FormController.SubmitAsync` as an error of the field. The rows of a restored list come from no item of a model, so a write creates new items for them. |
 | `Rows<TItem>(FormListField<TModel, TItem> list)` | `IReadOnlyList<FormRow<TItem>>` | Gets the rows of a repeatable list. |
 | `Set<TValue>(FormField<TModel, TValue> field, TValue value, bool markTouched = false)` | `void` | Sets the value of a field, validating it when it was touched and running its change hooks. |
 | `SetError(FormItem<TModel> item, string message, bool blocking = false)` | `void` | Sets an error on a field, for example after a server check. It stays until the field changes or `FormController.ClearErrors` runs. |
 | `SetFormError(string message, bool blocking = true)` | `void` | Sets an error on the form as a whole. |
 | `SubmitAsync()` | `Task<bool>` | Validates every field in effect, runs the model checks, `OnBeforeSubmit` and `OnSubmit`, and on success takes a new baseline so the form is no longer dirty. The model is created from the values for the checks and hooks and then dropped; use the overload with a save step to get it. |
-| `SubmitAsync(Func<TModel, CancellationToken, Task<bool>> save, TModel target = null, CancellationToken cancellationToken = null)` | `Task<bool>` | Submits the form with your save step inside the same lifecycle. The steps are: validate (waiting for asynchronous rules); write the values into `target`, or create a new model when there is none; run the model checks and `OnBeforeSubmit` and `OnSubmit` on that model; call `save`. When a step fails, or `save` returns `false` or throws, the target is put back as it was. When all succeed the baseline is retaken, so the form is no longer dirty. |
+| `SubmitAsync(Func<TModel, CancellationToken, Task<bool>> save, TModel target = null, CancellationToken cancellationToken = null)` | `Task<bool>` | Submits the form with your save step inside the same lifecycle. The steps are: validate (waiting for asynchronous rules); write the values into `target`, or create a new model when there is none; run the model checks and `OnBeforeSubmit` and `OnSubmit` on that model; call `save`. When a step fails, or `save` returns `false` or throws, the members the write changed get their previous values again (a list or a multiple choice holds its previous items, and a row gets its previous cells). Members the form did not write are not touched, and nothing that `OnBeforeSubmit`, `OnSubmit` or `save` did is undone, neither on the model nor outside it: `OnSubmit` runs before `save`, so its side effects stay when the save fails. When all succeed the baseline is retaken, so the form is no longer dirty. |
 | `Touch(FormItem<TModel> item)` | `void` | Marks a field touched, which makes its validation error visible, and validates it. |
 | `TryGet<TValue>(FormField<TModel, TValue> field, out TValue value)` | `bool` | Tries to get the current value of a field. |
-| `Validate(bool currentStepOnly = false)` | `bool` | Validates every field in effect. |
+| `Validate(bool currentStepOnly = false)` | `bool` | Validates every field in effect: its rules, and whether its control holds a value of the type of the member (a control can hold text that is not a value yet, from a draft or a custom control; that is an error of the field with the message `FormMessages.InvalidValue`, whatever the validation mode). |
 | `ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = null)` | `Task<bool>` | Validates every field in effect, waiting for the asynchronous rules. |
 
 #### `FormDraft`
@@ -367,9 +367,10 @@ The declaration of a typed form: its fields, steps or sections, rules and hooks,
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
-| `Field<TValue>(Expression<Func<TModel, TValue>> member)` | `FormField<TModel, TValue>` | Gets the handle of a field declared with a member of the model, to read and write it through a controller from code that did not keep the handle `Field` returned. |
+| `Field<TValue>(Expression<Func<TModel, TValue>> member)` | `FormField<TModel, TValue>` | Gets the handle of a field declared with a member of the model, to read and write it through a controller from code that did not keep the handle `Field` returned. For a list use `FormSchema.List``, and for a multiple choice `FormSchema.MultiSelect``. |
 | `Item(string key)` | `FormItem<TModel>` | Gets the handle of an element by its key: a field (its member names joined with dots) or a layout element (the key it was declared with). |
 | `List<TItem>(Expression<Func<TModel, IEnumerable<TItem>>> member)` | `FormListField<TModel, TItem>` | Gets the handle of a repeatable list declared with a collection member of the model. |
+| `MultiSelect<TElement>(Expression<Func<TModel, IEnumerable<TElement>>> member)` | `FormField<TModel, IReadOnlyList<TElement>>` | Gets the handle of a multiple choice declared with a collection member of the model. |
 
 #### `FormSchemaBuilder<TModel>`
 
@@ -723,7 +724,7 @@ One error to show, as listed by `DynamicFormController.GetErrorEntries`: a field
 
 `Klyroo.Form` · record
 
-The built-in validation messages of `DynamicFormController`, which has no UI and so no locale of its own: the required, number bounds, text length, date range and file errors, and the errors the typed model binding adds for integers, numbers out of range and identifiers. A new instance holds the English messages. Build a variant with a `with` expression, give it to the controller with `DynamicFormSchema.Messages` or `DynamicFormController.Messages`, or pick one of the twelve built-in sets (`FormMessageLocales`). The Blazor components do it for you: they give the controller the messages of the current Klyroo.UI locale, see `FormTexts`.
+The built-in validation messages of `DynamicFormController`, which has no UI and so no locale of its own: the required, number bounds, text length, date range and file errors, and the errors the typed model binding adds for integers, numbers out of range, identifiers and values that are not of the type of the member. A new instance holds the English messages. Build a variant with a `with` expression, give it to the controller with `DynamicFormSchema.Messages` or `DynamicFormController.Messages`, or pick one of the twelve built-in sets (`FormMessageLocales`). The Blazor components do it for you: they give the controller the messages of the current Klyroo.UI locale, see `FormTexts`.
 
 | Constructor | Description |
 | :--- | :--- |
@@ -737,6 +738,7 @@ The built-in validation messages of `DynamicFormController`, which has no UI and
 | `FileTooLarge` (init) | `Func<string, string, string>` | The error of a `FormFieldKind.File` file above `DynamicFieldSchema.MaxFileSize`, given the file name and the limit as text (`"report.pdf is larger than 5 MB"`). |
 | `FileTypeNotAllowed` (init) | `Func<string, string, string>` | The error of a `FormFieldKind.File` file that does not match `DynamicFieldSchema.Accept`, given the file name and the accepted list (`"photo.gif is not an accepted type (.png,.jpg)"`). |
 | `InvalidIdentifier` (init) | `string` | The error of a `Guid` member of a bound model whose text is not an identifier (`"Enter a valid identifier"`). Added by the typed schema, see `FormSchema.For`. |
+| `InvalidValue` (init) | `string` | The error of a field of a typed form whose control holds something that is not a value of the type of the member: text in a date field (from a draft, or a custom control that writes free text), two texts in a date range (`"Enter a valid value"`). The messages above keep their own wording for numbers and identifiers. |
 | `MaxLength` (init) | `Func<int, string>` | The error of a text longer than `DynamicFieldSchema.MaxLength`, given the limit (`"Must be at most 20 characters"`). |
 | `MaxValue` (init) | `Func<double, string>` | The error of a `FormFieldKind.Number` above `DynamicFieldSchema.Max`, given the bound (`"Value must be at most 10"`). |
 | `MinValue` (init) | `Func<double, string>` | The error of a `FormFieldKind.Number` below `DynamicFieldSchema.Min`, given the bound (`"Value must be at least 3"`). |
@@ -1036,7 +1038,7 @@ Controls which checks a `DynamicFormController` runs when it validates, set thro
 | `All` | Runs required checks, number bounds, password requirements and custom validators. |
 | `RequiredOnly` | Runs required checks only. |
 | `ValidatorsOnly` | Runs number bounds, password requirements and custom validators, and skips required checks. |
-| `None` | Runs no validation. `DynamicFormController.Validate` returns `true` unless a blocking error set with `DynamicFormController.SetError` exists. |
+| `None` | Runs no rule. `DynamicFormController.Validate` returns `true` unless a blocking error set with `DynamicFormController.SetError` exists or, in a typed form, a control holds something that is not a value of the type of its member (`FormMessages.InvalidValue`), which no write could use. |
 
 #### `FormValidationTrigger`
 
