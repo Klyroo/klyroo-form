@@ -4,6 +4,7 @@ Task-oriented recipes. Each one states a goal, shows complete code and explains 
 
 - [Validate a field with custom rules](#validate-a-field-with-custom-rules)
 - [Report a server error on a field](#report-a-server-error-on-a-field)
+- [Check a value against a service while the user types](#check-a-value-against-a-service-while-the-user-types)
 - [Save from the component and keep the form busy](#save-from-the-component-and-keep-the-form-busy)
 - [Show and require fields conditionally](#show-and-require-fields-conditionally)
 - [Build a multi-step wizard](#build-a-multi-step-wizard)
@@ -112,6 +113,35 @@ var schema = new FormSchema
 `OnBeforeSubmit` runs after local validation passes and before `OnSubmit`. Returning `false` cancels the submit, `SetError` puts the message on the field, and the next `SetValue` on that field clears it. `SubmitAsync()` returns `false` and the form stays dirty.
 
 `SetError` takes a `blocking` argument. A blocking error makes `Validate()` and `SubmitAsync()` fail until it is cleared, without calling your service again. Use it when you set the error outside of the submit pipeline, for example from `OnBeforeNext` in a wizard. For an error set inside `OnBeforeSubmit`, which already returns `false`, the default is enough.
+
+## Check a value against a service while the user types
+
+Goal: tell the user that a username is taken as soon as they leave the field, without calling the service on every key and without letting a stale answer through.
+
+```csharp
+using Klyroo.Form;
+
+new FormFieldSchema
+{
+    Key = "username",
+    Label = "Username",
+    Required = true,
+    AsyncValidators =
+    [
+        new FormAsyncValidatorRule("free", async (value, form, ct) =>
+            await accounts.IsUsernameTakenAsync((string)value!, ct) ? "This username is taken" : null)
+        {
+            Debounce = TimeSpan.FromMilliseconds(400),
+        },
+    ],
+}
+```
+
+The rule returns the error message, or `null` when the value is valid. It runs after the synchronous checks pass and only for a value that is not empty. Once the field is touched (it loses focus, or `Trigger = Input` and it changes), a run starts when the value has stayed unchanged for `Debounce`. A newer value cancels the older run through the token and its answer is ignored: the error is only ever the answer for the value on screen. While a run is waiting or running, `form.IsValidating("username")` is `true`, and the components show a spinner and "Checking..." under the field and set `aria-busy` on it.
+
+`SubmitAsync()` and `NextStepAsync()` wait for the rules of the fields they validate, keep `IsSubmitting` set meanwhile, and fail if a rule returns a message. A run that already called the service with the current value is joined, not repeated, and an answer that is already known is reused. `await form.ValidateAsync()` does the same without submitting; the synchronous `Validate()` only uses the answers that are already known.
+
+If the service is unreachable during a background run, the exception is swallowed and the field simply stays unchecked: the user can still fix other fields, and `SubmitAsync()` runs the rule again and lets the exception reach your code, like any other hook that throws. A rule does not apply to the cells of a repeatable list. In a host without a synchronization context (a console app, a test), background runs finish on a thread-pool thread, and `Changed` is raised there.
 
 ## Save from the component and keep the form busy
 

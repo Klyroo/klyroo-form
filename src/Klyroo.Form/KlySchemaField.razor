@@ -125,6 +125,7 @@
         var showReset = field.DirtyCheck && isDirty;
         var showHeader = showLabel || !string.IsNullOrEmpty(field.Hint) || showReset;
         var groupControl = IsGroupControl(field);
+        var validating = form.IsValidating(field.Key);
 
         var binding = new Binding(
             fieldId,
@@ -142,7 +143,8 @@
             IsCell: false);
 
         return @<div style="@spanStyle" class="flex flex-col gap-1.5" data-slot="form-field" data-form-field="@field.Key"
-                     data-kind="@field.Kind.ToString().ToLowerInvariant()" data-invalid="@(error is not null ? "true" : null)">
+                     data-kind="@field.Kind.ToString().ToLowerInvariant()" data-invalid="@(error is not null ? "true" : null)"
+                     aria-busy="@(validating ? "true" : null)" data-validating="@(validating ? "true" : null)">
             @if (showHeader)
             {
                 <div class="flex items-center justify-between gap-2" data-slot="form-field-header">
@@ -191,6 +193,14 @@
             }
 
             @RenderControl(form, field, binding)
+
+            @if (validating)
+            {
+                <span class="inline-flex items-center gap-1.5 text-xs text-(--klyroo-text-muted)" data-slot="form-field-pending">
+                    <span class="size-3 animate-spin rounded-full border-2 border-(--klyroo-border) border-t-(--klyroo-primary)" aria-hidden="true"></span>
+                    Checking…
+                </span>
+            }
 
             @if (field.OnCreateOption is not null && field.Kind is FormFieldKind.Select or FormFieldKind.AutoComplete)
             {

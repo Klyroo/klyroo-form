@@ -12,7 +12,7 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 
 - **Headless controller**: `FormController` manages values, touched state, errors, dirty tracking, steps and submission with no UI dependency, and `Klyroo.Form.Core` is NativeAOT compatible.
 - **Declarative schema**: `FormSchema` and `FormFieldSchema` describe the form as data. `FormFieldKind` has 31 values, and `KlyFormEngine` and `KlyFormPage` render each one with a dedicated native control, from date ranges, ratings and tag inputs to collapsible containers, tabs and repeatable lists whose cells are validated.
-- **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, four validation modes and three triggers (blur, input, submit).
+- **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, asynchronous rules with a pending state (debounced, stale runs cancelled, awaited by submit), four validation modes and three triggers (blur, input, submit).
 - **Server errors**: `SetError` attaches a message to a field, optionally blocking submission until the user edits it.
 - **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields, the children of hidden containers and the fields of skipped steps are left out of validation and output.
 - **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.

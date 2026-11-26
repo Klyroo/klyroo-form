@@ -152,6 +152,21 @@ public sealed record FormValidatorRule(
     string Message,
     Func<object?, FormController, bool> Validate);
 
+/// <summary>
+/// An asynchronous validation rule of a field, for a check that needs I/O such as "is this username free". It runs in the background once the user has left the field
+/// (and again, debounced, as they edit it), a newer run cancels an older one, and <see cref="FormController.SubmitAsync()"/> and <see cref="FormController.NextStepAsync"/>
+/// wait for it. It does not run for an empty value or for a value that already fails a synchronous rule, and it applies to fields, not to the cells of a repeatable list.
+/// </summary>
+/// <param name="Key">Identifier of the rule.</param>
+/// <param name="Validate">Receives the current field value, the controller and a token that is cancelled when the value changes or a newer run starts. Returns the error message, or <c>null</c> when the value is valid. An exception it throws in a background run is swallowed and the value stays unchecked until submission, where the exception propagates to the caller.</param>
+public sealed record FormAsyncValidatorRule(
+    string Key,
+    Func<object?, FormController, CancellationToken, ValueTask<string?>> Validate)
+{
+    /// <summary>How long the value must stay unchanged before a background run starts, so typing does not call the service on every key. The default is 300 milliseconds. Submission runs the rule at once.</summary>
+    public TimeSpan Debounce { get; init; } = TimeSpan.FromMilliseconds(300);
+}
+
 /// <summary>One tab of a <see cref="FormFieldKind.Tabs"/> field.</summary>
 public sealed class FormTabItemSchema
 {
@@ -243,6 +258,8 @@ public sealed class FormFieldSchema
     public IReadOnlyList<FormPasswordRequirement>? PasswordRequirements { get; init; }
     /// <summary>Custom validation rules, run in order after the built-in checks. The first failing rule sets the error.</summary>
     public IReadOnlyList<FormValidatorRule>? Validators { get; init; }
+    /// <summary>Asynchronous rules, run after the synchronous checks pass and the value is not empty. They run in the background after the field is touched and while it is edited (see <see cref="FormAsyncValidatorRule.Debounce"/>), and <see cref="FormController.SubmitAsync()"/>, <see cref="FormController.NextStepAsync"/> and <see cref="FormController.ValidateAsync"/> wait for them. <see cref="FormController.IsValidating"/> tells whether one is running, which the components show next to the field.</summary>
+    public IReadOnlyList<FormAsyncValidatorRule>? AsyncValidators { get; init; }
 
     // Transforms & watchers
     /// <summary>Converts a value from the initial input into the value held in the state. It does not apply to default values or to values set later.</summary>
@@ -379,6 +396,9 @@ public sealed partial class FormController
     private readonly HashSet<CellKey> _touchedCells = [];
     private readonly Dictionary<string, List<FormOptionItem>> _createdOptions = new(StringComparer.Ordinal);
     private bool _navigating;
+    private readonly Dictionary<string, (object? Value, string? Message)> _asyncResults = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CancellationTokenSource> _pendingValidations = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, BackgroundRun> _backgroundRuns = new(StringComparer.Ordinal);
 
     private readonly record struct CellKey(string Array, int Row, string Child)
     {
@@ -617,6 +637,11 @@ public sealed partial class FormController
 
         field?.Watch?.Invoke(value, this);
         RevalidateDependents(path);
+        if (field is not null && field.AsyncValidators is { Count: > 0 })
+        {
+            if (field.Trigger != FormValidationTrigger.Submit && _touchedPaths.Contains(path)) ScheduleAsyncValidation(field);
+            else CancelPendingValidation(path);
+        }
         Changed?.Invoke();
     }
 
@@ -629,6 +654,7 @@ public sealed partial class FormController
         if (field is not null && field.Trigger != FormValidationTrigger.Submit)
         {
             ValidateField(field);
+            if (field.AsyncValidators is { Count: > 0 }) ScheduleAsyncValidation(field);
         }
         Changed?.Invoke();
     }
@@ -645,6 +671,8 @@ public sealed partial class FormController
         _customErrors.Remove(path);
         _touchedPaths.Remove(path);
         RemoveCellState(path);
+        CancelPendingValidation(path);
+        _asyncResults.Remove(path);
         if (!ValuesEqual(before, restored))
         {
             FindField(path)?.Watch?.Invoke(restored, this);
@@ -985,7 +1013,7 @@ public sealed partial class FormController
             {
                 var cell = new CellKey(arrayField.Key, i, child.Key);
                 _touchedCells.Add(cell);
-                if (CheckValue(child, rows[i].GetValueOrDefault(child.Key)) is { } error)
+                if (CheckValue(child, rows[i].GetValueOrDefault(child.Key), withAsync: false) is { } error)
                 {
                     _cellErrors[cell] = error;
                 }
@@ -1000,7 +1028,7 @@ public sealed partial class FormController
         if (!ActiveFields.Contains(arrayField) || !CellFields(arrayField).Contains(child)) return;
         var rows = GetArrayItems(arrayField.Key);
         if (index < 0 || index >= rows.Count) return;
-        if (CheckValue(child, rows[index].GetValueOrDefault(child.Key)) is { } error)
+        if (CheckValue(child, rows[index].GetValueOrDefault(child.Key), withAsync: false) is { } error)
         {
             _cellErrors[cell] = error;
         }
@@ -1091,8 +1119,11 @@ public sealed partial class FormController
         }
     }
 
-    // The first failing check of a value against the rules of a field, or null.
-    private string? CheckValue(FormFieldSchema field, object? val)
+    // The first failing check of a value against the rules of a field, or null. The result of an asynchronous rule counts once it is known for this value.
+    private string? CheckValue(FormFieldSchema field, object? val, bool withAsync = true) =>
+        CheckValueSync(field, val) ?? (withAsync ? CachedAsyncError(field, val) : null);
+
+    private string? CheckValueSync(FormFieldSchema field, object? val)
     {
         if (Schema.ValidateMode == FormValidationMode.None) return null;
         var isEmpty = IsEmptyValue(val);
@@ -1206,7 +1237,10 @@ public sealed partial class FormController
         _navigating = true;
         try
         {
-            if (!Validate(currentStepOnly: true))
+            var valid = HasAsyncWork(currentStepOnly: true)
+                ? await ValidateAsync(currentStepOnly: true)
+                : Validate(currentStepOnly: true);
+            if (!valid)
             {
                 SubmitFailed = true;
                 Changed?.Invoke();
@@ -1294,18 +1328,25 @@ public sealed partial class FormController
     private async Task<bool> SubmitCoreAsync(Func<FormController, CancellationToken, Task<bool>>? handler, CancellationToken cancellationToken)
     {
         if (IsSubmitting || _navigating) return false;
-        if (!Validate(currentStepOnly: false))
+        // Waiting for an asynchronous rule is part of the submission: a second submit during that wait must be refused too.
+        var waits = HasAsyncWork(currentStepOnly: false);
+        if (waits)
         {
-            SubmitFailed = true;
+            IsSubmitting = true;
             Changed?.Invoke();
-            return false;
         }
-
-        IsSubmitting = true;
-        Changed?.Invoke();
         var succeeded = false;
         try
         {
+            var valid = waits ? await ValidateAsync(currentStepOnly: false, cancellationToken) : Validate(currentStepOnly: false);
+            if (!valid) return false;
+
+            if (!IsSubmitting)
+            {
+                IsSubmitting = true;
+                Changed?.Invoke();
+            }
+
             if (Schema.OnBeforeSubmit is not null)
             {
                 var allowed = await Schema.OnBeforeSubmit(this);
@@ -1351,6 +1392,8 @@ public sealed partial class FormController
         ClearValidationState();
         _customErrors.Clear();
         SubmitFailed = false;
+        CancelAllPendingValidations();
+        _asyncResults.Clear();
         CurrentStepIndex = 0;
         InitializeState(newInput);
         CurrentStepIndex = FirstReachableStepIndex();

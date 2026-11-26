@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Asynchronous validation: `FormFieldSchema.AsyncValidators` take `FormAsyncValidatorRule` (`(value, controller, CancellationToken) => ValueTask<string?>`, with a `Debounce`). They run in the background after blur and while editing, stale runs are cancelled, and `SubmitAsync`, `NextStepAsync` and the new `FormController.ValidateAsync` wait for them. `IsValidating(key)` and `HasPendingValidation` report a run, and the components show a pending state next to the field.
 - `KlyFormNavigationGuard`, a `NavigationLock` that follows `FormController.IsDirty`: it asks the browser to confirm external navigation while the form is dirty and confirms in-app navigation with `window.confirm` or your `ConfirmLeave`.
 - `FormController.ExportState()` and `RestoreDraft()` with `FormDraft` (and `ToJson` and `FromJson`, written without reflection). A restored draft keeps the original baseline, so it is still dirty; passwords and one-time codes are left out unless asked for.
 - `FormController.TryGetValue<T>`, and a `GetValue<T>` that converts the formats the controls store: `Nullable<T>`, `DateOnly` (`yyyy-MM-dd`), `TimeOnly` (`HH:mm`), `DateTime` (`yyyy-MM-ddTHH:mm`), `DateTimeOffset`, `TimeSpan`, `Guid`, enums (by name or member number), `bool` text and numbers in the invariant culture. It uses no reflection over the target type, so it stays AOT and trim compatible.

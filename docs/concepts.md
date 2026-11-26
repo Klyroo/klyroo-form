@@ -90,7 +90,7 @@ After `SetValue`, `ResetField` or a change of a repeatable list, the controller 
 
 Errors that your own code sets with `SetError`, such as a server response, are a separate set. They are always visible, they disappear on the next `SetValue` for that field, and when you mark one `blocking` it also makes `Validate()` and `SubmitAsync()` fail until it is cleared.
 
-The controller validates synchronously. Anything that needs I/O belongs in `OnBeforeSubmit` or `OnBeforeNext`, which are async, combined with `SetError`.
+`Validate()` and the rules in `Validators` are synchronous. A check that needs I/O, such as "is this username free", is an `AsyncValidators` rule: it runs in the background once the field is touched and while it is edited (debounced, an older run cancelled by a newer one), `IsValidating(key)` reports it so the components can show a pending state, and `SubmitAsync()`, `NextStepAsync()` and `ValidateAsync()` wait for it. A rule does not run for an empty value or for one that already fails a synchronous rule, and it applies to fields, not to the cells of a repeatable list. `OnBeforeSubmit` and `OnBeforeNext` stay the place for checks that belong to the whole submission, combined with `SetError`.
 
 ## Conditions and hidden fields
 
@@ -165,6 +165,6 @@ Validation failures are not exceptions. They are values: `Validate()` and `Submi
 
 - **Untyped values keyed by strings.** A form is a dictionary of `object?`, which makes forms that are built from data or change shape at runtime easy, and means there is no compile-time check that a key exists or that a value has the type you expect. You map the output dictionary to your own type.
 - **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object.
-- **Synchronous validators, async hooks.** Rules are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Server checks go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
+- **Synchronous validators, async rules and hooks.** `Validators` are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Per-field server checks are `AsyncValidators`, which run apart from the synchronous path and are awaited by submission; checks that belong to the whole submission go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
 - **A mutable controller with an event.** The state is mutated in place and `Changed` tells observers. It is small, and it also means you own synchronization if you share a controller across threads.
 - **Native controls, almost no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events, plus one optional focus helper. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.
