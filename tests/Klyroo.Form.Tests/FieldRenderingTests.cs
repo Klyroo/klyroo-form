@@ -487,4 +487,75 @@ public sealed class FieldRenderingTests : BunitContext
         Assert.Contains(panelClass, panel, StringComparison.Ordinal);
         Assert.DoesNotContain("max-w-2xl", panel, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void The_selected_tab_survives_a_sibling_appearing_or_disappearing()
+    {
+        var (cut, form) = Engine(
+            new FormFieldSchema { Key = "show", Kind = FormFieldKind.Checkbox, DefaultValue = true },
+            new FormFieldSchema { Key = "maybe", Condition = f => f.GetValue("show") is true },
+            new FormFieldSchema
+            {
+                Key = "tabs",
+                Kind = FormFieldKind.Tabs,
+                Tabs =
+                [
+                    new FormTabItemSchema { Key = "a", Label = "A", Fields = [new FormFieldSchema { Key = "fa" }] },
+                    new FormTabItemSchema { Key = "b", Label = "B", Fields = [new FormFieldSchema { Key = "fb" }] },
+                ],
+            });
+
+        cut.Find("[data-slot=form-tab-trigger][data-tab=b]").Click();
+        form.SetValue("show", false);
+        cut.Render();
+
+        Assert.Equal("true", cut.Find("[data-slot=form-tab-trigger][data-tab=b]").GetAttribute("aria-selected"));
+        Assert.NotNull(cut.Find("[data-form-field=fb]"));
+    }
+
+    [Fact]
+    public void AutoComplete_keeps_the_typed_text_while_the_user_types()
+    {
+        var (cut, form) = Engine(new FormFieldSchema { Key = "country", Kind = FormFieldKind.AutoComplete, Options = [new("DE", "Germany"), new("DK", "Denmark")] });
+
+        cut.Find("#kly-ff-country").Input("De");
+        Assert.Equal("De", cut.Find("#kly-ff-country").GetAttribute("value"));
+        cut.Find("#kly-ff-country").Input("denmark");
+        Assert.Equal("DK", form.GetValue("country"));
+
+        cut.Find("#kly-ff-country").Blur();
+        Assert.Equal("Denmark", cut.Find("#kly-ff-country").GetAttribute("value"));
+    }
+
+    [Fact]
+    public void Rating_renders_every_star_up_to_Max()
+    {
+        var (cut, _) = Engine(new FormFieldSchema { Key = "score", Kind = FormFieldKind.Rating, Max = 12 });
+
+        Assert.Equal(12, cut.FindAll("[data-form-field=score] input[type=radio]").Count);
+    }
+
+    [Fact]
+    public async Task The_stepper_keeps_the_current_step_and_Enter_before_the_last_step_moves_next()
+    {
+        var submitted = false;
+        var form = new FormController(new FormSchema
+        {
+            Steps =
+            [
+                new FormStepSchema { Key = "s1", Title = "One", SkipWhen = f => f.GetValue<string>("x") == "skip", Fields = [new FormFieldSchema { Key = "x" }] },
+                new FormStepSchema { Key = "s2", Title = "Two", Fields = [new FormFieldSchema { Key = "y", Required = true }] },
+            ],
+        });
+        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, form).Add(x => x.OnSubmit, _ => submitted = true));
+
+        form.SetValue("x", "skip");
+        cut.Render();
+        Assert.NotNull(cut.Find("[data-slot=form-step-badge][data-step=s1]"));
+
+        form.SetValue("x", "");
+        await cut.Find("form").SubmitAsync();
+        Assert.Equal("s2", form.CurrentStep?.Key);
+        Assert.False(submitted);
+    }
 }

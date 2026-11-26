@@ -74,4 +74,35 @@ public sealed class ArrayCellTests
 
         Assert.Equal(["list", "A-1", "list"], watched);
     }
+
+    [Fact]
+    public void Replacing_the_rows_with_SetValue_drops_the_old_cell_errors()
+    {
+        var (form, lines) = Invoice(_ => false);
+        form.AddArrayItem(lines);
+        Assert.False(form.Validate());
+
+        form.SetValue("lines", new List<Dictionary<string, object?>> { new() { ["sku"] = "A", ["qty"] = 1.0 } });
+
+        Assert.False(form.HasBlockingErrors);
+        Assert.Null(form.GetArrayItemError("lines", 0, "sku"));
+        Assert.DoesNotContain("lines[0].sku", form.Errors.Keys);
+    }
+
+    [Fact]
+    public void Errors_of_a_column_hidden_after_validation_no_longer_count()
+    {
+        var showNote = true;
+        var (form, lines) = Invoice(_ => showNote);
+        form.AddArrayItem(lines);
+        form.SetArrayItemValue("lines", 0, "sku", "A");
+        Assert.False(form.Validate());
+        Assert.NotNull(form.GetArrayItemError("lines", 0, "note"));
+
+        showNote = false;
+
+        Assert.False(form.HasBlockingErrors);
+        Assert.Null(form.GetArrayItemError("lines", 0, "note"));
+        Assert.Empty(form.Errors);
+    }
 }

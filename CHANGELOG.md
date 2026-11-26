@@ -26,7 +26,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
-- `AutoComplete` is a text input with `datalist` suggestions instead of a select list. It stores the value of the option whose label or value matches the text, or the text itself.
+- `AutoComplete` is a text input with `datalist` suggestions instead of a select list. It stores the value of the option whose label matches the text (ignoring case) or whose value equals it, or the text itself.
 - `Watch` now also runs after `ResetField` changes a value, after a row of a repeatable list is added or removed, and, for a child of a list, after its cell changes. `Reset` still does not call it.
 - `Validate` removes the validation errors of fields that are no longer in effect, and `HasBlockingErrors` ignores them.
 
@@ -42,6 +42,7 @@ All notable changes to this project are documented in this file. The format is b
 - A `Switch` showed its label twice, and the `Hint` and `DirtyCheck` reset of checkboxes and label-less fields were not rendered.
 - The label of a radio group pointed to an id that no element had. The group now has an id and `aria-labelledby`.
 - `MaxLength` was not rendered as `maxlength` on `Textarea` and `Password` inputs.
+- Pressing Enter in a field of a wizard before its last step submitted the whole form; it now moves to the next step.
 - A `Slider` without a value showed the browser's midpoint. It now shows `Min` (or 0) and keeps `null` in the state until the user moves it.
 
 - A form opened with `FormService` ran validation, `OnBeforeSubmit` and `OnSubmit` twice when submitted from its button.

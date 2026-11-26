@@ -73,7 +73,7 @@ public enum FormFieldKind
     CheckboxGroup,
     /// <summary>Native select list built from the field options, with an <c>optgroup</c> per <see cref="FormOptionItem.Group"/>. The value is the selected option value. With <see cref="FormFieldSchema.Multiple"/> it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>.</summary>
     Select,
-    /// <summary>Text input that suggests the option labels through a <c>datalist</c>. The value is the value of the option whose label or value matches the text (ignoring case), otherwise the text itself. With <see cref="FormFieldSchema.Multiple"/> it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>.</summary>
+    /// <summary>Text input that suggests the option labels through a <c>datalist</c>. The value is the value of the option whose label matches the text (ignoring case) or whose value equals it, otherwise the text itself; the typed text stays on screen until the input loses focus. With <see cref="FormFieldSchema.Multiple"/> it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>.</summary>
     AutoComplete,
     /// <summary>Date input (<c>type="date"</c>). The value is the string produced by the browser, in <c>yyyy-MM-dd</c> form.</summary>
     Date,
@@ -480,11 +480,15 @@ public sealed class FormController
                     result[path] = msg;
                 }
             }
-            foreach (var (cell, msg) in _cellErrors)
+            if (_cellErrors.Count > 0)
             {
-                if (_touchedCells.Contains(cell))
+                var columns = ActiveCellColumns();
+                foreach (var (cell, msg) in _cellErrors)
                 {
-                    result[cell.ToString()] = msg;
+                    if (_touchedCells.Contains(cell) && IsCellInEffect(columns, cell))
+                    {
+                        result[cell.ToString()] = msg;
+                    }
                 }
             }
             foreach (var (path, (msg, _)) in _customErrors)
@@ -495,7 +499,7 @@ public sealed class FormController
         }
     }
 
-    /// <summary><c>true</c> if a field in effect (see <see cref="ActiveFields"/>) or a cell of one of its repeatable lists has a validation error, touched or not, or if any error set with <see cref="SetError"/> is blocking. Validation errors only exist once validation has run.</summary>
+    /// <summary><c>true</c> if a field in effect (see <see cref="ActiveFields"/>) or a visible cell of one of its repeatable lists has a validation error, touched or not, or if any error set with <see cref="SetError"/> is blocking. Validation errors only exist once validation has run.</summary>
     public bool HasBlockingErrors
     {
         get
@@ -503,7 +507,9 @@ public sealed class FormController
             if (_customErrors.Values.Any(e => e.Blocking)) return true;
             if (_validationErrors.Count == 0 && _cellErrors.Count == 0) return false;
             var activeKeys = ActiveFields.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
-            return _validationErrors.Keys.Any(activeKeys.Contains) || _cellErrors.Keys.Any(c => activeKeys.Contains(c.Array));
+            if (_validationErrors.Keys.Any(activeKeys.Contains)) return true;
+            var columns = ActiveCellColumns();
+            return _cellErrors.Keys.Any(c => IsCellInEffect(columns, c));
         }
     }
 
@@ -588,7 +594,7 @@ public sealed class FormController
     public object? GetInitialValue(string path) =>
         _initialSnapshot.TryGetValue(path, out var val) ? val : null;
 
-    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key, validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/> (with that trigger, the validation error is cleared instead), calls <see cref="FormFieldSchema.Watch"/> and raises <see cref="Changed"/>.</summary>
+    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key (and the errors and touched state of the cells when it replaces the rows of a repeatable list), validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/> (with that trigger, the validation error is cleared instead), calls <see cref="FormFieldSchema.Watch"/> and raises <see cref="Changed"/>.</summary>
     /// <param name="path">Key of the field.</param>
     /// <param name="value">The new value.</param>
     /// <param name="markTouched"><c>true</c> to mark the field touched, so its error is shown. Fields with the <see cref="FormValidationTrigger.Input"/> trigger are always marked.</param>
@@ -596,6 +602,7 @@ public sealed class FormController
     {
         _state[path] = value;
         _customErrors.Remove(path);
+        RemoveCellState(path);
 
         var field = FindField(path);
         if (markTouched || field?.Trigger == FormValidationTrigger.Input)
@@ -888,7 +895,7 @@ public sealed class FormController
     public string? GetArrayItemError(string arrayKey, int index, string childKey)
     {
         var cell = new CellKey(arrayKey, index, childKey);
-        return _touchedCells.Contains(cell) && _cellErrors.TryGetValue(cell, out var err) ? err : null;
+        return _touchedCells.Contains(cell) && _cellErrors.TryGetValue(cell, out var err) && IsCellInEffect(ActiveCellColumns(), cell) ? err : null;
     }
 
     /// <summary>Builds the path that identifies a cell of a repeatable list in <see cref="Errors"/> and <see cref="GetError"/>: <c>arrayKey[index].childKey</c>.</summary>
@@ -999,6 +1006,16 @@ public sealed class FormController
             _cellErrors[cell] = error;
         }
     }
+
+    // The visible columns of every repeatable list in effect, by list key.
+    private Dictionary<string, HashSet<string>> ActiveCellColumns() =>
+        ActiveFields.Where(f => f.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable)
+            .GroupBy(f => f.Key, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.SelectMany(CellFields).Select(c => c.Key).ToHashSet(StringComparer.Ordinal), StringComparer.Ordinal);
+
+    private bool IsCellInEffect(Dictionary<string, HashSet<string>> columns, CellKey cell) =>
+        columns.TryGetValue(cell.Array, out var children) && children.Contains(cell.Child)
+        && cell.Row >= 0 && cell.Row < GetArrayItems(cell.Array).Count;
 
     // The children of a repeatable list that are columns now: visible, stateful leaves.
     private List<FormFieldSchema> CellFields(FormFieldSchema arrayField) =>
@@ -1233,6 +1250,7 @@ public sealed class FormController
     {
         var result = new List<FormPageSectionState>();
         var dirtySet = DirtyPaths.ToHashSet(StringComparer.Ordinal);
+        var columns = ActiveCellColumns();
         foreach (var section in Schema.Sections.Where(IsSectionVisible))
         {
             var leaves = new List<FormFieldSchema>();
@@ -1254,7 +1272,7 @@ public sealed class FormController
                     if (IsMissingValue(leaf, val)) missingCount++;
                 }
                 if (_validationErrors.ContainsKey(leaf.Key) || _customErrors.ContainsKey(leaf.Key)
-                    || _cellErrors.Keys.Any(c => c.Array == leaf.Key))
+                    || _cellErrors.Keys.Any(c => c.Array == leaf.Key && IsCellInEffect(columns, c)))
                 {
                     hasError = true;
                 }

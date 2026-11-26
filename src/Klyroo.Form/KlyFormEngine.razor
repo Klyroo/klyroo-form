@@ -43,7 +43,7 @@
                         {
                             var idx = i;
                             var step = form.Schema.Steps[i];
-                            if (step.SkipWhen?.Invoke(form) == true) continue;
+                            if (idx != form.CurrentStepIndex && step.SkipWhen?.Invoke(form) == true) continue;
                             var isCurrent = idx == form.CurrentStepIndex;
                             var isDone = idx < form.CurrentStepIndex;
                             <li class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium @(isCurrent ? "bg-(--klyroo-primary) text-(--klyroo-primary-contrast)" : isDone ? "bg-(--klyroo-success)/15 text-(--klyroo-success-text)" : "bg-(--klyroo-bg-muted) text-(--klyroo-text-muted)")"
@@ -186,6 +186,12 @@
     private async Task OnFormSubmitAsync()
     {
         if (EffectiveController is null) return;
+        // Enter in a field submits the form element; before the last step it means Next, not a submit of the whole wizard.
+        if (EffectiveController.IsStepped && !EffectiveController.IsLastStep)
+        {
+            await EffectiveController.NextStepAsync();
+            return;
+        }
         var ok = await EffectiveController.SubmitAsync();
         if (ok && OnSubmit.HasDelegate)
         {

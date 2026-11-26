@@ -26,7 +26,7 @@ Klyroo.Form (Blazor, builds on Klyroo.UI)
   KlyFormProvider            hosts the overlay opened by FormService
 ```
 
-A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords, the text being typed in a tag or create-option input and, for `KlyFormEngine`, the controller it creates when you pass a schema.
+A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyFormEngine`, the controller it creates when you pass a schema.
 
 For forms bound to a model class with data annotations, Klyroo.UI provides `KlyForm`, which works on an `EditContext`. Klyroo.Form is for forms described as data, where the fields, conditions and steps are decided at runtime or you want to run the form without a UI. It has no integration with `DataAnnotations`.
 

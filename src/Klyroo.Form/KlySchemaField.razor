@@ -11,9 +11,9 @@
     // form attribute at an id that no element has: an input whose form attribute matches no form element has no form owner.
     private const string DetachedFormId = "kly-form-detached";
 
-    private readonly HashSet<string> _revealedPasswords = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, string> _drafts = new(StringComparer.Ordinal);
-    private string? _activeTab;
+    // UI state lives with the controller, keyed by field key or element id, not with this instance: Blazor reuses instances by
+    // position, so a field whose earlier sibling appears or disappears would otherwise inherit another field's state.
+    private FormUiState Ui => FormUiState.For(Form);
 
     /// <summary>The controller that holds the value of the field.</summary>
     [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
@@ -27,6 +27,7 @@
     private sealed record Binding(
         string Id,
         object? Value,
+        Func<object?> Current,
         Action<object?> Set,
         Action<object?> Commit,
         Action Blur,
@@ -128,6 +129,7 @@
         var binding = new Binding(
             fieldId,
             form.GetValue(field.Key),
+            () => form.GetValue(field.Key),
             v => form.SetValue(field.Key, v),
             v => form.SetValue(field.Key, v, markTouched: true),
             () => form.MarkTouched(field.Key),
@@ -299,11 +301,12 @@
     {
         var visibleTabs = field.Tabs!.Where(t => t.Condition is null || t.Condition(form)).ToList();
         if (visibleTabs.Count == 0) return @<text></text>;
-        if (_activeTab is null || visibleTabs.All(t => t.Key != _activeTab))
+        if (!Ui.ActiveTabs.TryGetValue(field.Key, out var activeKey) || visibleTabs.All(t => t.Key != activeKey))
         {
-            _activeTab = visibleTabs[0].Key;
+            activeKey = visibleTabs[0].Key;
+            Ui.ActiveTabs[field.Key] = activeKey;
         }
-        var activeTab = visibleTabs.First(t => t.Key == _activeTab);
+        var activeTab = visibleTabs.First(t => t.Key == activeKey);
         var panelId = $"{fieldId}-panel";
         return @<div style="@spanStyle" class="flex flex-col gap-3" data-slot="form-tabs" data-form-field="@field.Key">
             <div class="flex items-center gap-1 border-b border-(--klyroo-border) pb-1.5" role="tablist" aria-label="@field.Label">
@@ -315,7 +318,7 @@
                             aria-selected="@(isSelected ? "true" : "false")" aria-controls="@panelId"
                             class="rounded-(--klyroo-radius) px-3 py-1 text-xs font-semibold @(isSelected ? "bg-(--klyroo-bg-muted) text-(--klyroo-text-highlighted)" : "text-(--klyroo-text-muted) hover:text-(--klyroo-text)")"
                             data-slot="form-tab-trigger" data-tab="@tab.Key"
-                            @onclick="@(() => _activeTab = tabKey)">
+                            @onclick="@(() => Ui.ActiveTabs[field.Key] = tabKey)">
                         @tab.Label
                     </button>
                 }
@@ -409,6 +412,7 @@
                                     var cellBinding = new Binding(
                                         cellId,
                                         item.GetValueOrDefault(child.Key),
+                                        () => CellValue(form, field.Key, idx, childKey),
                                         v => form.SetArrayItemValue(field.Key, idx, childKey, v),
                                         v => form.SetArrayItemValue(field.Key, idx, childKey, v, markTouched: true),
                                         () => form.MarkArrayItemTouched(field.Key, idx, childKey),
@@ -510,7 +514,7 @@
                 </div>;
 
             case FormFieldKind.Password:
-                var revealed = _revealedPasswords.Contains(b.Id);
+                var revealed = Ui.RevealedPasswords.Contains(b.Id);
                 var requirements = field.PasswordRequirements is { Count: > 0 } reqs ? reqs : null;
                 var requirementsId = requirements is null ? null : $"{b.Id}-requirements";
                 return @<div class="flex flex-col gap-1.5">
@@ -668,7 +672,7 @@
 
             case FormFieldKind.AutoComplete:
                 var acOptions = form.GetFieldOptions(field);
-                var display = acOptions.FirstOrDefault(o => o.Value == strVal)?.Label ?? strVal;
+                var display = Ui.Drafts.TryGetValue(b.Id, out var typed) ? typed : acOptions.FirstOrDefault(o => o.Value == strVal)?.Label ?? strVal;
                 var listId = $"{b.Id}-options";
                 return @<div class="flex items-center gap-1.5">
                     <input id="@b.Id"
@@ -682,8 +686,8 @@
                            aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
                            class="@(InputClass(b.Error))"
                            data-slot="@b.Slot"
-                           @oninput="@(e => b.Set(ResolveAutoComplete(acOptions, e.Value?.ToString())))"
-                           @onblur="@b.Blur" />
+                           @oninput="@(e => OnAutoCompleteInput(b, acOptions, e.Value?.ToString()))"
+                           @onblur="@(() => { Ui.Drafts.Remove(b.Id); b.Blur(); })" />
                     <datalist id="@listId" data-slot="form-autocomplete-options">
                         @foreach (var opt in acOptions.Where(o => !o.Disabled))
                         {
@@ -707,7 +711,7 @@
                            aria-invalid="@invalid" aria-required="@required"
                            class="@(InputClass(b.Error, "flex-1"))"
                            data-slot="form-date-range-start"
-                           @oninput="@(e => b.Set(ToRange(e.Value?.ToString(), end)))"
+                           @oninput="@(e => b.Set(ToRange(e.Value?.ToString(), RangePart(b.Current(), 1))))"
                            @onblur="@b.Blur" />
                     <span aria-hidden="true" class="text-xs text-(--klyroo-text-muted)">–</span>
                     <input id="@($"{b.Id}-end")" type="date" aria-label="End date"
@@ -715,12 +719,12 @@
                            aria-invalid="@invalid" aria-required="@required"
                            class="@(InputClass(b.Error, "flex-1"))"
                            data-slot="form-date-range-end"
-                           @oninput="@(e => b.Set(ToRange(start, e.Value?.ToString())))"
+                           @oninput="@(e => b.Set(ToRange(RangePart(b.Current(), 0), e.Value?.ToString())))"
                            @onblur="@b.Blur" />
                 </div>;
 
             case FormFieldKind.Rating:
-                var max = Math.Clamp((int)Math.Round(field.Max ?? 5), 1, 10);
+                var max = Math.Max(1, (int)Math.Round(field.Max ?? 5));
                 var current = TryDouble(b.Value, out var r) ? (int)Math.Round(r) : 0;
                 return @<div class="flex items-center gap-1.5">
                     <div id="@b.Id" role="radiogroup" aria-labelledby="@b.LabelledBy" aria-describedby="@b.DescribedBy"
@@ -824,7 +828,7 @@
                                        checked="@isOn" disabled="@(b.Disabled || opt.Disabled)"
                                        aria-describedby="@optDescriptionId"
                                        class="mt-0.5 size-4 shrink-0 accent-(--klyroo-primary)"
-                                       @onchange="@(e => b.Commit(Toggle(b.Value, value, e.Value is bool on && on)))"
+                                       @onchange="@(e => b.Commit(Toggle(b.Current(), value, e.Value is bool on && on)))"
                                        @onblur="@b.Blur" />
                             }
                             else
@@ -857,7 +861,7 @@
     private RenderFragment RenderTags(FormFieldSchema field, Binding b)
     {
         var tags = AsStringList(b.Value);
-        var draft = _drafts.GetValueOrDefault(b.Id, "");
+        var draft = Ui.Drafts.GetValueOrDefault(b.Id, "");
         return @<div class="flex flex-col gap-1.5" data-control="tags">
             @if (tags.Count > 0)
             {
@@ -872,7 +876,7 @@
                                     aria-label="@($"Remove {tag}")"
                                     disabled="@b.Disabled"
                                     data-slot="form-tag-remove"
-                                    @onclick="@(() => b.Commit(Toggle(b.Value, value, false)))">✕</button>
+                                    @onclick="@(() => b.Commit(Toggle(b.Current(), value, false)))">✕</button>
                         </li>
                     }
                 </ul>
@@ -896,7 +900,7 @@
     private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, Binding b)
     {
         var draftKey = $"{b.Id}-create";
-        var draft = _drafts.GetValueOrDefault(draftKey, "");
+        var draft = Ui.Drafts.GetValueOrDefault(draftKey, "");
         return @<div class="flex items-center gap-1.5" data-slot="form-create-option">
             <input id="@draftKey"
                    type="text"
@@ -907,7 +911,7 @@
                    value="@draft"
                    class="@(InputClass(null))"
                    data-slot="form-create-option-input"
-                   @oninput="@(e => _drafts[draftKey] = e.Value?.ToString() ?? "")"
+                   @oninput="@(e => Ui.Drafts[draftKey] = e.Value?.ToString() ?? "")"
                    @onkeydown="@(e => { if (e.Key == "Enter") CreateOption(form, field, draftKey); })" />
             <button type="button"
                     class="inline-flex h-9 shrink-0 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg-muted) px-3 text-xs font-medium text-(--klyroo-text-highlighted) hover:bg-(--klyroo-bg-elevated) disabled:opacity-50"
@@ -921,10 +925,10 @@
 
     private void CreateOption(FormController form, FormFieldSchema field, string draftKey)
     {
-        var text = _drafts.GetValueOrDefault(draftKey, "");
+        var text = Ui.Drafts.GetValueOrDefault(draftKey, "");
         if (form.CreateFieldOption(field, text) is not null)
         {
-            _drafts[draftKey] = "";
+            Ui.Drafts[draftKey] = "";
         }
     }
 
@@ -934,25 +938,25 @@
         var parts = raw.Split(',');
         if (parts.Length > 1)
         {
-            var tags = AsStringList(b.Value);
+            var tags = AsStringList(b.Current());
             foreach (var part in parts[..^1])
             {
                 AddTag(tags, part);
             }
             b.Commit(tags);
         }
-        _drafts[b.Id] = parts[^1];
+        Ui.Drafts[b.Id] = parts[^1];
     }
 
     private void OnTagKeyDown(Binding b, KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
-        var tags = AsStringList(b.Value);
-        if (AddTag(tags, _drafts.GetValueOrDefault(b.Id, "")))
+        var tags = AsStringList(b.Current());
+        if (AddTag(tags, Ui.Drafts.GetValueOrDefault(b.Id, "")))
         {
             b.Commit(tags);
         }
-        _drafts[b.Id] = "";
+        Ui.Drafts[b.Id] = "";
     }
 
     private static bool AddTag(List<string> tags, string text)
@@ -1006,11 +1010,31 @@
         return start.Length == 0 && end.Length == 0 ? null : [start, end];
     }
 
+    // The text the user types stays on screen until the input loses focus; the state gets the matching option value.
+    private void OnAutoCompleteInput(Binding b, IReadOnlyList<FormOptionItem> options, string? text)
+    {
+        Ui.Drafts[b.Id] = text ?? "";
+        b.Set(ResolveAutoComplete(options, text));
+    }
+
     private static string? ResolveAutoComplete(IReadOnlyList<FormOptionItem> options, string? text)
     {
         if (string.IsNullOrEmpty(text)) return null;
-        var match = options.FirstOrDefault(o => !o.Disabled && (string.Equals(o.Label, text, StringComparison.OrdinalIgnoreCase) || string.Equals(o.Value, text, StringComparison.OrdinalIgnoreCase)));
+        var match = options.FirstOrDefault(o => !o.Disabled && string.Equals(o.Label, text, StringComparison.OrdinalIgnoreCase))
+            ?? options.FirstOrDefault(o => !o.Disabled && string.Equals(o.Value, text, StringComparison.Ordinal));
         return match?.Value ?? text;
+    }
+
+    private static string RangePart(object? value, int index)
+    {
+        var range = AsStringList(value);
+        return range.Count > index ? range[index] : "";
+    }
+
+    private static object? CellValue(FormController form, string arrayKey, int index, string childKey)
+    {
+        var rows = form.GetArrayItems(arrayKey);
+        return index < rows.Count ? rows[index].GetValueOrDefault(childKey) : null;
     }
 
     private static bool TryDouble(object? value, out double d)
@@ -1029,7 +1053,7 @@
 
     private void TogglePasswordReveal(string id)
     {
-        if (!_revealedPasswords.Remove(id)) _revealedPasswords.Add(id);
+        if (!Ui.RevealedPasswords.Remove(id)) Ui.RevealedPasswords.Add(id);
     }
 
     private static void OnNumberInput(Binding b, string? raw)
