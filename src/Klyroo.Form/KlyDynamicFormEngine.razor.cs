@@ -5,6 +5,6 @@ namespace Klyroo.Form.Dynamic;
 /// (Back, Reset, Cancel, Next, Submit). Pass either a <see cref="DynamicFormController"/> through <c>Form</c> or a schema through
 /// <c>Schema</c>. The component subscribes to <see cref="DynamicFormController.Changed"/> and re-renders on every change.
 /// </summary>
-public partial class KlyDynamicFormEngine
+public sealed partial class KlyDynamicFormEngine
 {
 }

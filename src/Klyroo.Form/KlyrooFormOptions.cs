@@ -47,10 +47,13 @@ public sealed class KlyrooFormOptions
         return this;
     }
 
-    private readonly ConcurrentDictionary<string, RenderFragment<DynamicControlContext>> _customFields = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, CustomRenderer> _customFields = new(StringComparer.Ordinal);
+
+    // A renderer registered for a custom field: for a dynamic form (ValueType null), or for a typed form whose field has the value type it names.
+    private sealed record CustomRenderer(Type? ValueType, RenderFragment<DynamicControlContext>? Dynamic, Func<FormControlContext, RenderFragment>? Typed);
 
     /// <summary>
-    /// Registers the renderer of <see cref="FormFieldKind.Custom"/> fields whose <see cref="DynamicFieldSchema.CustomKey"/> is <paramref name="key"/>, for every form of the app. The renderer draws the control from a
+    /// Registers the renderer of <see cref="FormFieldKind.Custom"/> fields of dynamic forms whose <see cref="DynamicFieldSchema.CustomKey"/> is <paramref name="key"/>, for every form of the app. The renderer draws the control from a
     /// <see cref="DynamicControlContext"/>; the components draw the label, description, help and error around it. The <c>FieldTemplates</c> parameter of a component wins over it for that component. Registering a
     /// key again replaces its renderer.
     /// </summary>
@@ -63,12 +66,44 @@ public sealed class KlyrooFormOptions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(renderer);
-        _customFields[key] = renderer;
+        _customFields[key] = new CustomRenderer(null, renderer, null);
         return this;
     }
 
-    internal bool TryGetCustomField(string key, out RenderFragment<DynamicControlContext> renderer) =>
-        _customFields.TryGetValue(key, out renderer!);
+    /// <summary>
+    /// Registers the renderer of the custom fields of typed forms declared with <c>AsCustom(<paramref name="key"/>)</c> whose value is a <typeparamref name="TValue"/>, for every form of the app. The renderer draws the control from a
+    /// <see cref="FormControlContext{TValue}"/>; the components draw the label, description, help and error around it. A <c>KlyFieldTemplate</c> of a field wins over it. A field of another value type than
+    /// <typeparamref name="TValue"/> that names the key shows the "no renderer" notice instead of a control that would read the wrong type. Registering a key again replaces its renderer.
+    /// </summary>
+    /// <typeparam name="TValue">The type of the value of the fields the renderer draws.</typeparam>
+    /// <param name="key">The key a field names in <c>AsCustom</c>. Keys are case sensitive.</param>
+    /// <param name="renderer">Draws the control.</param>
+    /// <returns>The same options, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is blank.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="renderer"/> is <c>null</c>.</exception>
+    public KlyrooFormOptions CustomField<TValue>(string key, RenderFragment<FormControlContext<TValue>> renderer)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(renderer);
+        _customFields[key] = new CustomRenderer(typeof(TValue), null, context => renderer((FormControlContext<TValue>)context));
+        return this;
+    }
+
+    internal bool TryGetCustomField(string key, out RenderFragment<DynamicControlContext> renderer)
+    {
+        renderer = null!;
+        if (!_customFields.TryGetValue(key, out var found) || found.Dynamic is not { } dynamic) return false;
+        renderer = dynamic;
+        return true;
+    }
+
+    internal bool TryGetCustomField(string key, Type valueType, out Func<FormControlContext, RenderFragment> renderer)
+    {
+        renderer = null!;
+        if (!_customFields.TryGetValue(key, out var found) || found.Typed is not { } typed || found.ValueType != valueType) return false;
+        renderer = typed;
+        return true;
+    }
 
     /// <summary>The texts for a locale code (<see cref="KlyLocale.Code"/>), cached per code. The first call makes <see cref="Texts"/> read-only.</summary>
     internal FormTexts ResolveTexts(string localeCode)

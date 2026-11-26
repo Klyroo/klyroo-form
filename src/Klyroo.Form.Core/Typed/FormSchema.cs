@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -39,7 +40,7 @@ public static class FormSchema
 /// <typeparam name="TModel">The model the form is declared for.</typeparam>
 public sealed class FormSchema<[DynamicallyAccessedMembers(FormModelTrim.Members)] TModel>
 {
-    private readonly Dictionary<string, object> _handles;
+    private readonly ConcurrentDictionary<string, object> _handles;
     private readonly Dictionary<string, FieldNode> _nodes;
     private readonly BuilderState<TModel> _state;
 
@@ -48,7 +49,7 @@ public sealed class FormSchema<[DynamicallyAccessedMembers(FormModelTrim.Members
         _state = state;
         Definition = definition;
         Bindings = bindings;
-        _handles = handles;
+        _handles = new ConcurrentDictionary<string, object>(handles, StringComparer.Ordinal);
         Factory = factory;
         _nodes = [];
         foreach (var node in definition.AllNodes()) _nodes[node.Key] = node;
@@ -88,14 +89,9 @@ public sealed class FormSchema<[DynamicallyAccessedMembers(FormModelTrim.Members
         // A field of AllMembers has a type known only at run time: it gets its typed view here, the first time it is asked for.
         if (Bindings.OfType<ReflectedBinding<TModel>>().FirstOrDefault(b => b.Key == key) is { } reflected && reflected.Member.Type == typeof(TValue))
         {
-            lock (_handles)
-            {
-                if (_handles.TryGetValue(key, out var existing)) return (FormField<TModel, TValue>)existing;
-                var codec = FormCodec<TValue>.For(reflected.Kind, reflected.NullableReference);
-                var view = new FormField<TModel, TValue>(key) { Node = _nodes[key], Codec = codec, Binding = reflected };
-                _handles[key] = view;
-                return view;
-            }
+            var codec = FormCodec<TValue>.For(reflected.Kind, reflected.NullableReference);
+            var view = new FormField<TModel, TValue>(key) { Node = _nodes[key], Codec = codec, Binding = reflected };
+            return (FormField<TModel, TValue>)_handles.GetOrAdd(key, view);
         }
         throw new ArgumentException($"No field is declared for '{key}'.", nameof(member));
     }

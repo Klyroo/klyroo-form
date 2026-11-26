@@ -1,0 +1,256 @@
+@namespace Klyroo.Form.Internal
+@inherits KlyComponentBase
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+@inject ILogger<FormShell> Logger
+
+@if (Engine is { } form)
+{
+    <form novalidate class="@RootClass" @onsubmit="OnFormSubmitAsync" @onsubmit:preventDefault
+          aria-busy="@(form.IsSubmitting ? "true" : null)"
+          data-slot="form-engine" data-key="@form.Schema.FormKey" data-shell="@Shell.ToString().ToLowerInvariant()"
+          @attributes="AdditionalAttributes">
+        @* Header + Stepper *@
+        @if (!string.IsNullOrEmpty(form.Schema.Title) || !string.IsNullOrEmpty(form.Schema.Description) || (form.IsStepped && form.Schema.ShowStepper))
+        {
+            <header class="flex flex-col gap-3 border-b border-(--klyroo-border) pb-3" data-slot="form-header">
+                <div class="flex items-start justify-between gap-2">
+                    <div class="flex flex-col gap-0.5">
+                        @if (!string.IsNullOrEmpty(form.Schema.Eyebrow))
+                        {
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-(--klyroo-primary-text)" data-slot="form-eyebrow">@form.Schema.Eyebrow</span>
+                        }
+                        @if (!string.IsNullOrEmpty(form.Schema.Title))
+                        {
+                            <h2 class="m-0 text-base font-bold text-(--klyroo-text-highlighted)" data-slot="form-title">@form.Schema.Title</h2>
+                        }
+                        @if (!string.IsNullOrEmpty(form.Schema.Description))
+                        {
+                            <p class="m-0 text-xs text-(--klyroo-text-muted)" data-slot="form-description">@form.Schema.Description</p>
+                        }
+                    </div>
+                    @if (Shell != FormShellMode.Inline && Cancel is not null)
+                    {
+                        <button type="button"
+                                class="inline-flex size-7 items-center justify-center rounded-(--klyroo-radius) text-(--klyroo-text-muted) hover:bg-(--klyroo-bg-muted)"
+                                aria-label="@Texts.CloseForm"
+                                disabled="@form.IsSubmitting"
+                                data-slot="form-close"
+                                @onclick="OnCancelAsync">✕</button>
+                    }
+                </div>
+
+                @if (form.IsStepped && form.Schema.ShowStepper)
+                {
+                    <ol class="m-0 flex list-none flex-wrap items-center gap-2 p-0" data-slot="form-stepper">
+                        @for (var i = 0; i < form.Schema.Steps.Count; i++)
+                        {
+                            var idx = i;
+                            var step = form.Schema.Steps[i];
+                            if (idx != form.CurrentStepIndex && step.SkipWhen?.Invoke(form) == true) continue;
+                            var isCurrent = idx == form.CurrentStepIndex;
+                            var isDone = idx < form.CurrentStepIndex;
+                            <li class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium @(isCurrent ? "bg-(--klyroo-primary) text-(--klyroo-primary-contrast)" : isDone ? "bg-(--klyroo-success)/15 text-(--klyroo-success-text)" : "bg-(--klyroo-bg-muted) text-(--klyroo-text-muted)")"
+                                aria-current="@(isCurrent ? "step" : null)"
+                                data-slot="form-step-badge"
+                                data-step="@step.Key">
+                                <span class="font-bold tabular-nums">@(idx + 1).</span>
+                                <span>@step.Title</span>
+                            </li>
+                        }
+                    </ol>
+                }
+            </header>
+        }
+
+        @if (form.CurrentStep is { Description: { Length: > 0 } stepDescription })
+        {
+            <p class="m-0 text-xs text-(--klyroo-text-muted)" data-slot="form-step-description">@stepDescription</p>
+        }
+
+        <KlyFormErrorSummary Form="@((IFormRuntime)form.Owner!)" />
+
+        @* Fields Grid *@
+        <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(form.Schema)))" data-slot="form-fields">
+            @foreach (var field in form.CurrentVisibleTopFields)
+            {
+                <FieldNodeView Engine="@form" Node="@field" Templates="@Templates" />
+            }
+        </div>
+
+        @* Footer Actions *@
+        <footer class="flex flex-wrap items-center justify-between gap-2 border-t border-(--klyroo-border) pt-3" data-slot="form-actions">
+            <div class="flex items-center gap-2">
+                @if (form.IsStepped && !form.IsFirstStep)
+                {
+                    <button type="button"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3.5 text-xs font-semibold text-(--klyroo-text) hover:bg-(--klyroo-bg-muted)"
+                            disabled="@form.IsSubmitting"
+                            data-slot="form-action-prev"
+                            @onclick="OnPreviousAsync">
+                        @Texts.Back
+                    </button>
+                }
+                @if (ShowReset && form.IsDirty)
+                {
+                    <button type="button"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3 text-xs font-medium text-(--klyroo-text-muted) hover:bg-(--klyroo-bg-muted)"
+                            disabled="@form.IsSubmitting"
+                            data-slot="form-action-reset"
+                            @onclick="@(() => ((IFormRuntime)form.Owner!).Reset())">
+                        @Texts.Reset
+                    </button>
+                }
+            </div>
+
+            <div class="flex items-center gap-2">
+                @if (Cancel is not null)
+                {
+                    <button type="button"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3.5 text-xs font-medium text-(--klyroo-text) hover:bg-(--klyroo-bg-muted)"
+                            disabled="@form.IsSubmitting"
+                            data-slot="form-action-cancel"
+                            @onclick="OnCancelAsync">
+                        @Texts.Cancel
+                    </button>
+                }
+                @if (form.IsStepped && !form.IsLastStep)
+                {
+                    <button type="button"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90"
+                            disabled="@form.IsSubmitting"
+                            data-slot="form-action-next"
+                            @onclick="OnNextAsync">
+                        @Texts.Next
+                    </button>
+                }
+                else
+                {
+                    <button type="submit"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90 disabled:opacity-50"
+                            disabled="@form.IsSubmitting"
+                            data-slot="form-action-submit">
+                        @(form.IsSubmitting ? Texts.Saving : (SubmitLabel ?? Texts.Submit))
+                    </button>
+                }
+            </div>
+        </footer>
+    </form>
+}
+
+@code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
+    private FormEngine? _subscribed;
+    private readonly CancellationTokenSource _disposed = new();
+    private FormJs _js = default!;
+    private string? _focusTarget;
+
+    // The parameters have internal types, so they are not [Parameter] properties (Blazor needs those to be public): SetParametersAsync reads them by name.
+    internal FormEngine? Engine { get; private set; }
+
+    // Renderers of the Custom fields of a dynamic form, passed on to the fields.
+    internal IReadOnlyDictionary<string, RenderFragment<DynamicControlContext>>? Templates { get; private set; }
+
+    internal FormShellMode Shell { get; private set; } = FormShellMode.Inline;
+
+    internal string? SubmitLabel { get; private set; }
+
+    internal bool ShowReset { get; private set; } = true;
+
+    // Validates, saves and raises OnSubmit of the component that holds the form: true when the form was submitted. The token is cancelled when the shell is disposed.
+    internal Func<CancellationToken, Task<bool>> Submit { get; private set; } = _ => Task.FromResult(false);
+
+    // Raises OnCancel of the component. When it is null the Cancel button is not shown.
+    internal Func<Task>? Cancel { get; private set; }
+
+    /// <inheritdoc/>
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        foreach (var parameter in parameters)
+        {
+            switch (parameter.Name)
+            {
+                case nameof(Engine): Engine = (FormEngine?)parameter.Value; break;
+                case nameof(Templates): Templates = (IReadOnlyDictionary<string, RenderFragment<DynamicControlContext>>?)parameter.Value; break;
+                case nameof(Shell): Shell = (FormShellMode)parameter.Value; break;
+                case nameof(SubmitLabel): SubmitLabel = (string?)parameter.Value; break;
+                case nameof(ShowReset): ShowReset = (bool)parameter.Value; break;
+                case nameof(Submit): Submit = (Func<CancellationToken, Task<bool>>)parameter.Value; break;
+                case nameof(Cancel): Cancel = (Func<Task>?)parameter.Value; break;
+            }
+        }
+        return base.SetParametersAsync(parameters);
+    }
+
+    private string RootClass =>
+        $"flex w-full flex-col gap-4 text-sm text-(--klyroo-text) {Class}".Trim();
+
+    protected override void OnInitialized() => _js = new FormJs(Js);
+
+    protected override void OnParametersSet()
+    {
+        AdditionalAttributes = InternalParameters.Without(AdditionalAttributes, "Engine", "Templates", "Shell", "SubmitLabel", "ShowReset", "Submit", "Cancel");
+        Engine?.UseLocaleMessages(Texts.Messages);
+        if (!ReferenceEquals(_subscribed, Engine))
+        {
+            if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;
+            _subscribed = Engine;
+            if (_subscribed is not null) _subscribed.Changed += OnFormChanged;
+        }
+    }
+
+    private void OnFormChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private async Task OnFormSubmitAsync()
+    {
+        var form = Engine;
+        if (form is null || form.IsSubmitting) return;
+        // Enter in a field submits the form element; before the last step it means Next, not a submit of the whole wizard.
+        if (form.IsStepped && !form.IsLastStep)
+        {
+            await OnNextAsync();
+            return;
+        }
+        var ok = await FormRun.RunAsync(() => Submit(_disposed.Token), form, Logger, Texts, _disposed.Token);
+        if (!ok) RequestFocus(form);
+    }
+
+    private async Task OnNextAsync()
+    {
+        var form = Engine;
+        if (form is null) return;
+        if (!await FormRun.RunAsync(form.NextStepAsync, form, Logger, Texts, _disposed.Token)) RequestFocus(form);
+    }
+
+    private Task OnPreviousAsync() => Engine?.PreviousStepAsync() ?? Task.CompletedTask;
+
+    // Focus moves once the errors are on screen, in the render that follows.
+    private void RequestFocus(FormEngine form)
+    {
+        _focusTarget = FormLayout.FirstErrorTargetId(form);
+        if (_focusTarget is not null) StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget is { } target)
+        {
+            _focusTarget = null;
+            await _js.FocusAsync(target);
+        }
+    }
+
+    private async Task OnCancelAsync()
+    {
+        if (Engine is not null && Cancel is not null) await Cancel();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;
+        await _disposed.CancelAsync();
+        _disposed.Dispose();
+        await _js.DisposeAsync();
+    }
+}

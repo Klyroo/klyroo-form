@@ -41,6 +41,11 @@ public sealed class FormFieldBuilder<TModel, TValue>
     /// <returns>The builder.</returns>
     public FormFieldBuilder<TModel, TValue> Kind(FormFieldKind kind) => SetKind(kind);
 
+    /// <summary>Makes the control one you provide, for any type of value: a <c>KlyFieldTemplate</c> of the field, or a renderer registered with <c>CustomField&lt;TValue&gt;</c> under <paramref name="key"/>, draws it. The field is stateful like any input: it holds the value you store, is validated with its rules and is part of the model.</summary>
+    /// <param name="key">The key of the renderer registered for the whole app, or <c>null</c> when a <c>KlyFieldTemplate</c> draws the control.</param>
+    /// <returns>The builder.</returns>
+    public FormFieldBuilder<TModel, TValue> AsCustom(string? key = null) => SetKind(FormFieldKind.Custom, s => s.CustomKey = key);
+
     /// <summary>Sets the text of the label shown above the control. The default is the name of the member, split into words.</summary>
     /// <param name="label">The label.</param>
     /// <returns>The builder.</returns>

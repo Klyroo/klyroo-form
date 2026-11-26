@@ -1,0 +1,64 @@
+@namespace Klyroo.Form
+@inherits KlyComponentBase
+@implements IDisposable
+@typeparam TModel
+
+<CascadingValue Value="@_host.Controller" IsFixed="false">
+    @ChildContent
+    @if (_host.Controller is { } form)
+    {
+        <FormShell Engine="@form.Engine" Shell="@Shell" SubmitLabel="@SubmitLabel" ShowReset="@ShowReset"
+                   Submit="@SubmitAction" Cancel="@CancelAction" Class="@Class" @attributes="AdditionalAttributes" />
+    }
+</CascadingValue>
+
+@code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
+    private readonly TypedFormHost<TModel> _host = new();
+
+    /// <summary>The controller to render. Use it when you need to read or change the form from code. Takes precedence over <see cref="Schema"/>.</summary>
+    [Parameter] public FormController<TModel>? Form { get; set; }
+
+    /// <summary>The schema to render when no <see cref="Form"/> is given. The component creates and owns the controller, and creates a new one when the schema instance changes.</summary>
+    [Parameter] public FormSchema<TModel>? Schema { get; set; }
+
+    /// <summary>The model to edit. Its values are the form's starting values, and a submit writes the values back into it (all or nothing, put back when a step fails), so members the form does not show keep their value. Without a model every submit creates a new <typeparamref name="TModel"/>. A different instance reloads the form, dropping unsaved edits. It is only read by the controller the component creates: with <see cref="Form"/>, it is only the target of a submit.</summary>
+    [Parameter] public TModel? Model { get; set; }
+
+    /// <summary>How the form is presented. Anything other than <see cref="FormShellMode.Inline"/> adds a close button to the header when <see cref="OnCancel"/> is bound.</summary>
+    [Parameter] public FormShellMode Shell { get; set; } = FormShellMode.Inline;
+
+    /// <summary>Text of the submit button. The default is the <c>Submit</c> text of the current locale (<see cref="FormTexts.Submit"/>).</summary>
+    [Parameter] public string? SubmitLabel { get; set; }
+
+    /// <summary>Shows a reset button in the footer while the form is dirty. The default is <c>true</c>.</summary>
+    [Parameter] public bool ShowReset { get; set; } = true;
+
+    /// <summary>Your save step: called with the model after validation and the schema hooks passed (the <see cref="Model"/> with the values written into it, or a new one), while the form is still submitting (the button shows its saving state, a second submit is refused, Cancel is disabled). Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty and the form open, after reporting the reason with <see cref="FormController{TModel}.SetError"/> or <see cref="FormController{TModel}.SetFormError"/>; the model gets its previous values back. The token is cancelled when the component is disposed. It runs through <see cref="FormController{TModel}.SubmitAsync(Func{TModel, CancellationToken, Task{bool}}, TModel, CancellationToken)"/>.</summary>
+    [Parameter] public Func<TModel, CancellationToken, Task<bool>>? OnSave { get; set; }
+
+    /// <summary>Called with the model after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. At that point the submission is over: <see cref="FormController{TModel}.IsSubmitting"/> is <c>false</c> and the form is clean. Do the save itself in <see cref="OnSave"/>.</summary>
+    [Parameter] public EventCallback<TModel> OnSubmit { get; set; }
+
+    /// <summary>Called when the user presses Cancel or the close button. When bound, the Cancel button is shown.</summary>
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    /// <summary>Templates of the fields (<c>KlyFieldTemplate</c>). They draw nothing themselves: they hand their control to the field they name.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The controller in use: <see cref="Form"/> if set, otherwise the one the component created from <see cref="Schema"/>, or <c>null</c> when neither is set.</summary>
+    public FormController<TModel>? EffectiveController => _host.Controller;
+
+    private Func<CancellationToken, Task<bool>> SubmitAction => cancellationToken => _host.SubmitAsync(OnSave, OnSubmit, Model, cancellationToken);
+
+    private Func<Task>? CancelAction => OnCancel.HasDelegate ? () => OnCancel.InvokeAsync() : null;
+
+    protected override void OnParametersSet()
+    {
+        _host.Update(Form, Schema, Model);
+        _host.Controller?.UseLocaleMessages(Texts.Messages);
+    }
+
+    public void Dispose() => _host.Dispose();
+}

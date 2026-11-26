@@ -39,6 +39,11 @@ internal sealed class FieldNode
     // Typed fields: reads the JSON of an agent or a draft through the codec of the field, to the control value it stands for.
     public JsonControlReader? JsonReader { get; init; }
 
+    // Typed fields: the type of the value, and how to build the typed context a custom renderer receives (a FormControlContext of that type).
+    public Type? ValueType { get; init; }
+
+    public Func<ControlBinding, FormControlContext>? ContextFactory { get; init; }
+
     public required string Key { get; init; }
     public FormFieldKind Kind { get; init; } = FormFieldKind.Text;
     public string? Label { get; init; }

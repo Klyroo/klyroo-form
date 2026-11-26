@@ -4,7 +4,7 @@ namespace Klyroo.Form.Dynamic;
 
 /// <summary>Runtime state of a <see cref="DynamicFormSchema"/>: field values, an initial snapshot for dirty tracking, touched fields, validation errors, step navigation, repeatable rows and submission. It has no UI dependency and is not thread safe: use it from one thread or one synchronization context at a time. Values are <see cref="object"/>, keyed by field key; <c>Klyroo.Form</c> offers <c>FormController&lt;TModel&gt;</c> for a form bound to a C# model.</summary>
 /// <remarks>Dispose it when it is no longer used: it cancels the asynchronous validations still waiting or running. A controller you pass to a component stays yours to dispose; one the component creates from a schema is disposed with the component.</remarks>
-public sealed class DynamicFormController : IDisposable, IFormRuntime
+public sealed class DynamicFormController : IDisposable, IFormRuntime, IEngineOwner
 {
     private readonly FormEngine _engine;
     private readonly CompiledDynamic _compiled;
@@ -25,9 +25,11 @@ public sealed class DynamicFormController : IDisposable, IFormRuntime
 
     internal FormEngine Engine => _engine;
 
+    FormEngine IEngineOwner.Engine => _engine;
+
     internal void UseLocaleMessages(FormMessages messages) => _engine.UseLocaleMessages(messages);
 
-    private FieldNode NodeOf(DynamicFieldSchema field) => _compiled.Node(field ?? throw new ArgumentNullException(nameof(field)));
+    internal FieldNode NodeOf(DynamicFieldSchema field) => _compiled.Node(field ?? throw new ArgumentNullException(nameof(field)));
 
     private SectionNode NodeOf(DynamicSectionSchema section) => _compiled.Node(section ?? throw new ArgumentNullException(nameof(section)));
 

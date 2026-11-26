@@ -1,4 +1,3 @@
-using Klyroo.Form.Dynamic;
 using Microsoft.Extensions.Logging;
 
 namespace Klyroo.Form;
@@ -8,10 +7,10 @@ namespace Klyroo.Form;
 internal static class FormRun
 {
     // Returns false when the action reported a failure (or threw), true when it succeeded.
-    public static async Task<bool> RunAsync(Func<Task<bool>> action, DynamicFormController form, ILogger logger, FormTexts texts, CancellationToken cancellationToken)
+    public static async Task<bool> RunAsync(Func<Task<bool>> action, FormEngine form, ILogger logger, FormTexts texts, CancellationToken cancellationToken)
     {
         // The notice of a previous failed attempt must not outlive the next attempt.
-        if (form.FormErrors.Contains(texts.SomethingWentWrong)) form.ClearError(DynamicFormController.FormErrorKey);
+        if (form.FormErrors.Contains(texts.SomethingWentWrong)) form.ClearError(FormEngine.FormErrorKey);
         try
         {
             return await action();

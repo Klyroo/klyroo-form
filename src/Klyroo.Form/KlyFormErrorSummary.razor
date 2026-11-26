@@ -5,9 +5,10 @@
 
 @if (Form is not null)
 {
-    var entries = Form.GetErrorEntries().Where(e => e.IsFormLevel || Form.SubmitFailed).ToList();
-    var liveText = NextLiveText(entries);
-    var summaryId = FormLayout.SummaryId(Form.Schema.FormKey);
+    var engine = FormRuntime.EngineOf(Form);
+    var entries = engine.GetErrorEntries().Where(e => e.IsFormLevel || engine.SubmitFailed).ToList();
+    var liveText = NextLiveText(engine, entries);
+    var summaryId = FormLayout.SummaryId(Form.FormKey);
     var titleId = $"{summaryId}-title";
 
     @* One polite live region per form, always in the DOM so that assistive technology announces its text when it changes. *@
@@ -22,7 +23,7 @@
             <ul class="m-0 flex list-none flex-col gap-0.5 p-0" data-slot="form-error-summary-list">
                 @foreach (var entry in entries)
                 {
-                    var target = FormLayout.TargetId(Form, entry);
+                    var target = FormLayout.TargetId(engine, entry);
                     <li data-slot="form-error-summary-item" data-path="@entry.Path">
                         @if (entry.IsFormLevel)
                         {
@@ -32,7 +33,7 @@
                         {
                             <button type="button" class="cursor-pointer border-0 bg-transparent p-0 text-start text-(--klyroo-error-text) underline"
                                     data-slot="form-error-summary-link"
-                                    @onclick="@(() => _js.FocusAsync(target))">@Describe(entry)</button>
+                                    @onclick="@(() => _js.FocusAsync(target))">@Describe(engine, entry)</button>
                         }
                     </li>
                 }
@@ -44,8 +45,9 @@
 @code {
     private FormJs _js = default!;
 
-    /// <summary>The controller whose errors to list.</summary>
-    [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
+    /// <summary>The controller whose errors to list: a <see cref="FormController{TModel}"/> or a <c>DynamicFormController</c>.</summary>
+    /// <exception cref="ArgumentException">The value is a runtime that Klyroo.Form did not create.</exception>
+    [Parameter, EditorRequired] public IFormRuntime Form { get; set; } = default!;
 
     protected override void OnInitialized() => _js = new FormJs(Js);
 
@@ -59,17 +61,17 @@
     private string _announcedFormErrors = "";
     private string _liveText = "";
 
-    private string NextLiveText(IReadOnlyList<FormErrorEntry> entries)
+    private string NextLiveText(FormEngine engine, IReadOnlyList<FormErrorEntry> entries)
     {
-        var failures = Form.SubmitFailureCount;
-        var formErrors = string.Join('\n', Form.FormErrors);
+        var failures = engine.SubmitFailureCount;
+        var formErrors = string.Join('\n', engine.FormErrors);
         if (entries.Count == 0)
         {
             _liveText = "";
         }
         else if (failures != _announcedFailures || formErrors != _announcedFormErrors)
         {
-            _liveText = $"{Title(entries)}. {Describe(entries[0])}";
+            _liveText = $"{Title(entries)}. {Describe(engine, entries[0])}";
         }
         _announcedFailures = failures;
         _announcedFormErrors = formErrors;
@@ -77,10 +79,10 @@
     }
 
     // "Email: This field is required", or "SKU (Lines, 2): ..." for a cell of a repeatable list.
-    private string Describe(FormErrorEntry entry)
+    private string Describe(FormEngine engine, FormErrorEntry entry)
     {
         if (entry.IsFormLevel) return entry.Message;
-        var fields = Form.AllFields;
+        var fields = engine.AllFields;
         var owner = fields.FirstOrDefault(f => f.Key == entry.FieldKey);
         var label = owner?.Label ?? entry.FieldKey;
         if (entry.RowIndex is { } row && entry.ChildKey is { } childKey)

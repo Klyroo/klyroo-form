@@ -8,6 +8,6 @@ namespace Klyroo.Form.Dynamic;
 /// It does not subscribe to <see cref="DynamicFormController.Changed"/>: render it from a component that re-renders on that event, so
 /// changes made elsewhere (by code or by another field) show up.
 /// </summary>
-public partial class KlyDynamicFieldView
+public sealed partial class KlyDynamicFieldView
 {
 }

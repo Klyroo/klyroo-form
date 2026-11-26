@@ -1,0 +1,49 @@
+@namespace Klyroo.Form
+@inherits KlyComponentBase
+@implements IDisposable
+@typeparam TModel
+
+<CascadingValue Value="@_host.Controller" IsFixed="false">
+    @ChildContent
+    @if (_host.Controller is { } form)
+    {
+        <FormPageShell Engine="@form.Engine" Submit="@SubmitAction" Class="@Class" @attributes="AdditionalAttributes" />
+    }
+</CascadingValue>
+
+@code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
+    private readonly TypedFormHost<TModel> _host = new();
+
+    /// <summary>The controller to render. Its schema must declare sections (<c>Section</c>). Takes precedence over <see cref="Schema"/>.</summary>
+    [Parameter] public FormController<TModel>? Form { get; set; }
+
+    /// <summary>The schema to render when no <see cref="Form"/> is given. It must declare sections. The component creates and owns the controller, and creates a new one when the schema instance changes.</summary>
+    [Parameter] public FormSchema<TModel>? Schema { get; set; }
+
+    /// <summary>The model to edit. Its values are the form's starting values, and a submit writes the values back into it (all or nothing, put back when a step fails), so members the form does not show keep their value. Without a model every submit creates a new <typeparamref name="TModel"/>. A different instance reloads the form, dropping unsaved edits.</summary>
+    [Parameter] public TModel? Model { get; set; }
+
+    /// <summary>Your save step: called with the model after validation and the schema hooks passed, while the form is still submitting. Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty, after reporting the reason with <see cref="FormController{TModel}.SetError"/> or <see cref="FormController{TModel}.SetFormError"/>. The token is cancelled when the component is disposed.</summary>
+    [Parameter] public Func<TModel, CancellationToken, Task<bool>>? OnSave { get; set; }
+
+    /// <summary>Called with the model after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. The submission is over at that point and the form is clean.</summary>
+    [Parameter] public EventCallback<TModel> OnSubmit { get; set; }
+
+    /// <summary>Templates of the fields (<c>KlyFieldTemplate</c>). They draw nothing themselves: they hand their control to the field they name.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>The controller in use: <see cref="Form"/> if set, otherwise the one the component created from <see cref="Schema"/>, or <c>null</c> when neither is set.</summary>
+    public FormController<TModel>? EffectiveController => _host.Controller;
+
+    private Func<CancellationToken, Task<bool>> SubmitAction => cancellationToken => _host.SubmitAsync(OnSave, OnSubmit, Model, cancellationToken);
+
+    protected override void OnParametersSet()
+    {
+        _host.Update(Form, Schema, Model);
+        _host.Controller?.UseLocaleMessages(Texts.Messages);
+    }
+
+    public void Dispose() => _host.Dispose();
+}

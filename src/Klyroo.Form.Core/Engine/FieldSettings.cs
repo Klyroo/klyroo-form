@@ -13,6 +13,10 @@ internal sealed class FieldSettings
 
     internal JsonControlReader? JsonReader { get; set; }
 
+    internal Type? ValueType { get; set; }
+
+    internal Func<ControlBinding, FormControlContext>? ContextFactory { get; set; }
+
     // The codec of the field (a FormCodec of its value type), set once the kind is final and before the explicit settings run.
     internal object? Codec { get; set; }
 
@@ -69,6 +73,8 @@ internal sealed class FieldSettings
     {
         ControlCheck = ControlCheck,
         JsonReader = JsonReader,
+        ValueType = ValueType,
+        ContextFactory = ContextFactory,
         Key = Key,
         Kind = Kind,
         Label = Label,

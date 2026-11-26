@@ -5,6 +5,6 @@ namespace Klyroo.Form.Dynamic;
 /// section laid out by <see cref="DynamicSectionSchema.Span"/>. Fields render with the same controls, labels, containers and
 /// repeatable lists as <c>KlyDynamicFormEngine</c>, and the page is a <c>form</c> element, so pressing Enter in a field submits it.
 /// </summary>
-public partial class KlyDynamicFormPage
+public sealed partial class KlyDynamicFormPage
 {
 }

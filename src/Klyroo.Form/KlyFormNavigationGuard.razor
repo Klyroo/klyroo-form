@@ -4,17 +4,20 @@
 @inject IJSRuntime Js
 
 @* Re-renders when IsDirty flips, which is what turns the browser prompt for external navigation on and off. *@
-<NavigationLock ConfirmExternalNavigation="@(!Disabled && ConfirmExternalNavigation && Form.IsDirty)"
+<NavigationLock ConfirmExternalNavigation="@(!Disabled && ConfirmExternalNavigation && Engine.IsDirty)"
                 OnBeforeInternalNavigation="OnBeforeInternalNavigationAsync" />
 
 @code {
+    private FormEngine Engine => FormRuntime.EngineOf(Form);
+
     private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
 
-    private DynamicFormController? _subscribed;
+    private FormEngine? _subscribed;
     private bool _dirty;
 
-    /// <summary>The controller to protect. Navigation is blocked while <see cref="DynamicFormController.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
-    [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
+    /// <summary>The controller to protect: a <see cref="FormController{TModel}"/> or a <c>DynamicFormController</c>. Navigation is blocked while <see cref="IFormRuntime.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
+    /// <exception cref="ArgumentException">The value is a runtime that Klyroo.Form did not create.</exception>
+    [Parameter, EditorRequired] public IFormRuntime Form { get; set; } = default!;
 
     /// <summary>Asks the browser to confirm leaving the site, reloading or closing the tab while the form is dirty. The browser shows its own text; it cannot be changed. The default is <c>true</c>.</summary>
     [Parameter] public bool ConfirmExternalNavigation { get; set; } = true;
@@ -30,18 +33,18 @@
 
     protected override void OnParametersSet()
     {
-        if (!ReferenceEquals(_subscribed, Form))
+        if (!ReferenceEquals(_subscribed, Engine))
         {
             if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;
-            _subscribed = Form;
+            _subscribed = Engine;
             if (_subscribed is not null) _subscribed.Changed += OnFormChanged;
         }
-        _dirty = Form.IsDirty;
+        _dirty = Engine.IsDirty;
     }
 
     private void OnFormChanged()
     {
-        var dirty = Form.IsDirty;
+        var dirty = Engine.IsDirty;
         if (dirty == _dirty) return;
         _dirty = dirty;
         _ = InvokeAsync(StateHasChanged);
@@ -49,7 +52,7 @@
 
     private async Task OnBeforeInternalNavigationAsync(LocationChangingContext context)
     {
-        if (Disabled || !Form.IsDirty) return;
+        if (Disabled || !Engine.IsDirty) return;
         var leave = ConfirmLeave is not null
             ? await ConfirmLeave(context)
             : await Js.InvokeAsync<bool>("confirm", context.CancellationToken, Message ?? Texts.UnsavedChanges);

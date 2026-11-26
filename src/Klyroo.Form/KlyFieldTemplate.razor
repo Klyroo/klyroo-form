@@ -1,0 +1,40 @@
+@namespace Klyroo.Form
+@implements IDisposable
+@typeparam TModel
+@typeparam TValue
+
+@code {
+    private string? _registeredKey;
+    private FieldTemplateRegistry? _registry;
+
+    /// <summary>The field whose control this template draws: the handle the schema gave. <typeparamref name="TModel"/> and <typeparamref name="TValue"/> are inferred from it.</summary>
+    [Parameter, EditorRequired] public FormField<TModel, TValue> Field { get; set; } = default!;
+
+    /// <summary>Draws the control from the context of the field: its value typed as the member of the model, how to change it, and the ids and state the control needs.</summary>
+    [Parameter, EditorRequired] public RenderFragment<FormControlContext<TValue>> ChildContent { get; set; } = default!;
+
+    /// <summary>The controller of the form. When it is not set, the one of the enclosing <c>KlyFormEngine</c> or <c>KlyFormPage</c> is used.</summary>
+    [Parameter] public FormController<TModel>? Form { get; set; }
+
+    [CascadingParameter] private FormController<TModel>? Enclosing { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        var controller = Form ?? Enclosing ?? throw new InvalidOperationException("KlyFieldTemplate needs a controller: put it inside a KlyFormEngine or KlyFormPage, or set its Form parameter.");
+        var registry = FieldTemplateRegistry.For(controller.Engine);
+        if (!ReferenceEquals(registry, _registry) || _registeredKey != Field.Key) Unregister();
+        _registry = registry;
+        _registeredKey = Field.Key;
+        // The renderer reads ChildContent when it runs, so a template whose content changed draws the new one.
+        registry.Set(Field.Key, this, typeof(TValue), context => ChildContent((FormControlContext<TValue>)context));
+    }
+
+    private void Unregister()
+    {
+        if (_registry is not null && _registeredKey is not null) _registry.Remove(_registeredKey, this);
+        _registry = null;
+        _registeredKey = null;
+    }
+
+    public void Dispose() => Unregister();
+}

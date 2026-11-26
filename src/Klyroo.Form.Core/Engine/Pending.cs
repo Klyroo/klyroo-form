@@ -63,6 +63,8 @@ internal sealed class PendingField<TOwner, TRoot, TValue>(
         codec.NullableReference = member.Type == typeof(string) && FormNullability.IsNullableReference(member.Property, settings.NullWhenEmpty);
         settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{member.Key}\" expects {FormValueMap.Expectation(member.Type)}." : null;
         settings.JsonReader = codec.TryReadJsonControl;
+        settings.ValueType = typeof(TValue);
+        settings.ContextFactory = binding => new FormControlContext<TValue>(binding, codec);
         var node = settings.ToNode();
         handle.Node = node;
         handle.Codec = codec;
@@ -193,6 +195,8 @@ internal sealed class PendingUnbound<TModel, TValue>(
         settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{handle.Key}\" expects {FormValueMap.Expectation(typeof(TValue))}." : null;
         settings.JsonReader = (JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out object? control, out string? reason) =>
             codec.TryReadJsonControl(element, field, options, out control, out reason);
+        settings.ValueType = typeof(TValue);
+        settings.ContextFactory = binding => new FormControlContext<TValue>(binding, codec);
         var node = settings.ToNode();
         handle.Node = node;
         handle.Codec = codec;

@@ -7,7 +7,7 @@ namespace Klyroo.Form;
 /// <summary>Runtime state of a <see cref="FormSchema{TModel}"/>: the values of the fields, a baseline for dirty tracking, touched fields, validation errors, step navigation, repeatable rows and submission. Values are read and written through the handles the schema gave (<c>Get</c>, <c>Set</c>), typed as the members of the model, and move to and from the model with <see cref="CreateModel"/> and <see cref="ApplyTo"/>. It has no UI dependency and is not thread safe: use it from one thread or one synchronization context at a time.</summary>
 /// <remarks>Dispose it when it is no longer used: it cancels the asynchronous validations still waiting or running. A controller you pass to a component stays yours to dispose; one the component creates from a schema is disposed with the component.</remarks>
 /// <typeparam name="TModel">The model the form is declared for.</typeparam>
-public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Members)] TModel> : IFormRuntime, IDisposable
+public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Members)] TModel> : IFormRuntime, IEngineOwner, IDisposable
 {
     private readonly FormEngine _engine;
     private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
@@ -29,6 +29,8 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     }
 
     internal FormEngine Engine => _engine;
+
+    FormEngine IEngineOwner.Engine => _engine;
 
     internal void UseLocaleMessages(FormMessages messages) => _engine.UseLocaleMessages(messages);
 

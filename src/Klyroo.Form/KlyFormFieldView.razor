@@ -1,0 +1,20 @@
+@namespace Klyroo.Form
+@inherits KlyComponentBase
+@typeparam TModel
+
+@if (Controller is { } form && Field is { } item)
+{
+    <FieldNodeView Engine="@form.Engine" Node="@item.Node" />
+}
+
+@code {
+    /// <summary>The field or layout element to render: the handle the schema gave. <typeparamref name="TModel"/> is inferred from it.</summary>
+    [Parameter, EditorRequired] public FormItem<TModel> Field { get; set; } = default!;
+
+    /// <summary>The controller that holds the value of the field. When it is not set, the one of the enclosing <c>KlyFormEngine</c> or <c>KlyFormPage</c> is used, or the one of a <c>CascadingValue</c>.</summary>
+    [Parameter] public FormController<TModel>? Form { get; set; }
+
+    [CascadingParameter] private FormController<TModel>? Enclosing { get; set; }
+
+    private FormController<TModel>? Controller => Form ?? Enclosing;
+}

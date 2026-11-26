@@ -54,6 +54,28 @@ public sealed class DynamicControlContext
     {
     }
 
+    // The context of a field the shared renderer draws, built from the binding of that control.
+    internal DynamicControlContext(ControlBinding binding)
+        : this(
+            (DynamicFormController)binding.Engine.Owner!,
+            (DynamicFieldSchema)binding.Field.Source!,
+            binding.Id,
+            binding.Value,
+            binding.Current,
+            binding.Set,
+            binding.Commit,
+            binding.Blur,
+            binding.Error,
+            binding.Disabled,
+            binding.Required,
+            binding.Validating,
+            binding.LabelledBy,
+            binding.DescribedBy,
+            binding.Slot,
+            binding.IsCell)
+    {
+    }
+
     internal DynamicControlContext(
         DynamicFormController form,
         DynamicFieldSchema field,
