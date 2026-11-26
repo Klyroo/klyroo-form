@@ -8,13 +8,19 @@ namespace Klyroo.Form;
 public static class FormModel
 {
     /// <summary>Declares a form from the members of <typeparamref name="TModel"/>.</summary>
-    /// <typeparam name="TModel">The model type. Its public properties and parameterless constructor are kept when an app is trimmed.</typeparam>
+    /// <typeparam name="TModel">The model type, a class or a record. Its public properties and parameterless constructor are kept when an app is trimmed. A struct is refused: the binding writes members into the object it is given, and a struct would be copied on the way, so the caller would never see the values.</typeparam>
     /// <param name="configure">Declares the fields, and sets the title and the other settings of the schema.</param>
     /// <returns>The form: its schema, and the methods that move values between a model and a controller.</returns>
+    /// <exception cref="ArgumentException"><typeparamref name="TModel"/> is a struct, or a member cannot be bound (see <see cref="FormModelBuilder{TModel}.Field{TValue}"/>).</exception>
+    /// <exception cref="InvalidOperationException">The form has model checks (<see cref="FormModelBuilder{TModel}.Validate"/>, <c>UseDataAnnotations</c>) and the model has no parameterless constructor and no <see cref="FormModelBuilder{TModel}.Factory"/>.</exception>
     /// <example><c>var form = FormModel.For&lt;Person&gt;(b =&gt; b.Field(p =&gt; p.Name, f =&gt; f.Required()).Field(p =&gt; p.Address.City));</c></example>
     public static FormModel<TModel> For<[DynamicallyAccessedMembers(FormModelTrim.Members)] TModel>(Action<FormModelBuilder<TModel>> configure)
     {
         ArgumentNullException.ThrowIfNull(configure);
+        if (typeof(TModel).IsValueType)
+        {
+            throw new ArgumentException($"{typeof(TModel).Name} is a struct: the binding writes the values into the object it is given, and a struct is copied on the way. Use a class or a record.", nameof(TModel));
+        }
         var builder = new FormModelBuilder<TModel>();
         configure(builder);
         return builder.Build();
@@ -124,10 +130,12 @@ public sealed class FormModel<[DynamicallyAccessedMembers(FormModelTrim.Members)
         controller.Reset(ToInput(model));
     }
 
-    /// <summary>Writes the values of a controller into <paramref name="target"/>. Only the members of fields in effect are written: a hidden field, or one of a skipped step, leaves its member as it is, as does a member without a public setter. An empty value gives <c>null</c> for a nullable or reference member (an empty string for a string that is not declared nullable) and <c>default</c> for another value type.</summary>
+    /// <summary>Writes the values of a controller into <paramref name="target"/>. Only the members of fields in effect are written: a hidden field, or one of a skipped step, leaves its member as it is, as does a member without a public setter. An empty value gives <c>null</c> for a nullable or reference member (an empty string for a string that is not declared nullable) and <c>default</c> for another value type. A value that is there but is not a value of the member type (a number out of range, text that is no date) is refused, never replaced by <c>default</c>. An enum, a <see cref="DateTime"/>, a <see cref="DateTimeOffset"/> or a <see cref="TimeOnly"/> member whose value the user did not change keeps it as it is, with the member number of an enum value that has no name, the ticks and the <see cref="DateTime.Kind"/> that the text of the control cannot hold; a date and time the user typed takes the kind of the value it replaces, and <see cref="DateTimeKind.Unspecified"/> when that value is a default one. A model made by <see cref="Create(FormController)"/> starts from what the factory gives, so there is nothing else to keep: the text of the control holds milliseconds.</summary>
+    /// <remarks>The write is all or nothing: every value is converted and every object on the way to a member is checked (or created, when it was declared with <see cref="FormModelBuilder{TModel}.Nested{TNested}"/>) before the first member is set, so an exception from that part leaves <paramref name="target"/> as it was. If a setter of the model throws while the members are set, the ones already set are put back and the exception is rethrown.</remarks>
     /// <param name="controller">The controller of this form.</param>
     /// <param name="target">The model to update.</param>
     /// <returns><paramref name="target"/>.</returns>
+    /// <exception cref="InvalidOperationException">A value cannot be converted, or an object on the way to a member is null and cannot be created. Nothing was written.</exception>
     public TModel Write(FormController controller, TModel target)
     {
         ArgumentNullException.ThrowIfNull(controller);
@@ -140,13 +148,39 @@ public sealed class FormModel<[DynamicallyAccessedMembers(FormModelTrim.Members)
     /// <returns><paramref name="target"/>.</returns>
     public TModel Write(IReadOnlyDictionary<string, object?> values, TModel target)
     {
+        PlanWrite(values, target).Apply();
+        return target;
+    }
+
+    // Everything that can fail on the values or the shape of the model happens here, before the model is changed.
+    private FormWritePlan PlanWrite(IReadOnlyDictionary<string, object?> values, TModel target)
+    {
         ArgumentNullException.ThrowIfNull(values);
         ArgumentNullException.ThrowIfNull(target);
+        var plan = new FormWritePlan();
         foreach (var binding in _writable)
         {
-            if (values.TryGetValue(binding.Key, out var raw)) binding.Write(target, raw, _creators);
+            if (values.TryGetValue(binding.Key, out var raw)) binding.Plan(target, raw, _creators, plan);
         }
-        return target;
+        return plan;
+    }
+
+    // Writes into the target, runs the save step, and puts the members back when it reports a failure or throws: a model the user may be editing again must not
+    // keep values that were never saved. Only the members this write set are put back, what the save step does to the model itself is its own business.
+    private async Task<bool> SaveIntoAsync(IReadOnlyDictionary<string, object?> values, TModel target, Func<TModel, CancellationToken, Task<bool>> save, CancellationToken cancellationToken)
+    {
+        var plan = PlanWrite(values, target).Apply();
+        try
+        {
+            var saved = await save(target, cancellationToken).ConfigureAwait(false);
+            if (!saved) plan.Rollback();
+            return saved;
+        }
+        catch
+        {
+            plan.Rollback();
+            throw;
+        }
     }
 
     /// <summary>Creates a new model from the values of a controller (see <see cref="Write(FormController, TModel)"/>).</summary>
@@ -174,7 +208,7 @@ public sealed class FormModel<[DynamicallyAccessedMembers(FormModelTrim.Members)
     /// <summary>Submits a controller with a typed save step: validation and the schema hooks run, then <paramref name="save"/> gets the model, and the form stays dirty and editable when it returns <c>false</c> (see <see cref="FormController.SubmitAsync(Func{FormController, CancellationToken, Task{bool}}, CancellationToken)"/>).</summary>
     /// <param name="controller">The controller of this form.</param>
     /// <param name="save">Saves the model and returns <c>true</c> on success. To report a failure, call <see cref="FormController.SetError"/> or <see cref="FormController.SetFormError"/> and return <c>false</c>.</param>
-    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one.</param>
+    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one. When <paramref name="save"/> returns <c>false</c> or throws, the members the form wrote are put back, so the model holds only values that were saved.</param>
     /// <param name="cancellationToken">Passed to <paramref name="save"/>.</param>
     /// <returns><c>true</c> if the form was submitted and saved.</returns>
     public Task<bool> SubmitAsync(FormController controller, Func<TModel, CancellationToken, Task<bool>> save, TModel? target = default, CancellationToken cancellationToken = default)
@@ -185,22 +219,22 @@ public sealed class FormModel<[DynamicallyAccessedMembers(FormModelTrim.Members)
 
     /// <summary>Wraps a typed save step as the handler of <see cref="FormController.SubmitAsync(Func{FormController, CancellationToken, Task{bool}}, CancellationToken)"/>.</summary>
     /// <param name="save">Saves the model.</param>
-    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one.</param>
+    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one. When <paramref name="save"/> returns <c>false</c> or throws, the members the form wrote are put back.</param>
     /// <returns>The handler.</returns>
     public Func<FormController, CancellationToken, Task<bool>> OnSave(Func<TModel, CancellationToken, Task<bool>> save, TModel? target = default)
     {
         ArgumentNullException.ThrowIfNull(save);
-        return (controller, ct) => save(target is null ? Create(controller) : Write(controller, target), ct);
+        return (controller, ct) => target is null ? save(Create(controller), ct) : SaveIntoAsync(controller.BuildOutput(), target, save, ct);
     }
 
     /// <summary>Wraps a typed save step as the <c>OnSave</c> parameter of <c>KlyFormEngine</c>, which passes the output dictionary.</summary>
     /// <param name="save">Saves the model.</param>
-    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one.</param>
+    /// <param name="target">The model to update and pass to <paramref name="save"/>, or <c>null</c> to pass a new one. When <paramref name="save"/> returns <c>false</c> or throws, the members the form wrote are put back.</param>
     /// <returns>The handler.</returns>
     public Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>> OnSaveOutput(Func<TModel, CancellationToken, Task<bool>> save, TModel? target = default)
     {
         ArgumentNullException.ThrowIfNull(save);
-        return (values, ct) => save(target is null ? Create(values) : Write(values, target), ct);
+        return (values, ct) => target is null ? save(Create(values), ct) : SaveIntoAsync(values, target, save, ct);
     }
 
     private async Task<bool> BeforeSubmitAsync(FormController controller)

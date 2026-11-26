@@ -218,20 +218,23 @@ public sealed class FormModelBuilder<[DynamicallyAccessedMembers(FormModelTrim.M
             var order = _orders.Select(o => o(pending.Member)).FirstOrDefault(o => o is not null) ?? 10000;
             fields.Add((schema, new FormFieldBinding(pending.Member, schema.Kind, nullableReference), order));
         }
+        var factory = _factory ?? DefaultFactory();
+        if (factory is null && _validators.Count > 0)
+        {
+            throw new InvalidOperationException($"{typeof(TModel).Name} has no parameterless constructor and the form has model checks (Validate or UseDataAnnotations), which run on a model built from the values: set FormModelBuilder.Factory to say how one is created.");
+        }
         var sorted = fields.Select((f, i) => (f, i)).OrderBy(x => x.f.Order).ThenBy(x => x.i).Select(x => x.f).ToList();
         return new FormModel<TModel>(
             sorted.Select(f => f.Schema).ToList(),
             sorted.Where(f => f.Binding is not null).Select(f => f.Binding!).ToList(),
             [.. _validators],
             new Dictionary<string, Func<object>>(_creators, StringComparer.Ordinal),
-            _factory ?? DefaultFactory(),
+            factory,
             new FormModelSchemaOptions(FormKey, Title, Description, Eyebrow, Columns, ValidateMode, Messages, _beforeSubmit, _onSubmit));
     }
 
     private static Func<TModel>? DefaultFactory() =>
-        typeof(TModel).IsValueType || typeof(TModel).GetConstructor(Type.EmptyTypes) is not null
-            ? () => Activator.CreateInstance<TModel>()
-            : null;
+        typeof(TModel).GetConstructor(Type.EmptyTypes) is not null ? () => Activator.CreateInstance<TModel>() : null;
 }
 
 /// <summary>Declares the fields of the members of a nested object. Obtained from <see cref="FormModelBuilder{TModel}.Nested{TNested}"/>.</summary>
