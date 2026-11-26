@@ -241,7 +241,23 @@
 
     private RenderFragment RenderInfo(FieldNode field, string spanStyle)
     {
-        var tone = field.DisplayTone ?? FormInfoTone.Neutral;
+        // A value cast from outside the enum counts as neutral, in the classes and in the attribute.
+        var tone = field.DisplayTone switch
+        {
+            FormInfoTone.Info => FormInfoTone.Info,
+            FormInfoTone.Success => FormInfoTone.Success,
+            FormInfoTone.Warning => FormInfoTone.Warning,
+            FormInfoTone.Error => FormInfoTone.Error,
+            _ => FormInfoTone.Neutral,
+        };
+        var toneName = tone switch
+        {
+            FormInfoTone.Info => "info",
+            FormInfoTone.Success => "success",
+            FormInfoTone.Warning => "warning",
+            FormInfoTone.Error => "error",
+            _ => "neutral",
+        };
         var plain = field.DisplayKind == FormInfoKind.Text;
         var toneText = tone switch
         {
@@ -262,7 +278,7 @@
         var titleClass = tone == FormInfoTone.Neutral ? "text-(--klyroo-text-highlighted)" : toneText;
         var text = field.DisplayText ?? field.Description;
         return @<div style="@spanStyle" class="@($"flex flex-col gap-0.5 text-xs {(plain ? "" : box)}")" data-slot="form-info" data-form-field="@field.Key"
-                     data-tone="@(tone.ToString().ToLowerInvariant())" data-display-kind="@(plain ? "text" : "callout")">
+                     data-tone="@toneName" data-display-kind="@(plain ? "text" : "callout")">
             @if (!string.IsNullOrEmpty(field.Label))
             {
                 <p class="@($"m-0 font-semibold {titleClass}")">@field.Label</p>

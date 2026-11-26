@@ -432,6 +432,16 @@ public sealed class FieldRenderingTests : BunitContext
     }
 
     [Fact]
+    public void An_info_block_with_a_tone_outside_the_enum_renders_as_neutral()
+    {
+        var (cut, _) = Engine(new DynamicFieldSchema { Key = "odd", Kind = FormFieldKind.Info, Label = "Title", DisplayText = "Note", DisplayTone = (FormInfoTone)7 });
+
+        var odd = cut.Find("[data-form-field=odd]");
+        Assert.Equal("neutral", odd.GetAttribute("data-tone"));
+        Assert.Contains("text-(--klyroo-text-highlighted)", odd.InnerHtml, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void The_current_step_description_is_shown_and_submit_appears_on_the_last_reachable_step()
     {
         var form = new DynamicFormController(new DynamicFormSchema
