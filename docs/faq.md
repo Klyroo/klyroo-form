@@ -36,10 +36,9 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 ## Known limitations
 
-- `FormStepSchema.Root` is reserved: neither the controller nor the components read it.
 - The controller is not thread safe.
 - Validators are synchronous. Use `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks that need I/O.
-- A `Condition` on a child of a repeatable list hides that column in every row: it receives the controller, not the row, so it cannot hide a single cell.
+- A `Condition` on a child of a repeatable list hides that column in every row, and the column is left out of the output rows: it receives the controller, not the row, so it cannot hide a single cell.
 - Tabs have no arrow-key navigation: each tab button is reached with Tab.
 
 ## Questions

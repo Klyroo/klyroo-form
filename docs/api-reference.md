@@ -83,7 +83,7 @@ Declarative definition of one field, or of a layout element such as a section he
 | `AddItemLabel` (init) | `string?` | Label of the add button of a repeatable list. The default is `Add item`. |
 | `Clearable` (init) | `bool` | `true` to show a clear button once the field has a value, next to select lists, text-like inputs, textareas, passwords, number inputs and ratings. Clearing sets the value to `null`, or to an empty string for text-like inputs. |
 | `Collapsible` (init) | `bool` | `true` to render a `FormFieldKind.Group`, `FormFieldKind.Card` or `FormFieldKind.Object` container as a disclosure (`details` and `summary`) the user can collapse, with `FormFieldSchema.Label` as its summary. Collapsing only hides the children: they are still validated and output. |
-| `Condition` (init) | `Func<FormController, bool>?` | Returns `false` to hide the field. A hidden field is skipped by validation and left out of `FormController.BuildOutput`, but its value stays in the state. A hidden container hides its children too, with the same effect on validation and output. On a child of a repeatable list it hides that column: its cells are neither rendered nor validated, and their values stay in the rows. |
+| `Condition` (init) | `Func<FormController, bool>?` | Returns `false` to hide the field. A hidden field is skipped by validation and left out of `FormController.BuildOutput`, but its value stays in the state. A hidden container hides its children too, with the same effect on validation and output. On a child of a repeatable list it hides that column: its cells are neither rendered nor validated, and the column is left out of the rows of the output, while its values stay in the state. |
 | `DefaultCollapsed` (init) | `bool` | `true` to start a `FormFieldSchema.Collapsible` container collapsed. Ignored when `FormFieldSchema.Collapsible` is `false`. |
 | `DefaultFactory` (init) | `Func<FormController, object?>?` | Computes the initial value from the controller. It takes precedence over `FormFieldSchema.DefaultValue` and also fills the cells of a new row of a repeatable list. |
 | `DefaultValue` (init) | `object?` | Initial value used when the initial input has no value for the key. Ignored when `FormFieldSchema.DefaultFactory` is set. |
@@ -194,7 +194,6 @@ One step of a multi-step form, declared in `FormSchema.Steps`.
 | `Description` (init) | `string?` | Optional text shown under the stepper while the step is current. |
 | `Fields` (init) | `IReadOnlyList<FormFieldSchema>` | Fields of the step. |
 | `Key` (init) | `string` | Unique key of the step. |
-| `Root` (init) | `string?` | Reserved for a future use; its meaning is not defined yet. Neither the controller nor the built-in components read it, so leave it unset. |
 | `SkipWhen` (init) | `Func<FormController, bool>?` | Returns `true` to skip the step: the controller starts on the first step that is not skipped, `FormController.NextStepAsync` and `FormController.PreviousStepAsync` pass over it, the stepper does not list it, and its fields are skipped by validation and left out of `FormController.BuildOutput`. The current step is never treated as skipped. |
 | `Title` (init) | `string` | Title shown in the stepper. |
 

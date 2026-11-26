@@ -203,7 +203,7 @@ public sealed class FormFieldSchema
     /// <summary>Text shown under a disabled control to explain why it is disabled.</summary>
     public string? DisabledReason { get; init; }
 
-    /// <summary>Returns <c>false</c> to hide the field. A hidden field is skipped by validation and left out of <see cref="FormController.BuildOutput"/>, but its value stays in the state. A hidden container hides its children too, with the same effect on validation and output. On a child of a repeatable list it hides that column: its cells are neither rendered nor validated, and their values stay in the rows.</summary>
+    /// <summary>Returns <c>false</c> to hide the field. A hidden field is skipped by validation and left out of <see cref="FormController.BuildOutput"/>, but its value stays in the state. A hidden container hides its children too, with the same effect on validation and output. On a child of a repeatable list it hides that column: its cells are neither rendered nor validated, and the column is left out of the rows of the output, while its values stay in the state.</summary>
     public Func<FormController, bool>? Condition { get; init; }
     /// <summary><c>true</c> to drop the field entirely: it has no state, is not rendered, validated or output, and its children are dropped with it.</summary>
     public bool Ignore { get; init; }
@@ -278,8 +278,6 @@ public sealed class FormStepSchema
     public required string Title { get; init; }
     /// <summary>Optional text shown under the stepper while the step is current.</summary>
     public string? Description { get; init; }
-    /// <summary>Reserved for a future use; its meaning is not defined yet. Neither the controller nor the built-in components read it, so leave it unset.</summary>
-    public string? Root { get; init; }
     /// <summary>Fields of the step.</summary>
     public IReadOnlyList<FormFieldSchema> Fields { get; init; } = [];
     /// <summary>Returns <c>true</c> to skip the step: the controller starts on the first step that is not skipped, <see cref="FormController.NextStepAsync"/> and <see cref="FormController.PreviousStepAsync"/> pass over it, the stepper does not list it, and its fields are skipped by validation and left out of <see cref="FormController.BuildOutput"/>. The current step is never treated as skipped.</summary>
@@ -1135,12 +1133,29 @@ public sealed class FormController
             {
                 continue;
             }
-            var val = GetValue(field.Key);
+            var val = CloneValue(GetValue(field.Key));
+            if (field.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable
+                && field.Fields is { Count: > 0 } columns
+                && val is List<Dictionary<string, object?>> rows)
+            {
+                // Hidden and omitted columns leave the rows, like hidden and omitted fields leave the output.
+                var dropped = columns
+                    .Where(c => c.OmitFromOutput || c.Condition?.Invoke(this) == false)
+                    .Select(c => c.Key)
+                    .ToHashSet(StringComparer.Ordinal);
+                if (dropped.Count > 0)
+                {
+                    foreach (var row in rows)
+                    {
+                        foreach (var key in dropped) row.Remove(key);
+                    }
+                }
+            }
             if (field.TransformOutput is not null)
             {
                 val = field.TransformOutput(val);
             }
-            output[field.Key] = CloneValue(val);
+            output[field.Key] = val;
         }
         return output;
     }

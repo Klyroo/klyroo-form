@@ -30,8 +30,13 @@ All notable changes to this project are documented in this file. The format is b
 - `Watch` now also runs after `ResetField` changes a value, after a row of a repeatable list is added or removed, and, for a child of a list, after its cell changes. `Reset` still does not call it.
 - `Validate` removes the validation errors of fields that are no longer in effect, and `HasBlockingErrors` ignores them.
 
+### Removed
+
+- `FormStepSchema.Root`, which was reserved and never read.
+
 ### Fixed
 
+- Hidden and omitted columns of a repeatable list are left out of the rows of `BuildOutput`, like hidden and omitted fields.
 - `KlyFormPage` rendered only the top-level fields of a section, each as an unlabelled text input: the children of containers and tabs never showed although they were validated, and repeatable lists were text inputs. It now renders fields like `KlyFormEngine`, and it is a `form` element, so Enter submits it.
 - The children of a hidden `Group`, `Card` or `Object`, the fields of a hidden tab or section, and the fields of a step skipped by `SkipWhen` were still validated and output. They are now left out of validation and `BuildOutput`, and keep their values in the state.
 - A `Tabs` field without tabs, or a container without `Fields`, became a stateful field rendered as a text input. Containers are now layout only and render nothing when empty.

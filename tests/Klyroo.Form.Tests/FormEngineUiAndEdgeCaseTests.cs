@@ -320,4 +320,32 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         ctrl.SetValue("code", "KLY4");
         Assert.True(ctrl.Validate());
     }
+
+    [Fact]
+    public void Hidden_and_omitted_list_columns_leave_the_output_rows()
+    {
+        var showNotes = false;
+        var lines = new FormFieldSchema
+        {
+            Key = "lines", Label = "Lines", Kind = FormFieldKind.ArrayList,
+            Fields =
+            [
+                new FormFieldSchema { Key = "sku", Label = "SKU" },
+                new FormFieldSchema { Key = "notes", Label = "Notes", Condition = _ => showNotes },
+                new FormFieldSchema { Key = "tmp", Label = "Tmp", OmitFromOutput = true },
+            ],
+        };
+        var ctrl = new FormController(new FormSchema { FormKey = "order", Fields = [lines] });
+        ctrl.AddArrayItem(lines);
+        ctrl.SetArrayItemValue("lines", 0, "sku", "A-1");
+        ctrl.SetArrayItemValue("lines", 0, "notes", "fragile");
+
+        var row = Assert.Single((List<Dictionary<string, object?>>)ctrl.BuildOutput()["lines"]!);
+        Assert.Equal(["sku"], row.Keys.Order());
+        Assert.Equal("fragile", ctrl.GetArrayItems("lines")[0]["notes"]);
+
+        showNotes = true;
+        var shown = Assert.Single((List<Dictionary<string, object?>>)ctrl.BuildOutput()["lines"]!);
+        Assert.Equal(["notes", "sku"], shown.Keys.Order());
+    }
 }
