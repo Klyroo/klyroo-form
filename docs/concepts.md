@@ -84,6 +84,8 @@ A `DateRange` also fails when its end is before its start, and a required one ne
 
 Each cell of a repeatable list is validated with the rules of its child field, row by row: `Validate()` checks every cell, and an edited cell follows the trigger of its child like a field does. Cell errors are keyed by a path such as `lines[0].sku`, read with `GetArrayItemError`, and count in `HasBlockingErrors`. Removing a row moves the errors of the following rows up.
 
+After `SetValue`, `ResetField` or a change of a repeatable list, the controller validates again the other touched fields that currently show an error, and the touched fields that list the changed key in `FormFieldSchema.DependsOn`. That keeps cross-field rules (a confirmation, `RequiredWhen`) from leaving stale errors or a wrong `HasBlockingErrors`. Untouched fields and fields with the `Submit` trigger are not validated this way.
+
 `GetError` and `Errors` return what should be displayed. `HasBlockingErrors` is broader: it reports any validation error of a field in effect, touched or not.
 
 Errors that your own code sets with `SetError`, such as a server response, are a separate set. They are always visible, they disappear on the next `SetValue` for that field, and when you mark one `blocking` it also makes `Validate()` and `SubmitAsync()` fail until it is cleared.

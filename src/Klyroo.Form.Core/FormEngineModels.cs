@@ -195,6 +195,8 @@ public sealed class FormFieldSchema
     public string? RequiredMessage { get; init; }
     /// <summary>When the field is validated while the user edits it. The default is <see cref="FormValidationTrigger.Blur"/>.</summary>
     public FormValidationTrigger Trigger { get; init; } = FormValidationTrigger.Blur;
+    /// <summary>Keys of the fields whose value this field's rules read, for example a confirmation field that compares itself with <c>password</c>. Once this field has been touched, a change of any of those fields validates it again, even when it shows no error yet, so a mismatch appears (and disappears) as soon as the other field changes. Without it, a touched field that currently shows an error is still validated again after any other field changes, which clears stale errors but cannot raise a new one. Ignored with <see cref="FormValidationTrigger.Submit"/>. On a child of a repeatable list it applies to the cells of that column.</summary>
+    public IReadOnlyList<string>? DependsOn { get; init; }
 
     /// <summary><c>true</c> to render the control disabled; on a repeatable list it also disables its cells and the add and remove buttons. This only affects rendering: a disabled field is still validated and included in the output.</summary>
     public bool Disabled { get; init; }
@@ -593,7 +595,7 @@ public sealed partial class FormController
     public object? GetInitialValue(string path) =>
         _initialSnapshot.TryGetValue(path, out var val) ? val : null;
 
-    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key (and the errors and touched state of the cells when it replaces the rows of a repeatable list), validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/> (with that trigger, the validation error is cleared instead), calls <see cref="FormFieldSchema.Watch"/> and raises <see cref="Changed"/>.</summary>
+    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key (and the errors and touched state of the cells when it replaces the rows of a repeatable list), validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/> (with that trigger, the validation error is cleared instead), calls <see cref="FormFieldSchema.Watch"/>, validates again the other touched fields that depend on this one (see <see cref="FormFieldSchema.DependsOn"/>) or show an error, and raises <see cref="Changed"/>.</summary>
     /// <param name="path">Key of the field.</param>
     /// <param name="value">The new value.</param>
     /// <param name="markTouched"><c>true</c> to mark the field touched, so its error is shown. Fields with the <see cref="FormValidationTrigger.Input"/> trigger are always marked.</param>
@@ -619,6 +621,7 @@ public sealed partial class FormController
         }
 
         field?.Watch?.Invoke(value, this);
+        RevalidateDependents(path);
         Changed?.Invoke();
     }
 
@@ -650,6 +653,7 @@ public sealed partial class FormController
         if (!ValuesEqual(before, restored))
         {
             FindField(path)?.Watch?.Invoke(restored, this);
+            RevalidateDependents(path);
         }
         Changed?.Invoke();
     }
@@ -1007,6 +1011,42 @@ public sealed partial class FormController
         }
     }
 
+    // After a value changes, validate again the touched fields that show an error (so stale errors clear and HasBlockingErrors is right)
+    // and the touched fields that declare the changed key in DependsOn (so a new mismatch shows). The changed field itself is left alone.
+    private void RevalidateDependents(string changedKey)
+    {
+        if (Schema.ValidateMode == FormValidationMode.None) return;
+        var hasCellErrors = _cellErrors.Count > 0;
+        foreach (var field in ActiveFields)
+        {
+            var isList = field.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable;
+            if (field.Key != changedKey && field.Trigger != FormValidationTrigger.Submit && _touchedPaths.Contains(field.Key)
+                && (_validationErrors.ContainsKey(field.Key) || DependsOnKey(field, changedKey)))
+            {
+                ValidateFieldCore(field);
+            }
+            if (!isList) continue;
+            var rows = GetArrayItems(field.Key);
+            foreach (var child in CellFields(field))
+            {
+                if (child.Trigger == FormValidationTrigger.Submit) continue;
+                var dependent = DependsOnKey(child, changedKey);
+                if (!dependent && !hasCellErrors) continue;
+                for (var row = 0; row < rows.Count; row++)
+                {
+                    var cell = new CellKey(field.Key, row, child.Key);
+                    if (_touchedCells.Contains(cell) && (dependent || _cellErrors.ContainsKey(cell)))
+                    {
+                        ValidateCell(field, child, row);
+                    }
+                }
+            }
+        }
+    }
+
+    private static bool DependsOnKey(FormFieldSchema field, string key) =>
+        field.DependsOn is { Count: > 0 } deps && deps.Contains(key, StringComparer.Ordinal);
+
     // The visible columns of every repeatable list in effect, by list key.
     private Dictionary<string, HashSet<string>> ActiveCellColumns() =>
         ActiveFields.Where(f => f.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable)
@@ -1032,6 +1072,7 @@ public sealed partial class FormController
             ValidateField(arrayField);
         }
         arrayField.Watch?.Invoke(list, this);
+        RevalidateDependents(arrayField.Key);
     }
 
     private void RemoveCellState(string arrayKey)

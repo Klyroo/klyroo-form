@@ -69,6 +69,21 @@ var schema = new FormSchema
 
 `Trigger` decides when a field is validated while the user edits it. `Blur` (the default) starts validating when the control first loses focus and then validates on every change, `Input` validates from the first change, and `Submit` waits for `Validate()` or a submit. Errors only show for touched fields, and `Validate()` and `SubmitAsync()` touch every field they check.
 
+Rules that read another field, such as a confirmation that compares itself with the password, stay correct while the user edits the other field. After every change the controller validates again the touched fields that currently show an error, so a stale "Passwords differ" disappears when the password is changed to match. It cannot guess that an untouched-looking valid field became invalid, so name the fields your rules read with `DependsOn`:
+
+```csharp
+new FormFieldSchema
+{
+    Key = "confirm",
+    Kind = FormFieldKind.Password,
+    DependsOn = ["password"],
+    Validators = [new FormValidatorRule("match", "Passwords differ",
+        (value, form) => Equals(value, form.GetValue("password")))],
+}
+```
+
+With `DependsOn`, a change of `password` validates `confirm` again once the user has touched it, so the mismatch appears and clears as soon as the other field changes. A field the user has not touched yet stays quiet, and a field with `Trigger = Submit` still waits for submission. `RequiredWhen` follows the same rule: its error disappears when the condition stops holding, and appears on a touched field when you list the field the condition reads in `DependsOn`.
+
 ## Report a server error on a field
 
 Goal: check a value against a service on submit and show the result on the field.

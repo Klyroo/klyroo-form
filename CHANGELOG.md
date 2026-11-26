@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `FormFieldSchema.DependsOn` names the fields whose value a field's rules read. A change of one of them validates the touched field again, so cross-field errors (a confirmation, `RequiredWhen`) appear and clear as the other field changes.
 - `FormController.SubmitAsync(handler, cancellationToken)` runs your save step inside the submission: `IsSubmitting` stays `true` while it works and the dirty snapshot is retaken only when it returns `true`. `KlyFormEngine` and `KlyFormPage` expose it as `OnSave` (`Func<output, CancellationToken, Task<bool>>`) and refuse a second submit while one runs.
 - Form-level errors: `SetFormError`, `FormErrorKey`, `FormErrors`, `GetErrorEntries` (with `FormErrorEntry`) and `SubmitFailed`. An error set with `SetError` on a key that matches no field is form-level, and `KlyFormErrorSummary` renders them at the top of `KlyFormEngine` and `KlyFormPage`, followed by the field errors after a failed submit or Next, each as a button that focuses the field.
 - One polite live region per form announces the error count and the first error, and focus moves to the first invalid field after a failed submit or Next (best effort, through a small `klyroo-form.js` module).
@@ -41,6 +42,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- A cross-field error stayed on screen after the other field was fixed (a confirm password that now matched, a `RequiredWhen` whose condition no longer held), and `HasBlockingErrors` stayed `true`. After a value changes, the controller now validates again the touched fields that show an error.
 - `Validate` ignored a blocking error set with `SetError` on a key that matches no field, so a form-level failure did not stop `SubmitAsync`. It now fails on any blocking error that is form-level or on a validated field.
 - Two quick clicks on Next ran `OnBeforeNext` twice and skipped a step.
 - `OnSubmit` of the components ran after the submission was over (`IsSubmitting` already reset, snapshot already retaken), so an API failure there could not keep the form dirty. Use the new `OnSave`.
