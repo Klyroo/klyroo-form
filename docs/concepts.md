@@ -51,7 +51,7 @@ The controller holds values in a dictionary of `object?` keyed by field key. Whe
 3. For each field without an input value, the default applies: `DefaultFactory`, else `DefaultValue`, else an empty list for repeatable lists, else `null`.
 4. The result is copied into an initial snapshot.
 
-The built-in controls write strings for text-like kinds (dates, times, colors and phone numbers included), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value (a string) for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` and choices with `Multiple`. `GetValue<T>` converts with the invariant culture, so `GetValue<int>("age")` works on a `double`.
+The built-in controls write strings for text-like kinds (dates, times, colors and phone numbers included), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value (a string) for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` and choices with `Multiple`. `GetValue<T>` converts with the invariant culture and reads the formats the controls store: `GetValue<int>("age")` works on a whole `double` (and is `0` for 3.5, which is not rounded), `GetValue<DateOnly>("birthday")` on `yyyy-MM-dd`, `GetValue<TimeOnly>` on `HH:mm`, `GetValue<DateTime>` on `yyyy-MM-ddTHH:mm`, and `Nullable<T>`, `Guid`, enums (by name or member number) and `DateTimeOffset` (a value without a zone counts as UTC) work too. `TryGetValue<T>` tells a missing, blank or unconvertible value from a real default.
 
 Stateless kinds (`Info`, `Divider`, `Section`, `Button`) have no value: they are never validated and never appear in the output.
 

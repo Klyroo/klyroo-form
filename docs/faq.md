@@ -57,7 +57,7 @@ No. Validation is expressed with `Required`, `RequiredWhen`, `Min`, `Max`, `Pass
 
 ### What types do the values have?
 
-The built-in controls store strings for text-like kinds (including dates, times, colors and phone numbers), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` (start and end) and a `Select` or `AutoComplete` with `Multiple`. Cells of repeatable lists use the same controls, so a `Number` cell holds a `double`. From code you can store anything, but dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content. `GetValue<T>` converts with the invariant culture and returns `default` when it cannot.
+The built-in controls store strings for text-like kinds (including dates, times, colors and phone numbers), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` (start and end) and a `Select` or `AutoComplete` with `Multiple`. Cells of repeatable lists use the same controls, so a `Number` cell holds a `double`. From code you can store anything, but dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content. `GetValue<T>` converts with the invariant culture (see [Concepts](concepts.md)) and returns `default` when it cannot; `TryGetValue<T>` reports whether it could.
 
 ### How do labels and errors reach assistive technology?
 

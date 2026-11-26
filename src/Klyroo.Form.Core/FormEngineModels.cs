@@ -571,23 +571,18 @@ public sealed partial class FormController
     public object? GetValue(string path) =>
         _state.TryGetValue(path, out var val) ? val : null;
 
-    /// <summary>Gets the current value converted to <typeparamref name="T"/>. A value already of that type is returned as is; otherwise it is converted with the invariant culture.</summary>
+    /// <summary>Gets the current value converted to <typeparamref name="T"/>. A value already of that type is returned as is. Otherwise it is converted with the invariant culture, in the formats the controls store: <c>T</c> may be a <see cref="Nullable{T}"/>, a number (a whole number only becomes an integer type: 3.5 is not an <see cref="int"/>), <see cref="bool"/>, <see cref="Guid"/>, an enum (by name, ignoring case, or by the number of a member), <see cref="DateOnly"/> (<c>yyyy-MM-dd</c>), <see cref="TimeOnly"/> (<c>HH:mm</c>), <see cref="DateTime"/> (<c>yyyy-MM-ddTHH:mm</c>), <see cref="DateTimeOffset"/> (a value without a zone counts as UTC), <see cref="TimeSpan"/>, a string, or a list of strings.</summary>
     /// <param name="path">Key of the field.</param>
-    /// <returns>The converted value, or <c>default</c> when the value is missing or cannot be converted.</returns>
-    public T? GetValue<T>(string path)
-    {
-        var raw = GetValue(path);
-        if (raw is T typed) return typed;
-        if (raw is null) return default;
-        try
-        {
-            return (T)Convert.ChangeType(raw, typeof(T), CultureInfo.InvariantCulture);
-        }
-        catch
-        {
-            return default;
-        }
-    }
+    /// <returns>The converted value, or <c>default</c> when the value is missing, blank or cannot be converted. Use <see cref="TryGetValue{T}"/> to tell those cases apart from a real <c>default</c>.</returns>
+    public T? GetValue<T>(string path) =>
+        FormValueConverter.TryConvert<T>(GetValue(path), out var value) ? value : default;
+
+    /// <summary>Tries to get the current value converted to <typeparamref name="T"/>, with the conversions of <see cref="GetValue{T}"/>.</summary>
+    /// <param name="path">Key of the field.</param>
+    /// <param name="value">The converted value, or <c>default</c> when the method returns <c>false</c>.</param>
+    /// <returns><c>true</c> when the field has a value that converts to <typeparamref name="T"/>. <c>false</c> when the key has no value, the value is <c>null</c> or (except for a string target) blank, or it cannot be converted.</returns>
+    public bool TryGetValue<T>(string path, out T? value) =>
+        FormValueConverter.TryConvert(GetValue(path), out value);
 
     /// <summary>Gets the value a field had in the initial snapshot.</summary>
     /// <param name="path">Key of the field.</param>
