@@ -141,3 +141,56 @@ public sealed class InvalidControlValueTests
         Assert.Equal(new DateOnly(2026, 3, 27), controller.Get(schema.Field(b => b.Day)));
     }
 }
+
+public sealed class GetOnInvalidCollectionTests
+{
+    [Fact]
+    public void Get_on_a_list_or_a_multiple_choice_that_is_not_a_value_gives_an_empty_list_and_TryGet_says_false()
+    {
+        FormListField<Basket, Line> lines = null!;
+        FormField<Basket, IReadOnlyList<Role>> roles = null!;
+        var schema = FormSchema.For<Basket>(s =>
+        {
+            lines = s.List(b => b.Lines, row => row.Field(l => l.Product));
+            roles = s.MultiSelect(b => b.Roles, [new FormOption<Role>(Role.Guest, "Guest")]);
+        });
+        var controller = new FormController<Basket>(schema);
+        controller.SetRaw("Lines", "abc");
+        controller.SetRaw("Roles", 5);
+
+        Assert.NotNull(controller.Get(lines));
+        Assert.Empty(controller.Get(lines)!);
+        Assert.False(controller.TryGet(lines, out var rows));
+        Assert.Empty(rows!);
+        Assert.NotNull(controller.Get(roles));
+        Assert.Empty(controller.Get(roles)!);
+        Assert.False(controller.TryGet(roles, out var chosen));
+        Assert.Empty(chosen!);
+    }
+
+    [Fact]
+    public void Get_on_an_empty_list_gives_an_empty_list_and_TryGet_is_false_like_for_any_empty_field()
+    {
+        FormField<Basket, IReadOnlyList<Role>> roles = null!;
+        var schema = FormSchema.For<Basket>(s => roles = s.MultiSelect(b => b.Roles, [new FormOption<Role>(Role.Guest, "Guest")]));
+        var controller = new FormController<Basket>(schema);
+
+        Assert.Empty(controller.Get(roles)!);
+        Assert.False(controller.TryGet(roles, out _));
+
+        controller.Set(roles, [Role.Guest]);
+        Assert.True(controller.TryGet(roles, out var value));
+        Assert.Equal([Role.Guest], value);
+    }
+
+    [Fact]
+    public void Get_on_a_scalar_that_is_not_a_value_gives_the_default_of_the_type()
+    {
+        var schema = FormSchema.For<Basket>(s => s.Field(b => b.Stars));
+        var controller = new FormController<Basket>(schema);
+        controller.SetRaw("Stars", "abc");
+
+        Assert.Equal(0, controller.Get(schema.Field(b => b.Stars)));
+        Assert.False(controller.TryGet(schema.Field(b => b.Stars), out _));
+    }
+}

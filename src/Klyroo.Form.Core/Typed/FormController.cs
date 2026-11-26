@@ -103,7 +103,7 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     /// <summary>Gets the current value of a field as its type.</summary>
     /// <typeparam name="TValue">The type of the value of the field.</typeparam>
     /// <param name="field">The field, as the schema declared it.</param>
-    /// <returns>The value, or the default of the type while the field is empty or its text is not a valid value. Use <see cref="TryGet{TValue}"/> to tell those cases apart.</returns>
+    /// <returns>The value, or the default of the type while the field is empty or its text is not a valid value: <c>0</c> for an <c>int</c>, <c>null</c> for a string. A list or a multiple choice gives an empty list, never <c>null</c>, in those cases. Use <see cref="TryGet{TValue}"/> to tell them apart.</returns>
     public TValue? Get<TValue>(FormField<TModel, TValue> field)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -113,8 +113,8 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     /// <summary>Tries to get the current value of a field.</summary>
     /// <typeparam name="TValue">The type of the value of the field.</typeparam>
     /// <param name="field">The field.</param>
-    /// <param name="value">The value, or the default of the type when the method returns <c>false</c>.</param>
-    /// <returns><c>true</c> when the field has a value that is a valid <typeparamref name="TValue"/>. <c>false</c> while it is empty, or while the text the user typed is not a value yet (<c>abc</c> in a number field).</returns>
+    /// <param name="value">The value, or the default of the type when the method returns <c>false</c> (an empty list for a list or a multiple choice).</param>
+    /// <returns><c>true</c> when the field has a value that is a valid <typeparamref name="TValue"/>. <c>false</c> while it is empty (an empty list too), or while the text the user typed is not a value yet (<c>abc</c> in a number field).</returns>
     public bool TryGet<TValue>(FormField<TModel, TValue> field, out TValue? value)
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -327,7 +327,7 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     /// <returns><c>true</c> if the form was submitted.</returns>
     public Task<bool> SubmitAsync() => _engine.SubmitAsync((_, ct) => RunAsync(null, default, ct), CancellationToken.None);
 
-    /// <summary>Submits the form with your save step inside the same lifecycle. The steps are: validate (waiting for asynchronous rules); write the values into <paramref name="target"/>, or create a new model when there is none; run the model checks and <c>OnBeforeSubmit</c> and <c>OnSubmit</c> on that model; call <paramref name="save"/>. When a step fails, or <paramref name="save"/> returns <c>false</c> or throws, the target is put back as it was. When all succeed the baseline is retaken, so the form is no longer dirty.</summary>
+    /// <summary>Submits the form with your save step inside the same lifecycle. The steps are: validate (waiting for asynchronous rules); write the values into <paramref name="target"/>, or create a new model when there is none; run the model checks and <c>OnBeforeSubmit</c> and <c>OnSubmit</c> on that model; call <paramref name="save"/>. When a step fails, or <paramref name="save"/> returns <c>false</c> or throws, the members the write changed get their previous values again (a list or a multiple choice holds its previous items, and a row gets its previous cells). Members the form did not write are not touched, and nothing that <c>OnBeforeSubmit</c>, <c>OnSubmit</c> or <paramref name="save"/> did is undone, neither on the model nor outside it: <c>OnSubmit</c> runs before <paramref name="save"/>, so its side effects stay when the save fails. When all succeed the baseline is retaken, so the form is no longer dirty.</summary>
     /// <param name="save">Saves the model. Return <c>false</c> to report a failure.</param>
     /// <param name="target">The model to write into, or <c>null</c> to save a new one.</param>
     /// <param name="cancellationToken">Passed to the waits and to <paramref name="save"/>.</param>

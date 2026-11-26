@@ -103,7 +103,7 @@ public sealed class FormRow<TItem>
     /// <summary>Reads the value of a column of this row.</summary>
     /// <typeparam name="TValue">The type of the value of the column.</typeparam>
     /// <param name="column">The column, as declared in the <c>List</c> call.</param>
-    /// <returns>The value, or the default of the type when the cell is empty or its text is not a valid value.</returns>
+    /// <returns>The value, or the default of the type when the cell is empty or its text is not a valid value. Use <see cref="TryGet{TValue}"/> to tell them apart.</returns>
     public TValue? Get<TValue>(FormField<TItem, TValue> column)
     {
         ArgumentNullException.ThrowIfNull(column);
