@@ -8,6 +8,9 @@ public sealed class FormFieldSettings
     /// <summary>Key of the field. It is derived from the member and cannot change.</summary>
     public string Key { get; }
 
+    // What an empty input becomes for a string member (true: null, false: an empty string), or null to follow the nullable annotation of the member.
+    internal bool? NullWhenEmpty { get; set; }
+
     /// <summary>See <see cref="FormFieldSchema.Kind"/>.</summary>
     public FormFieldKind Kind { get; set; } = FormFieldKind.Text;
     /// <summary>See <see cref="FormFieldSchema.Label"/>.</summary>

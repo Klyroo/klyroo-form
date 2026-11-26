@@ -210,11 +210,11 @@ public sealed class FormModelBuilder<[DynamicallyAccessedMembers(FormModelTrim.M
             }
             var pending = (Pending)item;
             var settings = new FormFieldSettings(pending.Member.Key);
-            var nullableReference = pending.Member.Type == typeof(string) && IsNullableReference(pending.Member.Property);
             FormValueMap.ApplyDefaults(pending.Member, pending.Kind, clearOptional: false, settings);
             foreach (var convention in _conventions) convention(pending.Member, settings);
             foreach (var step in pending.Explicit) step(settings);
             var schema = settings.ToSchema();
+            var nullableReference = pending.Member.Type == typeof(string) && FormNullability.IsNullableReference(pending.Member.Property, settings.NullWhenEmpty);
             var order = _orders.Select(o => o(pending.Member)).FirstOrDefault(o => o is not null) ?? 10000;
             fields.Add((schema, new FormFieldBinding(pending.Member, schema.Kind, nullableReference), order));
         }
@@ -227,9 +227,6 @@ public sealed class FormModelBuilder<[DynamicallyAccessedMembers(FormModelTrim.M
             _factory ?? DefaultFactory(),
             new FormModelSchemaOptions(FormKey, Title, Description, Eyebrow, Columns, ValidateMode, Messages, _beforeSubmit, _onSubmit));
     }
-
-    private static bool IsNullableReference(PropertyInfo property) =>
-        new NullabilityInfoContext().Create(property).WriteState == NullabilityState.Nullable;
 
     private static Func<TModel>? DefaultFactory() =>
         typeof(TModel).IsValueType || typeof(TModel).GetConstructor(Type.EmptyTypes) is not null

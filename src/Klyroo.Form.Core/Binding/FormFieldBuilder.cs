@@ -77,6 +77,10 @@ public sealed class FormFieldBuilder<TValue>
         s.Validators = [.. s.Validators ?? [], rule];
     });
 
+    /// <summary>Chooses what an empty input becomes for a <see cref="string"/> member: <c>null</c> (<paramref name="nullWhenEmpty"/> <c>true</c>) or an empty string. By default the nullable annotation of the member decides (<c>string?</c> gives <c>null</c>). The annotation is read at run time, and an app trimmed with <c>System.Reflection.NullabilityInfoContext.IsSupported</c> off has none: every string then gets an empty string unless you say otherwise here.</summary>
+    /// <param name="nullWhenEmpty"><c>true</c> to write <c>null</c>, <c>false</c> to write an empty string.</param>
+    public FormFieldBuilder<TValue> NullWhenEmpty(bool nullWhenEmpty = true) => Add(s => s.NullWhenEmpty = nullWhenEmpty);
+
     /// <summary>Shows the field only while <paramref name="condition"/> returns <c>true</c> (<see cref="FormFieldSchema.Condition"/>). A hidden field is not validated and its member is left as it is.</summary>
     /// <param name="condition">Receives the controller.</param>
     public FormFieldBuilder<TValue> Condition(Func<FormController, bool> condition) => Add(s => s.Condition = condition);
