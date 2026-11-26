@@ -3,13 +3,14 @@ namespace Klyroo.Form;
 public sealed partial class FormController
 {
     /// <summary>Takes a copy of the values the user has typed and of the current step, to keep them across a reload or a navigation: store <see cref="FormDraft.ToJson"/> and give the draft back to <see cref="RestoreDraft"/> on a controller built from the same initial input.</summary>
-    /// <param name="includeSensitive"><c>true</c> to include the values of <see cref="FormFieldKind.Password"/> and <see cref="FormFieldKind.OneTimeCode"/> fields. They are left out by default, because a draft is meant to be stored on the user's device.</param>
+    /// <param name="includeSensitive"><c>true</c> to include the values of <see cref="FormFieldKind.Password"/> and <see cref="FormFieldKind.OneTimeCode"/> fields. They are left out by default, because a draft is meant to be stored on the user's device. <see cref="FormFieldKind.File"/> fields are always left out: a file cannot be restored from a draft.</param>
     /// <returns>The draft. Lists and rows are copied, so later edits do not change it.</returns>
     public FormDraft ExportState(bool includeSensitive = false)
     {
-        var sensitive = includeSensitive
-            ? new HashSet<string>(StringComparer.Ordinal)
-            : AllFields.Where(f => f.Kind is FormFieldKind.Password or FormFieldKind.OneTimeCode).Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        var sensitive = AllFields
+            .Where(f => f.Kind == FormFieldKind.File || (!includeSensitive && f.Kind is FormFieldKind.Password or FormFieldKind.OneTimeCode))
+            .Select(f => f.Key)
+            .ToHashSet(StringComparer.Ordinal);
         var values = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var (key, value) in _state)
         {

@@ -43,12 +43,12 @@ public sealed record FormMessages
     /// <summary>The error of a <see cref="FormFieldKind.DateRange"/> whose end is before its start (<c>"The end date must not be before the start date"</c>).</summary>
     public string DateRangeOrder { get; init; } = "The end date must not be before the start date";
 
-    /// <summary>The error of a <c>FormFieldKind.File</c> file above <c>FormFieldSchema.MaxFileSize</c>, given the file name and the limit as text (<c>"report.pdf is larger than 5 MB"</c>).</summary>
+    /// <summary>The error of a <see cref="FormFieldKind.File"/> file above <see cref="FormFieldSchema.MaxFileSize"/>, given the file name and the limit as text (<c>"report.pdf is larger than 5 MB"</c>).</summary>
     public Func<string, string, string> FileTooLarge { get; init; } = (name, size) => $"{name} is larger than {size}";
 
-    /// <summary>The error of a <c>FormFieldKind.File</c> file that does not match <c>FormFieldSchema.Accept</c>, given the file name and the accepted list (<c>"photo.gif is not an accepted type (.png,.jpg)"</c>).</summary>
+    /// <summary>The error of a <see cref="FormFieldKind.File"/> file that does not match <see cref="FormFieldSchema.Accept"/>, given the file name and the accepted list (<c>"photo.gif is not an accepted type (.png,.jpg)"</c>).</summary>
     public Func<string, string, string> FileTypeNotAllowed { get; init; } = (name, accept) => $"{name} is not an accepted type ({accept})";
 
-    /// <summary>The error of a <c>FormFieldKind.File</c> field without <see cref="FormFieldSchema.Multiple"/> that holds several files (<c>"Choose one file only"</c>).</summary>
+    /// <summary>The error of a <see cref="FormFieldKind.File"/> field without <see cref="FormFieldSchema.Multiple"/> that holds several files (<c>"Choose one file only"</c>).</summary>
     public string SingleFileOnly { get; init; } = "Choose one file only";
 }

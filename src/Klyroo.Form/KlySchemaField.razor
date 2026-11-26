@@ -1,6 +1,7 @@
 @namespace Klyroo.Form
 @inherits KlyComponentBase
 @using System.Globalization
+@using Microsoft.AspNetCore.Components.Forms
 
 @if (Form is not null && Field is not null && Form.ShouldRenderField(Field))
 {
@@ -26,23 +27,10 @@
 
     protected override void OnParametersSet() => Form?.UseLocaleMessages(Texts.Messages);
 
-    private int Cols => FormLayout.Columns(Form.Schema);
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>, and reach the fields inside containers, tabs and lists.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>? FieldTemplates { get; set; }
 
-    // Everything a control needs, so the same control renders a field or a cell of a repeatable list.
-    private sealed record Binding(
-        string Id,
-        object? Value,
-        Func<object?> Current,
-        Action<object?> Set,
-        Action<object?> Commit,
-        Action Blur,
-        string? Error,
-        bool Disabled,
-        bool Required,
-        string? LabelledBy,
-        string? DescribedBy,
-        string Slot,
-        bool IsCell);
+    private int Cols => FormLayout.Columns(Form.Schema);
 
     private static bool HasInlineLabel(FormFieldKind kind) => kind is FormFieldKind.Checkbox or FormFieldKind.Switch;
 
@@ -132,7 +120,9 @@
         var groupControl = IsGroupControl(field);
         var validating = form.IsValidating(field.Key);
 
-        var binding = new Binding(
+        var binding = new FormFieldContext(
+            form,
+            field,
             fieldId,
             form.GetValue(field.Key),
             () => form.GetValue(field.Key),
@@ -142,10 +132,11 @@
             error,
             disabled,
             required,
+            validating,
             groupControl && showLabel ? labelId : null,
             Join(descriptionId, helpId, errorId),
             "form-control",
-            IsCell: false);
+            isCell: false);
 
         return @<div style="@spanStyle" class="flex flex-col gap-1.5" data-slot="form-field" data-form-field="@field.Key"
                      data-kind="@field.Kind.ToString().ToLowerInvariant()" data-invalid="@(error is not null ? "true" : null)"
@@ -284,7 +275,7 @@
                     <div class="grid gap-4" style="@gridStyle">
                         @foreach (var child in children)
                         {
-                            <KlySchemaField Form="form" Field="child" />
+                            <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
                         }
                     </div>
                 </div>
@@ -306,7 +297,7 @@
             <div class="grid gap-4" style="@gridStyle">
                 @foreach (var child in children)
                 {
-                    <KlySchemaField Form="form" Field="child" />
+                    <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
                 }
             </div>
         </div>;
@@ -342,7 +333,7 @@
                  class="grid gap-4" style="@(FormLayout.GridStyle(cols))" data-slot="form-tab-panel">
                 @foreach (var child in activeTab.Fields)
                 {
-                    <KlySchemaField Form="form" Field="child" />
+                    <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
                 }
             </div>
         </div>;
@@ -424,7 +415,9 @@
                                     var cellRequired = form.IsFieldRequired(child);
                                     var cellGroup = IsGroupControl(child);
                                     var cellShowLabel = !string.IsNullOrEmpty(child.Label) && !HasInlineLabel(child.Kind);
-                                    var cellBinding = new Binding(
+                                    var cellBinding = new FormFieldContext(
+                                        form,
+                                        child,
                                         cellId,
                                         item.GetValueOrDefault(child.Key),
                                         () => CellValue(form, field.Key, idx, childKey),
@@ -434,10 +427,11 @@
                                         cellError,
                                         disabled || form.IsFieldDisabled(child),
                                         cellRequired,
+                                        false,
                                         cellGroup && cellShowLabel ? $"{cellId}-label" : null,
                                         cellError is null ? null : $"{cellId}-error",
                                         "form-array-input",
-                                        IsCell: true);
+                                        isCell: true);
                                     <div style="@(FormLayout.SpanStyle(child.Span, cols))" class="flex flex-col gap-1" data-slot="form-array-cell"
                                          data-child="@child.Key" data-invalid="@(cellError is not null ? "true" : null)">
                                         @if (cellShowLabel)
@@ -501,7 +495,7 @@
         </div>;
     }
 
-    private RenderFragment RenderControl(FormController form, FormFieldSchema field, Binding b)
+    private RenderFragment RenderControl(FormController form, FormFieldSchema field, FormFieldContext b)
     {
         var invalid = b.Error is not null ? "true" : null;
         var required = b.Required ? "true" : null;
@@ -769,6 +763,12 @@
             case FormFieldKind.Tag:
                 return RenderTags(field, b);
 
+            case FormFieldKind.File:
+                return RenderFile(field, b);
+
+            case FormFieldKind.Custom:
+                return RenderCustom(field, b);
+
             default:
                 var (inputType, autocomplete, inputMode) = field.Kind switch
                 {
@@ -804,7 +804,7 @@
         }
     }
 
-    private RenderFragment ClearButton(Binding b, object? cleared) =>
+    private RenderFragment ClearButton(FormFieldContext b, object? cleared) =>
         @<button type="button"
                  class="@ClearButtonClass"
                  aria-label="@Texts.Clear"
@@ -812,7 +812,7 @@
                  data-slot="form-control-clear"
                  @onclick="@(() => b.Commit(cleared))">✕</button>;
 
-    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, Binding b, bool multiple)
+    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, FormFieldContext b, bool multiple)
     {
         var options = form.GetFieldOptions(field);
         var selected = multiple ? AsStringList(b.Value) : [];
@@ -873,7 +873,94 @@
         </div>;
     }
 
-    private RenderFragment RenderTags(FormFieldSchema field, Binding b)
+    private RenderFragment RenderCustom(FormFieldSchema field, FormFieldContext b)
+    {
+        var renderer = ResolveRenderer(field.CustomKey);
+        return renderer is null
+            ? @<p class="m-0 text-xs text-(--klyroo-warning-text)" data-slot="form-custom-missing">No renderer is registered for the custom field "@(field.CustomKey ?? field.Key)".</p>
+            : renderer(b);
+    }
+
+    // The FieldTemplates parameter wins over the renderers registered in AddKlyrooForm.
+    private RenderFragment<FormFieldContext>? ResolveRenderer(string? key)
+    {
+        if (string.IsNullOrEmpty(key)) return null;
+        if (FieldTemplates is not null && FieldTemplates.TryGetValue(key, out var template)) return template;
+        return Options.Extension<KlyrooFormOptions>().TryGetCustomField(key, out var registered) ? registered : null;
+    }
+
+    private RenderFragment RenderFile(FormFieldSchema field, FormFieldContext b)
+    {
+        var files = FilesOf(b.Value);
+        var version = Ui.FileInputVersions.GetValueOrDefault(b.Id);
+        var invalid = b.Error is not null ? "true" : null;
+        return @<div class="flex flex-col gap-1.5" data-control="file">
+            <label class="@($"inline-flex w-fit cursor-pointer items-center rounded-(--klyroo-radius) border {(b.Error is not null ? "border-(--klyroo-error)" : "border-(--klyroo-border)")} bg-(--klyroo-bg) px-3.5 h-9 text-xs font-semibold text-(--klyroo-text) hover:bg-(--klyroo-bg-muted) has-focus-visible:outline-2 has-focus-visible:outline-(--klyroo-primary) {(b.Disabled ? "opacity-50" : "")}")"
+                   data-slot="form-file-picker">
+                <InputFile @key="version" id="@b.Id" class="sr-only"
+                           multiple="@field.Multiple" accept="@field.Accept" disabled="@b.Disabled"
+                           aria-invalid="@invalid" aria-required="@(b.Required ? "true" : null)" aria-describedby="@b.DescribedBy"
+                           data-slot="@b.Slot"
+                           OnChange="@(e => OnFilesChosen(field, b, e))" />
+                <span>@(field.Multiple ? Texts.ChooseFiles : Texts.ChooseFile)</span>
+            </label>
+            @if (files.Count == 0)
+            {
+                <span class="text-xs text-(--klyroo-text-muted)" data-slot="form-file-empty">@Texts.NoFileChosen</span>
+            }
+            else
+            {
+                <ul class="m-0 flex list-none flex-col gap-1 p-0" data-slot="form-file-list">
+                    @foreach (var file in files)
+                    {
+                        var chosen = file;
+                        <li class="flex items-center gap-2 text-xs" data-slot="form-file" data-name="@file.Name">
+                            <span class="min-w-0 truncate text-(--klyroo-text)">@file.Name</span>
+                            <span class="shrink-0 text-[11px] text-(--klyroo-text-muted)">@FormFileValue.FormatSize(file.Size)</span>
+                            <button type="button"
+                                    class="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50"
+                                    aria-label="@Texts.RemoveFile(file.Name)"
+                                    disabled="@b.Disabled"
+                                    data-slot="form-file-remove"
+                                    @onclick="@(() => RemoveFile(field, b, chosen))">✕</button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>;
+    }
+
+    private static IReadOnlyList<FormFileValue> FilesOf(object? value) => value switch
+    {
+        FormFileValue single => [single],
+        IEnumerable<FormFileValue> many => many.ToList(),
+        _ => [],
+    };
+
+    private static void OnFilesChosen(FormFieldSchema field, FormFieldContext b, InputFileChangeEventArgs e)
+    {
+        if (e.FileCount == 0) return;
+        var picked = e.GetMultipleFiles(e.FileCount).Select(ToFileValue).ToList();
+        b.Commit(field.Multiple ? picked : picked[0]);
+    }
+
+    private static FormFileValue ToFileValue(IBrowserFile file) =>
+        new(file.Name, file.Size, file.ContentType, ct => ValueTask.FromResult(file.OpenReadStream(Math.Max(file.Size, 1), ct)), file.LastModified);
+
+    // The browser input keeps showing its selection and does not fire change for the same file again, so a removal gives it a new identity.
+    private void RemoveFile(FormFieldSchema field, FormFieldContext b, FormFileValue file)
+    {
+        Ui.FileInputVersions[b.Id] = Ui.FileInputVersions.GetValueOrDefault(b.Id) + 1;
+        if (!field.Multiple)
+        {
+            b.Commit(null);
+            return;
+        }
+        var rest = FilesOf(b.Current()).Where(f => !ReferenceEquals(f, file)).ToList();
+        b.Commit(rest.Count == 0 ? null : rest);
+    }
+
+    private RenderFragment RenderTags(FormFieldSchema field, FormFieldContext b)
     {
         var tags = AsStringList(b.Value);
         var draft = Ui.Drafts.GetValueOrDefault(b.Id, "");
@@ -912,7 +999,7 @@
         </div>;
     }
 
-    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, Binding b)
+    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, FormFieldContext b)
     {
         var draftKey = $"{b.Id}-create";
         var draft = Ui.Drafts.GetValueOrDefault(draftKey, "");
@@ -947,7 +1034,7 @@
         }
     }
 
-    private void OnTagInput(Binding b, string? raw)
+    private void OnTagInput(FormFieldContext b, string? raw)
     {
         raw ??= "";
         var parts = raw.Split(',');
@@ -963,7 +1050,7 @@
         Ui.Drafts[b.Id] = parts[^1];
     }
 
-    private void OnTagKeyDown(Binding b, KeyboardEventArgs e)
+    private void OnTagKeyDown(FormFieldContext b, KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
         var tags = AsStringList(b.Current());
@@ -1026,7 +1113,7 @@
     }
 
     // The text the user types stays on screen until the input loses focus; the state gets the matching option value.
-    private void OnAutoCompleteInput(Binding b, IReadOnlyList<FormOptionItem> options, string? text)
+    private void OnAutoCompleteInput(FormFieldContext b, IReadOnlyList<FormOptionItem> options, string? text)
     {
         Ui.Drafts[b.Id] = text ?? "";
         b.Set(ResolveAutoComplete(options, text));
@@ -1071,7 +1158,7 @@
         if (!Ui.RevealedPasswords.Remove(id)) Ui.RevealedPasswords.Add(id);
     }
 
-    private static void OnNumberInput(Binding b, string? raw)
+    private static void OnNumberInput(FormFieldContext b, string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {

@@ -73,7 +73,7 @@
         <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(form.Schema)))" data-slot="form-fields">
             @foreach (var field in form.CurrentVisibleTopFields)
             {
-                <KlySchemaField Form="form" Field="field" />
+                <KlySchemaField Form="form" Field="field" FieldTemplates="FieldTemplates" />
             }
         </div>
 
@@ -157,6 +157,9 @@
 
     /// <summary>How the form is presented. Anything other than <see cref="FormShellMode.Inline"/> adds a close button to the header when <see cref="OnCancel"/> is bound.</summary>
     [Parameter] public FormShellMode Shell { get; set; } = FormShellMode.Inline;
+
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;FormFieldContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>? FieldTemplates { get; set; }
 
     /// <summary>Text of the submit button. The default is the <c>Submit</c> text of the current locale (<see cref="FormTexts.Submit"/>).</summary>
     [Parameter] public string? SubmitLabel { get; set; }

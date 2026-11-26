@@ -12,6 +12,7 @@ internal sealed class FormUiState
     public Dictionary<string, string> ActiveTabs { get; } = new(StringComparer.Ordinal);
     public HashSet<string> RevealedPasswords { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Drafts { get; } = new(StringComparer.Ordinal);
+    public Dictionary<string, int> FileInputVersions { get; } = new(StringComparer.Ordinal);
 
     public static FormUiState For(FormController form) => States.GetValue(form, _ => new FormUiState());
 }

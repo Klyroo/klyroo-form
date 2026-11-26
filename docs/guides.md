@@ -12,6 +12,8 @@ Task-oriented recipes. Each one states a goal, shows complete code and explains 
 - [Open a form in a dialog from anywhere](#open-a-form-in-a-dialog-from-anywhere)
 - [Edit repeatable rows](#edit-repeatable-rows)
 - [Prefill and reset a form](#prefill-and-reset-a-form)
+- [Add your own control](#add-your-own-control)
+- [Upload files](#upload-files)
 - [Test your forms](#test-your-forms)
 
 ## Validate a field with custom rules
@@ -468,6 +470,80 @@ Goal: load existing data into a form, and restore it on demand.
 Pass a `FormController` to `KlyFormEngine` through `Form` when you need to read or change the form from code. `Reset(newInput)` clears errors and touched state, returns to the first step, loads the values and makes them the new baseline, so the form is not dirty afterwards. `Reset()` without input returns to the defaults. To restore a single field use `ResetField(key)`, and for a section `ResetSection(key)`; both go back to the baseline, not to the defaults.
 
 Keys of the input that match no field are kept in `InternalState` but never appear in the output.
+
+## Add your own control
+
+Goal: use a control the library does not have, such as a star picker or a map, as a field that is validated, dirty-tracked and part of the output like any other.
+
+```razor
+@* StarPicker.razor: a Razor component that edits one field through its FormFieldContext *@
+@using Klyroo.Form
+
+<div id="@Context.Id" role="radiogroup" aria-labelledby="@Context.LabelledBy" aria-describedby="@Context.DescribedBy"
+     aria-invalid="@(Context.Error is null ? null : "true")">
+    @for (var star = 1; star <= 5; star++)
+    {
+        var value = star;
+        <button type="button" disabled="@Context.Disabled" aria-pressed="@(Context.Current<int>() >= value)"
+                @onclick="@(() => Context.Commit(value))" @onblur="Context.Blur">★</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FormFieldContext Context { get; set; } = default!;
+}
+```
+
+```csharp
+// Program.cs, once for the app: the key is the one the schema names
+builder.Services.AddKlyrooForm(f => f.CustomField("stars", ctx => builder =>
+{
+    builder.OpenComponent<StarPicker>(0);
+    builder.AddComponentParameter(1, nameof(StarPicker.Context), ctx);
+    builder.CloseComponent();
+}));
+
+// the schema
+new FormFieldSchema { Key = "rating", Kind = FormFieldKind.Custom, CustomKey = "stars", Label = "How was it?", Required = true }
+```
+
+A custom field is a normal stateful field: it holds whatever value you store (a string, a number, a list), is checked by `Required` and `Validators`, and is in `BuildOutput()`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control. `FormFieldContext` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy` and `LabelledBy` for the ARIA attributes. For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Context.LabelledBy`, or at the label id yourself.
+
+To register the renderer for one form instead of the whole app, pass it in the `FieldTemplates` parameter of `KlyFormEngine`, `KlyFormPage` or `KlySchemaField`: a `Dictionary<string, RenderFragment<FormFieldContext>>` that wins over the registry and reaches fields inside containers, tabs and the cells of repeatable lists. A custom field whose key has no renderer shows a notice instead of a control. Because `FormFieldContext` has a public constructor, you can also build one in a unit test: `new FormFieldContext(form, field, "id")` then call `Set`, `Commit` and `Blur` and read the controller.
+
+## Upload files
+
+Goal: let the user attach files, reject the wrong ones before they reach your server, and read the content when saving.
+
+```csharp
+new FormFieldSchema
+{
+    Key = "attachments",
+    Kind = FormFieldKind.File,
+    Label = "Attachments",
+    Multiple = true,
+    Accept = ".pdf,image/*",
+    MaxFileSize = 5 * 1024 * 1024,
+}
+```
+
+The control is a Blazor `InputFile` behind a button, with the chosen files listed under it and a remove button on each. The value is a `FormFileValue` (or `null`) for a single file, or a `List<FormFileValue>` with `Multiple`: the name, size and content type the browser reported, and `OpenReadAsync()` to open the content. A `FormFileValue` has no UI type in it, so the same field works in a unit test (`FormFileValue.FromBytes("a.pdf", bytes, "application/pdf")`) and in the output you hand to your service:
+
+```csharp
+OnSave = async (data, ct) =>
+{
+    foreach (var file in (List<FormFileValue>?)data["attachments"] ?? [])
+    {
+        await using var stream = await file.OpenReadAsync(ct);
+        await storage.UploadAsync(file.Name, stream, ct);
+    }
+    return true;
+}
+```
+
+`Accept` is the `accept` attribute of the input, which only filters the picker, so the controller checks it again on validation (`.png` matches the extension, `image/png` the content type, `image/*` a family, ignoring case), together with `MaxFileSize` for each file and the number of files for a field without `Multiple`. The messages name the file and the limit (`report.pdf is larger than 5 MB`) and follow the locale. A rejected file stays in the list so the user sees which one it was, and the form cannot be submitted until it is removed. The size and type come from the browser: they are for the user's benefit, so check them again on the server. Files are not part of `ExportState()` drafts, since their content cannot be restored.
+
+In Blazor Server the content streams over the circuit when you read it, and `InputFile` reads from the browser only then, so opening a file you do not need costs nothing. `OpenReadAsync` can be called several times, and each call returns a new stream.
 
 ## Test your forms
 

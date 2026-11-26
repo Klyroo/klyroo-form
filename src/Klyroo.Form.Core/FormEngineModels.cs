@@ -117,6 +117,10 @@ public enum FormFieldKind
     ArrayList,
     /// <summary>Same value and behavior as <see cref="ArrayList"/>; <c>KlyFormEngine</c> renders both identically.</summary>
     ArrayTable,
+    /// <summary>A control you provide. <see cref="FormFieldSchema.CustomKey"/> names its renderer, a <c>RenderFragment&lt;FormFieldContext&gt;</c> registered with <c>KlyrooFormOptions.CustomField</c> or passed in the <c>FieldTemplates</c> parameter of the components. The field is stateful like any input: it holds any value you store, is validated with <see cref="FormFieldSchema.Required"/> and <see cref="FormFieldSchema.Validators"/>, and is part of the output. The components render its label, description, help and error around your control.</summary>
+    Custom,
+    /// <summary>File input rendered with the Blazor <c>InputFile</c>. The value is a <see cref="FormFileValue"/> (or <c>null</c>), or a <c>List&lt;FormFileValue&gt;</c> with <see cref="FormFieldSchema.Multiple"/>. <see cref="FormFieldSchema.Accept"/>, <see cref="FormFieldSchema.MaxFileSize"/> and the number of files are checked on validation. A file is never part of a draft (<see cref="FormController.ExportState"/>), since its content cannot be restored.</summary>
+    File,
 }
 
 /// <summary>One choice of a <see cref="FormFieldKind.Select"/>, <see cref="FormFieldKind.AutoComplete"/>, <see cref="FormFieldKind.Radio"/> or <see cref="FormFieldKind.CheckboxGroup"/> field.</summary>
@@ -242,9 +246,15 @@ public sealed class FormFieldSchema
     public double? Max { get; init; }
     /// <summary>The <c>step</c> attribute of number and slider inputs. It is not validated.</summary>
     public double? Step { get; init; }
+    /// <summary>The accepted files of a <see cref="FormFieldKind.File"/> field, in the syntax of the HTML <c>accept</c> attribute: comma-separated extensions (<c>.png</c>), content types (<c>image/png</c>) and wildcards (<c>image/*</c>). It is the <c>accept</c> attribute of the input, which only filters the picker, so validation checks it too (see <see cref="FormFileValue.Matches"/>).</summary>
+    public string? Accept { get; init; }
+    /// <summary>The largest accepted size in bytes of each file of a <see cref="FormFieldKind.File"/> field, enforced on validation. <c>null</c> means no limit.</summary>
+    public long? MaxFileSize { get; init; }
+    /// <summary>Names the renderer of a <see cref="FormFieldKind.Custom"/> field: the key it was registered under with <c>KlyrooFormOptions.CustomField</c>, or the key in the <c>FieldTemplates</c> parameter. Keys are case sensitive. A custom field without a registered renderer shows a notice instead of a control.</summary>
+    public string? CustomKey { get; init; }
     /// <summary>Largest accepted number of characters of a text value, enforced on validation. Also the <c>maxlength</c> attribute of text-like inputs, including textareas, passwords and one-time codes.</summary>
     public int? MaxLength { get; init; }
-    /// <summary><c>true</c> if a <see cref="FormFieldKind.Select"/> or <see cref="FormFieldKind.AutoComplete"/> field holds several values: it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>. <see cref="FormController.CreateFieldOption"/> appends to that list.</summary>
+    /// <summary><c>true</c> if a <see cref="FormFieldKind.File"/> field takes several files (its value is a <c>List&lt;FormFileValue&gt;</c>), or if a <see cref="FormFieldKind.Select"/> or <see cref="FormFieldKind.AutoComplete"/> field holds several values: it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>. <see cref="FormController.CreateFieldOption"/> appends to that list.</summary>
     public bool Multiple { get; init; }
     /// <summary><c>true</c> to show a clear button once the field has a value, next to select lists, text-like inputs, textareas, passwords, number inputs and ratings. Clearing sets the value to <c>null</c>, or to an empty string for text-like inputs.</summary>
     public bool Clearable { get; init; }
@@ -1222,6 +1232,12 @@ public sealed partial class FormController
             }
         }
 
+        // Files
+        if (field.Kind == FormFieldKind.File && !isEmpty && CheckFiles(field, val) is { } fileError)
+        {
+            return fileError;
+        }
+
         // Custom validators
         if (field.Validators is { Count: > 0 })
         {
@@ -1232,6 +1248,23 @@ public sealed partial class FormController
                     return rule.Message;
                 }
             }
+        }
+        return null;
+    }
+
+    private string? CheckFiles(FormFieldSchema field, object? val)
+    {
+        var files = val switch
+        {
+            FormFileValue single => [single],
+            IEnumerable<FormFileValue> many => many.ToList(),
+            _ => new List<FormFileValue>(),
+        };
+        if (!field.Multiple && files.Count > 1) return Messages.SingleFileOnly;
+        foreach (var file in files)
+        {
+            if (!file.Matches(field.Accept)) return Messages.FileTypeNotAllowed(file.Name, field.Accept!);
+            if (field.MaxFileSize is { } max && file.Size > max) return Messages.FileTooLarge(file.Name, FormFileValue.FormatSize(max));
         }
         return null;
     }
@@ -1677,6 +1710,10 @@ public sealed partial class FormController
         {
             return strList.ToList();
         }
+        if (value is IReadOnlyList<FormFileValue> fileList)
+        {
+            return fileList.ToList();
+        }
         return value;
     }
 
@@ -1687,6 +1724,10 @@ public sealed partial class FormController
         if (a is IReadOnlyList<string> la && b is IReadOnlyList<string> lb)
         {
             return la.SequenceEqual(lb, StringComparer.Ordinal);
+        }
+        if (a is IReadOnlyList<FormFileValue> fa && b is IReadOnlyList<FormFileValue> fb)
+        {
+            return fa.SequenceEqual(fb);
         }
         if (a is List<Dictionary<string, object?>> da && b is List<Dictionary<string, object?>> db)
         {

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Microsoft.AspNetCore.Components;
 
 namespace Klyroo.Form;
 
@@ -44,6 +45,29 @@ public sealed class KlyrooFormOptions
         }
         return this;
     }
+
+    private readonly ConcurrentDictionary<string, RenderFragment<FormFieldContext>> _customFields = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Registers the renderer of <see cref="FormFieldKind.Custom"/> fields whose <see cref="FormFieldSchema.CustomKey"/> is <paramref name="key"/>, for every form of the app. The renderer draws the control from a
+    /// <see cref="FormFieldContext"/>; the components draw the label, description, help and error around it. The <c>FieldTemplates</c> parameter of a component wins over it for that component. Registering a
+    /// key again replaces its renderer.
+    /// </summary>
+    /// <param name="key">The key a field names in <see cref="FormFieldSchema.CustomKey"/>. Keys are case sensitive.</param>
+    /// <param name="renderer">Draws the control.</param>
+    /// <returns>The same options, for chaining.</returns>
+    /// <exception cref="ArgumentException"><paramref name="key"/> is blank.</exception>
+    /// <exception cref="ArgumentNullException"><paramref name="renderer"/> is <c>null</c>.</exception>
+    public KlyrooFormOptions CustomField(string key, RenderFragment<FormFieldContext> renderer)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(key);
+        ArgumentNullException.ThrowIfNull(renderer);
+        _customFields[key] = renderer;
+        return this;
+    }
+
+    internal bool TryGetCustomField(string key, out RenderFragment<FormFieldContext> renderer) =>
+        _customFields.TryGetValue(key, out renderer!);
 
     /// <summary>The texts for a locale code (<see cref="KlyLocale.Code"/>), cached per code. The first call makes <see cref="Texts"/> read-only.</summary>
     internal FormTexts ResolveTexts(string localeCode)

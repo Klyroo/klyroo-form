@@ -99,7 +99,7 @@
                         <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(Form.Schema)))" data-slot="form-page-fields">
                             @foreach (var field in sectionSchema.Fields)
                             {
-                                <KlySchemaField Form="Form" Field="field" />
+                                <KlySchemaField Form="Form" Field="field" FieldTemplates="FieldTemplates" />
                             }
                         </div>
                     </section>
@@ -129,6 +129,9 @@
 
     /// <summary>The controller to render. Its schema must declare <see cref="FormSchema.Sections"/>.</summary>
     [Parameter] public required FormController Form { get; set; }
+
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;FormFieldContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>? FieldTemplates { get; set; }
 
     /// <summary>Your save step: called with <see cref="FormController.BuildOutput"/> after validation and the schema hooks passed, while the form is still submitting. Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty, after reporting the reason with <see cref="FormController.SetError"/> or <see cref="FormController.SetFormError"/>. The token is cancelled when the component is disposed.</summary>
     [Parameter] public Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>? OnSave { get; set; }

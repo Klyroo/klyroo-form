@@ -290,6 +290,8 @@ internal static class FormValueConverter
                     }
                 }
                 return rows;
+            case FormFieldKind.Custom or FormFieldKind.File:
+                return value;
             case FormFieldKind.Number or FormFieldKind.Slider:
                 return TryConvert<double>(value, out var number) ? number : null;
             case FormFieldKind.Rating:
