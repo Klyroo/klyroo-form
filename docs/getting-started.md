@@ -202,7 +202,35 @@ form.Set(schema.Field(c => c.Email), "alice@example.com");
 var saved = await form.SubmitAsync((contact, ct) => Task.FromResult(true)); // contact is a Contact
 ```
 
-`Klyroo.Form.DataAnnotations` reads the attributes of the model instead: `FormSchema.For<Contact>(s => s.FromDataAnnotations())`. The typed Blazor components arrive in the next change; until then, render a model through the runtime mode above or drive a `FormController<TModel>` from your own view. The [Bind a C# model](guides.md#bind-a-c-model) guide has the complete example and the limits.
+`Klyroo.Form.DataAnnotations` reads the attributes of the model instead: `FormSchema.For<Contact>(s => s.FromDataAnnotations())`. 
+
+In Blazor, render the typed schema with `KlyFormEngine<TModel>`. `TModel` is inferred from `Schema`, `Model` or `Form`, so the markup names no type:
+
+```razor
+@page "/contact"
+@rendermode InteractiveServer
+
+<KlyFormEngine Schema="_schema" Model="_contact" SubmitLabel="Send" OnSave="SaveAsync" OnSubmit="Sent" />
+
+@code {
+    private readonly Contact _contact = new();
+
+    // Keep the schema in a field: a new instance makes the component start a new controller.
+    private static readonly FormSchema<Contact> _schema = FormSchema.For<Contact>(s =>
+    {
+        s.Title = "Contact us";
+        s.Field(c => c.Name, f => f.Required());
+        s.Field(c => c.Email, f => f.Required());
+        s.Field(c => c.Message, f => f.AsTextarea().MaxLength(500));
+    });
+
+    private async Task<bool> SaveAsync(Contact contact, CancellationToken ct) => await Api.SendAsync(contact, ct);
+
+    private void Sent(Contact contact) { /* the form is clean and the model holds what was sent */ }
+}
+```
+
+The form writes the values into `_contact` when it submits (all or nothing: if validation, a hook or `OnSave` fails, the model keeps its previous values), so members the form does not show keep what they had. Pass no `Model` and every submit creates a new `Contact`. The [Bind a C# model](guides.md#bind-a-c-model) guide has the complete example and the limits.
 
 ## Next steps
 

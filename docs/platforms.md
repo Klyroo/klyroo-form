@@ -22,9 +22,9 @@ Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dep
 
 ## Render modes
 
-`KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyDynamicFieldView` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls except one best-effort focus helper (`klyroo-form.js`, loaded on demand; the form works without it). `KlyFormProvider` hosts its overlay in `KlyModal` and `KlySlideover` of Klyroo.UI, so it needs the Klyroo.UI script like those components do. They need an interactive render mode to respond to input.
+`KlyFormEngine<TModel>`, `KlyFormPage<TModel>`, `KlyFormFieldView<TModel>`, `KlyFieldTemplate`, `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyDynamicFieldView` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls except one best-effort focus helper (`klyroo-form.js`, loaded on demand; the form works without it). `KlyFormProvider` hosts its overlay in `KlyModal` and `KlySlideover` of Klyroo.UI, so it needs the Klyroo.UI script like those components do. They need an interactive render mode to respond to input.
 
-**Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `DynamicFormService` is registered as a scoped service, so it lives as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
+**Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `FormService` and `DynamicFormService` are registered as scoped services, so it lives as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
 
 **Interactive WebAssembly and Auto.** Work. Components run in the browser, and in Auto also on the server for the first render, so call `AddKlyrooForm()` in both the server project and the `.Client` project. A scoped service in WebAssembly lives as long as the app.
 

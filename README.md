@@ -12,6 +12,7 @@ You declare a form from a C# model (`FormSchema.For<TModel>`: fields, conditions
 
 - **Headless controller**: `FormController<TModel>` (typed) and `DynamicFormController` (runtime) manage values, touched state, errors, dirty tracking, steps and submission with no UI dependency, on one internal engine, and `Klyroo.Form.Core` is NativeAOT compatible.
 - **Typed schema**: `FormSchema.For<Order>(s => { s.Field(o => o.Seats, f => f.Range(1, 500)); ... })` declares fields from the members of a C# class with refactor-safe expressions and returns a handle per field, so a condition points at an earlier field through a captured local and `controller.Get(seats)` is an `int`. Kind-specific settings (`AsTextarea`, `Range`, `Options`, `AsSwitch`) are extension methods constrained on the type of the value, so a wrong kind does not compile. `Group`, `List`, `MultiSelect`, `Step` and `Section` declare nested objects, repeatable rows, multiple choice, wizards and pages.
+- **Typed components**: `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render a `FormSchema<TModel>` (or a `FormController<TModel>`) with a `Model`, and infer `TModel` from the markup. `OnSave` receives the model, `OnSubmit` is raised with it, and a submit writes the values into the model you gave, all or nothing. `KlyFormFieldView` draws one field for a layout of your own, and `KlyFieldTemplate` draws the control of one field with a typed `FormControlContext<TValue>`.
 - **Runtime mode**: `DynamicFormSchema` and `DynamicFieldSchema` (namespace `Klyroo.Form.Dynamic`) describe the form as data, with values keyed by name. `FormFieldKind` has 33 values, and `KlyDynamicFormEngine` and `KlyDynamicFormPage` render each one with a dedicated control (native inputs, `InputFile` for files, or your own renderer for `Custom`), from date ranges, ratings and tag inputs to collapsible containers, tabs and repeatable lists whose cells are validated.
 - **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, asynchronous rules with a pending state (debounced, stale runs cancelled, awaited by submit), four validation modes and three triggers (blur, input, submit).
 - **Model binding that cannot lose data**: values move between the form and the model with culture-independent conversions (a `long`, a `decimal` and a `double` keep every digit), a write into a model is all or nothing and rolls back when the save fails, and a value the user did not change keeps its ticks, kind and offset. `Klyroo.Form.DataAnnotations` reads `[Required]`, `[Range]`, `[Display]` and the other attributes into a typed schema, and runs `IValidatableObject` at submit.
@@ -20,17 +21,17 @@ You declare a form from a C# model (`FormSchema.For<TModel>`: fields, conditions
 - **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields, the children of hidden containers and the fields of skipped steps are left out of validation and output.
 - **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.
 - **Wizards and pages**: multi-step forms with skippable steps and async before-next hooks, and sectioned pages that show a completion status per section.
-- **Extensible**: `FormFieldKind.Custom` renders a control you register (`AddKlyrooForm(f => f.CustomField(key, renderer))` or the `FieldTemplates` parameter) from a public `DynamicControlContext`, and `FormFieldKind.File` holds UI-free `FormFileValue`s checked for `Accept`, `MaxFileSize` and `Multiple` in the core.
+- **Extensible**: `KlyFieldTemplate` swaps the control of a typed field for your markup, `AsCustom(key)` plus `CustomField<TValue>(key, renderer)` registers one for the whole app, and `FormFieldKind.Custom` in a dynamic form renders a control you register (`AddKlyrooForm(f => f.CustomField(key, renderer))` or the `FieldTemplates` parameter) from a public `DynamicControlContext`, and `FormFieldKind.File` holds UI-free `FormFileValue`s checked for `Accept`, `MaxFileSize` and `Multiple` in the core.
 - **Localization**: the built-in texts and validation messages follow the Klyroo.UI locale in twelve languages (English and French reviewed, the rest drafts), `AddKlyrooForm(f => f.Texts("fr", t => t with { ... }))` changes them, and `FormMessages` works without Blazor.
 - **Unsaved changes**: `KlyFormNavigationGuard` blocks navigation while the form is dirty, and `ExportState()` and `RestoreDraft()` keep a draft across a reload with the original baseline, so the restored draft is still dirty.
-- **Overlays**: `DynamicFormService.CreateFormAsync` opens a form in a modal dialog, a side drawer or a fullscreen view hosted by `KlyFormProvider` (on `KlyModal` and `KlySlideover`: focus trap, Escape, focus restored) and returns the result as a task.
+- **Overlays**: `FormService.CreateFormAsync<TModel>` (and `DynamicFormService.CreateFormAsync` for a runtime form) opens a form in a modal dialog, a side drawer or a fullscreen view hosted by `KlyFormProvider` (on `KlyModal` and `KlySlideover`: focus trap, Escape, focus restored) and returns the result as a task (`FormSubmitOutcome<TModel>` with the submitted model).
 
 ## Packages
 
 | Package | Description |
 | :--- | :--- |
 | [`Klyroo.Form.Core`](https://www.nuget.org/packages/Klyroo.Form.Core) | Headless engine: the typed `FormSchema` and `FormController<TModel>`, and the runtime `DynamicFormSchema`, `DynamicFormController` and `DynamicFormService`. No UI dependency, trimmable, NativeAOT compatible. |
-| [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyDynamicFieldView` and `KlyFormProvider`, and the `AddKlyrooForm()` registration (the typed components arrive in the next change). Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
+| [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyFormEngine<TModel>`, `KlyFormPage<TModel>`, `KlyFormFieldView<TModel>`, `KlyFieldTemplate`, `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyDynamicFieldView` and `KlyFormProvider`, `FormService`, and the `AddKlyrooForm()` registration. Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
 | [`Klyroo.Form.DataAnnotations`](https://www.nuget.org/packages/Klyroo.Form.DataAnnotations) | Builds a typed schema from a C# model and its DataAnnotations attributes, and runs `IValidatableObject` and your own validation attributes at submit. References `Klyroo.Form.Core` only, so it also works without Blazor. |
 
 ## Prerequisites
@@ -41,7 +42,7 @@ To use the library in an app:
 - **`Klyroo.Form.Core`** alone (the form controller) runs in any .NET 10 app, with no other dependency.
 - **A Blazor app** for `Klyroo.Form`: a Blazor Web App or a .NET MAUI Blazor Hybrid app. Typing, validation feedback, steps and submit need an interactive render mode (Interactive Server, WebAssembly or Auto). In a WebAssembly or Auto app, register the services in the server project and in the `.Client` project.
 - **Klyroo.UI set up in the app.** `Klyroo.Form` brings the Klyroo.UI package, and `AddKlyrooForm()` registers its services, but the layout still needs the Klyroo.UI stylesheets in `<head>` and `<KlyApp>` around the body, as described in the [Klyroo.UI installation](https://github.com/klyroo/klyroo-ui#installation).
-- **`<KlyFormProvider>` in the layout** if you open forms as overlays with `DynamicFormService`.
+- **`<KlyFormProvider>` in the layout** if you open forms as overlays with `FormService` or `DynamicFormService`.
 - **A browser with the native popover API**, which Klyroo.UI uses: Chrome and Edge 114, Safari 17 or Firefox 125, or later. In a .NET MAUI app, that means iOS or Mac Catalyst 17, or an Android System WebView 114 or later.
 - **Network access on the first build** only if your app self-hosts web fonts (`KlyrooFont`), uses icons outside the built-in set, or compiles Tailwind (`KlyrooTailwind`): the build downloads them once and caches them under `obj/klyroo`. Node.js is not needed.
 
@@ -128,7 +129,11 @@ var dynamicForm = new DynamicFormController(new DynamicFormSchema
 dynamicForm.SetValue("email", "alice@example.com");
 ```
 
-Blazor: render a dynamic schema with `KlyDynamicFormEngine`. The typed components (`KlyFormEngine<TModel>`) arrive in the next change.
+Blazor: render the typed schema with `KlyFormEngine<TModel>`, which infers `TModel` from `Schema` and `Model`, or a dynamic schema with `KlyDynamicFormEngine`:
+
+```razor
+<KlyFormEngine Schema="_schema" Model="_contact" OnSave="SaveAsync" />
+```
 
 ```razor
 @page "/contact"

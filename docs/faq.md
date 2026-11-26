@@ -22,7 +22,19 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 **Fix:** keep the schema in a field or a static member, or create a `DynamicFormController` yourself and pass it through `Form`.
 
-### `DynamicFormService.CreateFormAsync` shows nothing and never returns
+### `KlyFormEngine<TModel>` restarts from the defaults on every render, or the model type is `Order?`
+
+**Cause:** the schema is built inline in the markup (`Schema="FormSchema.For<Order>(...)"`), so each render gives the component a new `FormSchema<TModel>` instance and it creates a new controller. The second symptom has another cause: a `Model` field declared `Order?` makes Razor infer `Order?` for `TModel` and warn that the schema is `FormSchema<Order>`.
+
+**Fix:** keep the schema in a field or a static member, and declare the model non-null (`Model="_order!"` if it is loaded later).
+
+### A `KlyFieldTemplate` draws nothing
+
+**Cause:** it must sit inside `KlyFormEngine` or `KlyFormPage` (or have its `Form` set), and its `Field` must be the handle of a field of that form. It is not used for the columns of a repeatable list, and a renderer registered with `CustomField<TValue>` is not used by a field of another value type.
+
+**Fix:** put it in the body of the form component, and check the type of the handle against the field.
+
+### `FormService.CreateFormAsync` or `DynamicFormService.CreateFormAsync` shows nothing and never returns
 
 **Cause:** no `KlyFormProvider` is mounted in the current scope, or `AddKlyrooForm()` was not called in this project. The service stores the form and raises an event, and only the provider renders it. The returned task completes only after a submit or a close.
 

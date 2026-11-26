@@ -405,6 +405,8 @@ Then open a form from any component in the same scope:
 }
 ```
 
+The example uses the runtime mode. For a typed form inject `FormService` and call `await Forms.CreateFormAsync(schema, model, FormShellMode.Drawer)`: the task completes with a `FormSubmitOutcome<TModel>`, whose `Model` is the submitted model (the one you passed with the values written into it, or the new one the form created) after a submit, and the model you passed, unchanged, after a close. Both services are registered by `AddKlyrooForm()` and one `KlyFormProvider` hosts both.
+
 `CreateFormAsync` shows the form in the provider and returns a task. It completes with `IsCompleted` set to `true` and the output after a successful submit, or with `false` if the user cancels. `FormShellMode.Modal` is the default and renders a centered dialog; `Drawer` renders a full-height panel docked to the end of the viewport, and `Fullscreen` covers the whole viewport. The overlay carries the mode in a `data-mode` attribute. It is a native modal dialog from Klyroo.UI (`KlyModal`, `KlySlideover` for `Drawer`), so focus stays inside it, Escape and a click on the backdrop close the form (the task completes with `IsCompleted = false`), and focus returns to the element that opened the form. While the form is saving it cannot be dismissed.
 
 Do the work after the `await`, as above. The schema hooks `OnBeforeSubmit` and `OnSubmit` run once per submit. Calling `CreateFormAsync` while another form is open replaces it, and the replaced form's task completes with `IsCompleted` set to `false`, as if the user had closed it.
@@ -483,7 +485,7 @@ Keys of the input that match no field are kept in `InternalState` but never appe
 
 Goal: declare a form from a C# class, read and write its values as the types of the members, validate it with the attributes you already put on it, and receive the class back on submit.
 
-This is the typed mode of Klyroo.Form: `FormSchema.For<TModel>` declares the form once, the builder returns a handle for each field, and a `FormController<TModel>` reads and writes values through those handles. It lives in `Klyroo.Form.Core`. The typed Blazor components arrive in the next change; the headless controller below works today, in a test, a view model or a console app.
+This is the typed mode of Klyroo.Form: `FormSchema.For<TModel>` declares the form once, the builder returns a handle for each field, and a `FormController<TModel>` reads and writes values through those handles. The schema and the controller live in `Klyroo.Form.Core` and work in a test, a view model or a console app; `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render them in Blazor (see [Render the model in Blazor](#render-the-model-in-blazor)).
 
 ```csharp
 public sealed class Order
@@ -546,6 +548,33 @@ What happens when `SubmitAsync(save, target)` runs:
 2. The values are written into `target`, or into a new model when there is none, and every conversion is checked before the first member is set.
 3. The model checks (`s.Validate((order, errors) => errors.Add(o => o.Seats, "..."))`, and the attributes below) run on that model, then `OnBeforeSubmit` and `OnSubmit`.
 4. `save` runs inside the submit lifecycle, so `IsSubmitting` stays true while it works. When a step fails, or `save` returns `false` or throws, the members the write changed get their previous values again (a list holds its previous items and a row its previous cells) and the form stays dirty. Members the form did not write are not touched, and nothing your hooks or your save step did is undone: `OnBeforeSubmit`, `OnSubmit` (which runs before `save`, so its side effects stay when the save fails) and `save` itself are yours to compensate. On success the baseline is retaken.
+
+### Render the model in Blazor
+
+`KlyFormEngine<TModel>` renders a `FormSchema<TModel>` with the header, the stepper, the fields and the actions of the dynamic engine, and `KlyFormPage<TModel>` renders a schema with sections as a page. Give either a `Schema` and a `Model`, or a `FormController<TModel>` through `Form` when you need to read the form from code. Razor infers `TModel` from `Schema`, `Model`, `Form` or `OnSave`, so the markup names no type:
+
+```razor
+<KlyFormEngine Schema="_schema" Model="_order" OnSave="SaveAsync" OnSubmit="Saved" OnCancel="Cancelled" />
+```
+
+- `Model` is the object the form edits. Its values start the form, and a submit writes the values back into it, all or nothing: if validation, the model checks, `OnBeforeSubmit` or `OnSave` fails, the members the write changed get their previous values again. Members the form does not show (an `Id`, a `CreatedAt`) are not touched. Without a `Model` every submit creates a new `TModel`. A different `Model` instance reloads the form and drops unsaved edits; the same instance does not.
+- `OnSave` is `Func<TModel, CancellationToken, Task<bool>>`, called with the model after validation and the hooks passed, while the form is still submitting. Return `false` to keep the edits and the form open after reporting the reason with `SetError` or `SetFormError`. `OnSubmit` is `EventCallback<TModel>`, raised afterwards, on success only, with the same model. `OnCancel` is an `EventCallback` and shows the Cancel button when it is bound.
+- Keep the schema in a field or a static member. A new `FormSchema<TModel>` instance makes the component start a new controller.
+- The `Model` parameter is nullable, so a `Model="_order"` where `_order` is declared `Order?` makes Razor infer `Order?` as the type and warn about the schema. Declare the field non-null, or write `Model="_order!"`.
+- The field components are the same as the runtime mode's, down to the markup: labels point at their control, descriptions, help and errors are tied to it with `aria-describedby`, and a failed submit moves focus to the first invalid field or to the error summary. `KlyFormErrorSummary` and `KlyFormNavigationGuard` take a `FormController<TModel>` as well as a `DynamicFormController` (their `Form` is an `IFormRuntime`).
+
+To lay out the fields yourself, place the controller with a `CascadingValue` (or pass it with `Form`) and draw each field with `KlyFormFieldView`. It takes the handle the schema gave and renders the field with its label, help and error:
+
+```razor
+<CascadingValue Value="_controller">
+    <div class="grid grid-cols-2 gap-4">
+        <KlyFormFieldView Field="@_customer" />
+        <KlyFormFieldView Field="@_seats" />
+    </div>
+</CascadingValue>
+```
+
+It does not subscribe to the controller: render it from a component that re-renders on `Changed` (`KlyFormEngine` does) so changes made elsewhere show up.
 
 ### Data annotations
 
@@ -679,6 +708,36 @@ new DynamicFieldSchema { Key = "rating", Kind = FormFieldKind.Custom, CustomKey 
 A custom field is a normal stateful field: it holds whatever value you store (a string, a number, a list), is checked by `Required` and `Validators`, and is in `BuildOutput()`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control. `DynamicControlContext` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy` and `LabelledBy` for the ARIA attributes. For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Context.LabelledBy`, or at the label id yourself.
 
 To register the renderer for one form instead of the whole app, pass it in the `FieldTemplates` parameter of `KlyDynamicFormEngine`, `KlyDynamicFormPage` or `KlyDynamicFieldView`: a `Dictionary<string, RenderFragment<DynamicControlContext>>` that wins over the registry and reaches fields inside containers, tabs and the cells of repeatable lists. A custom field whose key has no renderer shows a notice instead of a control. Because `DynamicControlContext` has a public constructor, you can also build one in a unit test: `new DynamicControlContext(form, field, "id")` then call `Set`, `Commit` and `Blur` and read the controller.
+
+### Your own control in a typed form
+
+In a typed form the control gets the type of the member. Put a `KlyFieldTemplate` inside the form component and name the field with its handle; its content draws the control from a `FormControlContext<TValue>`, where `TValue` is the type of the member:
+
+```razor
+<KlyFormEngine Schema="_schema" Model="_review" OnSave="SaveAsync">
+    <KlyFieldTemplate Field="@_rating" Context="c">
+        <input type="range" min="1" max="5" id="@c.Id" value="@c.Value" aria-describedby="@c.DescribedBy"
+               @oninput="@(e => c.Set(int.Parse(e.Value!.ToString()!)))" @onblur="c.Blur" />
+    </KlyFieldTemplate>
+</KlyFormEngine>
+```
+
+`Value` is the value typed as the member (`0` for an `int` that is empty or holds text that is not a number yet), `Current()` is the live one, `Set(value)` changes it while the user edits, and `Commit(value)` marks the field touched so its error shows at once. The base `FormControlContext` has `Id`, `Error`, `Disabled`, `Required`, `Validating`, `LabelledBy`, `DescribedBy`, `ErrorId` and `Blur()`, and the string boundary for a raw HTML input: `Text` is what the input should show (the text the user typed when it is not a value yet) and `SetText(text)` parses it, keeping text that is not a value so the field reports it instead of a zero. The component draws the label, description, help and error around your control. A template replaces the control of any field, so you can swap a built-in kind as well as draw a field declared with `AsCustom()`.
+
+To register a control for the whole app, declare the field with `AsCustom("stars")` and register the renderer by value type:
+
+```csharp
+s.Field(m => m.Rating, f => f.AsCustom("stars"));
+
+builder.Services.AddKlyrooForm(f => f.CustomField<int>("stars", ctx => builder =>
+{
+    builder.OpenComponent<StarPicker>(0);
+    builder.AddComponentParameter(1, nameof(StarPicker.Context), ctx);
+    builder.CloseComponent();
+}));
+```
+
+A renderer is used only by fields of its value type: a field of another type that names the key, and a dynamic field that names the key of a typed renderer (or the other way round), shows the "no renderer" notice instead of a control that would read the wrong type. A `KlyFieldTemplate` of the field wins over the registered renderer. Templates apply to fields of the form, not to the columns of a repeatable list; a column declared with `AsCustom(key)` uses the registered renderer.
 
 ## Upload files
 

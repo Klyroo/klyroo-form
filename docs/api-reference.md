@@ -4,7 +4,7 @@
 
 ## Klyroo.Form.Core
 
-Static classes and extensions (3) · Classes (25) · Records (9) · Structs (2) · Interfaces (2) · Enums (5) · Delegates (1)
+Static classes and extensions (3) · Classes (27) · Records (9) · Structs (2) · Interfaces (2) · Enums (5) · Delegates (1)
 
 ### Static classes and extensions
 
@@ -82,6 +82,46 @@ Entry point of the typed forms: declares a `FormSchema` from a C# model type.
 | `static For<TModel>(Action<FormSchemaBuilder<TModel>> configure)` | `FormSchema<TModel>` | Declares a form from the members of `TModel`. |
 
 ### Classes
+
+#### `FormControlContext`
+
+`Klyroo.Form` · class
+
+What a custom control of a typed form needs besides its value: the error, the state flags and the ids that tie the control to its label, description, help and error, and the string boundary for raw inputs (`FormControlContext.Text` and `FormControlContext.SetText`). The value itself, typed as the member of the model, is on `FormControlContext`, which is what a renderer receives. A context is a snapshot of one render: the components build a new one after the form changes.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `DescribedBy` | `string?` | The ids of the description, help and error elements to put in `aria-describedby`, space separated, or `null`. |
+| `Disabled` | `bool` | `true` when the field is disabled, which includes every field while a submission runs. Render the control disabled. |
+| `Error` | `string?` | The error to show, or `null`. The error text itself is rendered by the component around the control. |
+| `ErrorId` | `string` | The id of the error element. It exists only while `FormControlContext.Error` is not `null`. |
+| `Id` | `string` | The `id` the control must use, so that the label points at it. The ids of the description, help and error elements are this id followed by `-description`, `-help` and `-error`. |
+| `LabelledBy` | `string?` | The ids of the elements that label a control made of several inputs (`aria-labelledby`), or `null` when a `label` element points at `FormControlContext.Id`. |
+| `Required` | `bool` | `true` when the field is required. Set `aria-required` on the control. |
+| `Text` | `string?` | The current value as the text an input shows: the text the user typed when it is not a value yet (`abc` in a number field), else the value in invariant form (dates as `yyyy-MM-dd`, lists comma separated). `null` when the field is empty. |
+| `Validating` | `bool` | `true` while an asynchronous rule of the field runs. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Blur()` | `void` | Tells the form the control lost focus: the field is marked touched and validated, which is what makes its error show. |
+| `SetText(string? text)` | `void` | Changes the value from the text of an input, while the user is editing. Blank text empties the field. Text that is a value of the type becomes that value; text that is not stays as it is, so the field shows its error instead of a zero. |
+
+#### `FormControlContext<TValue>`
+
+`Klyroo.Form` · class · inherits `FormControlContext`
+
+Everything a custom control needs to edit one field of a typed form: the value as the type of the member, and how to change it. A renderer is a `RenderFragment<FormControlContext<TValue>>`, given in a `KlyFieldTemplate` for one field or registered for every form with `KlyrooFormOptions.CustomField<TValue>`. A control that keeps the value as text (a raw HTML input) reads `FormControlContext.Text` and calls `FormControlContext.SetText`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Value` | `TValue` | The value when this context was built, or the default of the type while the field is empty or its text is not a value yet (`0` for an `int`, `null` for a string). Use `FormControlContext.Current` for the live value inside an event handler. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Commit(TValue value)` | `void` | Changes the value and marks the field touched, for a change that is complete in one gesture: a click, a selection, a removal. The error shows at once. |
+| `Current()` | `TValue` | Gets the live value, which may be newer than `FormControlContext.Value`. |
+| `Set(TValue value)` | `void` | Changes the value while the user is editing, for example on every keystroke. The field is validated only once touched, and per its trigger. |
+| `SetText(string? text)` | `void` | Changes the value from the text of an input, while the user is editing. Blank text empties the field. Text that is a value of the type becomes that value; text that is not stays as it is, so the field shows its error instead of a zero. |
 
 #### `FormController<TModel>`
 
@@ -180,6 +220,7 @@ Configures one field of a typed form: its label, rules, conditions and defaults.
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
+| `AsCustom(string? key = null)` | `FormFieldBuilder<TModel, TValue>` | Makes the control one you provide, for any type of value: a `KlyFieldTemplate` of the field, or a renderer registered with `CustomField<TValue>` under `key`, draws it. The field is stateful like any input: it holds the value you store, is validated with its rules and is part of the model. |
 | `Clearable(bool clearable = true)` | `FormFieldBuilder<TModel, TValue>` | Shows a clear button once the field has a value. |
 | `Default(TValue value)` | `FormFieldBuilder<TModel, TValue>` | Sets the value the field starts with when the model does not give one. |
 | `Default(Func<FormController<TModel>, TValue> factory)` | `FormFieldBuilder<TModel, TValue>` | Computes the value the field starts with from the controller. It also fills the cells of a new row of a repeatable list. |
@@ -1062,9 +1103,46 @@ Adjusts the settings of a field declared from a model member. Conventions run af
 
 ## Klyroo.Form
 
-Components (6) · Static classes and extensions (2) · Classes (1) · Records (1)
+Components (13) · Static classes and extensions (2) · Classes (2) · Records (2)
 
 ### Components
+
+#### `KlyFieldTemplate<TModel, TValue>`
+
+`Klyroo.Form` · component · inherits `ComponentBase`
+
+Draws the control of one field of a typed form with your markup. Put it inside `KlyFormEngine<TModel>` (or `KlyFormPage<TModel>`), name the field with its handle, and read the `FormControlContext` it gives (`Value`, `Set`, `Commit`, `Id`, `Error`, `Disabled`, `Blur`): the component still draws the label, description, help and error around your control. The template replaces the control of any field, so a field you declared with `AsCustom()` needs one, and a built-in kind can be swapped for your own. `TModel` and `TValue` are inferred from `Field`. It renders nothing itself.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `ChildContent` | `RenderFragment<FormControlContext<TValue>>` | Draws the control from the context of the field: its value typed as the member of the model, how to change it, and the ids and state the control needs. |
+| `Field` | `FormField<TModel, TValue>` | The field whose control this template draws: the handle the schema gave. `TModel` and `TValue` are inferred from it. |
+| `Form` | `FormController<TModel>?` | The controller of the form. When it is not set, the one of the enclosing `KlyFormEngine` or `KlyFormPage` is used. |
+
+#### `KlyFormEngine<TModel>`
+
+`Klyroo.Form` · component · inherits `KlyComponentBase`
+
+Renders a `FormSchema` as a form: header, optional stepper with the description of the current step, a field grid of columns and the footer actions (Back, Reset, Cancel, Next, Submit). Pass either a `FormController` through `Form` or a schema through `Schema`, with the `Model` to edit. `TModel` is inferred from `Form`, `Schema` or `Model`. The component subscribes to `Changed` and re-renders on every change, and it gives the controller to the components inside it (`KlyFieldTemplate`, `KlyFormFieldView`).
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `ChildContent` | `RenderFragment?` | Templates of the fields (`KlyFieldTemplate`). They draw nothing themselves: they hand their control to the field they name. |
+| `Form` | `FormController<TModel>?` | The controller to render. Use it when you need to read or change the form from code. Takes precedence over `KlyFormEngine.Schema`. |
+| `Model` | `TModel` | The model to edit. Its values are the form's starting values, and a submit writes the values back into it (all or nothing, put back when a step fails), so members the form does not show keep their value. Without a model every submit creates a new `TModel`. A different instance reloads the form, dropping unsaved edits. It is only read by the controller the component creates: with `KlyFormEngine.Form`, it is only the target of a submit. |
+| `OnCancel` | `EventCallback` | Called when the user presses Cancel or the close button. When bound, the Cancel button is shown. |
+| `OnSave` | `Func<TModel, CancellationToken, Task<bool>>?` | Your save step: called with the model after validation and the schema hooks passed (the `KlyFormEngine.Model` with the values written into it, or a new one), while the form is still submitting (the button shows its saving state, a second submit is refused, Cancel is disabled). Return `true` when the save succeeded; the form is then clean and `KlyFormEngine.OnSubmit` is raised. Return `false` to keep the edits dirty and the form open, after reporting the reason with `FormController.SetError` or `FormController.SetFormError`; the model gets its previous values back. The token is cancelled when the component is disposed. It runs through `FormController.SubmitAsync`. |
+| `OnSubmit` | `EventCallback<TModel>` | Called with the model after the form is submitted successfully, that is after validation, the schema hooks and `KlyFormEngine.OnSave` passed. At that point the submission is over: `FormController.IsSubmitting` is `false` and the form is clean. Do the save itself in `KlyFormEngine.OnSave`. |
+| `Schema` | `FormSchema<TModel>?` | The schema to render when no `KlyFormEngine.Form` is given. The component creates and owns the controller, and creates a new one when the schema instance changes. |
+| `Shell` | `FormShellMode` | How the form is presented. Anything other than `FormShellMode.Inline` adds a close button to the header when `KlyFormEngine.OnCancel` is bound. |
+| `ShowReset` | `bool` | Shows a reset button in the footer while the form is dirty. The default is `true`. |
+| `SubmitLabel` | `string?` | Text of the submit button. The default is the `Submit` text of the current locale (`FormTexts.Submit`). |
+
+Also accepts the parameters of `KlyComponentBase`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `EffectiveController` | `FormController<TModel>?` | The controller in use: `KlyFormEngine.Form` if set, otherwise the one the component created from `KlyFormEngine.Schema`, or `null` when neither is set. |
 
 #### `KlyFormErrorSummary`
 
@@ -1072,7 +1150,20 @@ Components (6) · Static classes and extensions (2) · Classes (1) · Records (1
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `Form` | `DynamicFormController` | The controller whose errors to list. |
+| `Form` | `IFormRuntime` | The controller whose errors to list: a `FormController` or a `DynamicFormController`. |
+
+Also accepts the parameters of `KlyComponentBase`.
+
+#### `KlyFormFieldView<TModel>`
+
+`Klyroo.Form` · component · inherits `KlyComponentBase`
+
+Renders one field of a typed form with the control of its kind, its label, description, hint, help, error and per-field reset, the way `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render their fields, for a layout of your own. Containers, tabs and repeatable lists render their children too. Place it in a CSS grid, since the field sets its own `grid-column` span. It renders nothing when the field is not visible (`FormController.IsVisible`). It does not subscribe to `Changed`: render it from a component that re-renders on that event (`KlyFormEngine` does), so changes made elsewhere show up.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `Field` | `FormItem<TModel>` | The field or layout element to render: the handle the schema gave. `TModel` is inferred from it. |
+| `Form` | `FormController<TModel>?` | The controller that holds the value of the field. When it is not set, the one of the enclosing `KlyFormEngine` or `KlyFormPage` is used, or the one of a `CascadingValue`. |
 
 Also accepts the parameters of `KlyComponentBase`.
 
@@ -1085,16 +1176,37 @@ Also accepts the parameters of `KlyComponentBase`.
 | `ConfirmExternalNavigation` | `bool` | Asks the browser to confirm leaving the site, reloading or closing the tab while the form is dirty. The browser shows its own text; it cannot be changed. The default is `true`. |
 | `ConfirmLeave` | `Func<LocationChangingContext, Task<bool>>?` | Called when the user navigates inside the app while the form is dirty. Return `true` to let the navigation go ahead and `false` to stay, for example after asking in a `KlyModal`. Without it the guard asks with `window.confirm` and `KlyFormNavigationGuard.Message`. |
 | `Disabled` | `bool` | Turns the guard off, for example while the page saves and navigates on its own. The default is `false`. |
-| `Form` | `DynamicFormController` | The controller to protect. Navigation is blocked while `DynamicFormController.IsDirty` is `true`, so the guard stops once a submission succeeds and the snapshot is retaken. |
+| `Form` | `IFormRuntime` | The controller to protect: a `FormController` or a `DynamicFormController`. Navigation is blocked while `IFormRuntime.IsDirty` is `true`, so the guard stops once a submission succeeds and the snapshot is retaken. |
 | `Message` | `string?` | The question of the default confirmation. The default is the `UnsavedChanges` text of the current locale (`FormTexts.UnsavedChanges`). |
 
 Also accepts the parameters of `KlyComponentBase`.
+
+#### `KlyFormPage<TModel>`
+
+`Klyroo.Form` · component · inherits `KlyComponentBase`
+
+Renders a sectioned typed form as a page: a sidebar listing each section with its completion status, and one card per section laid out by its span. Fields render with the same controls, labels, containers and repeatable lists as `KlyFormEngine<TModel>`, and the page is a `form` element, so pressing Enter in a field submits it. `TModel` is inferred from `Form`, `Schema` or `Model`.
+
+| Parameter | Type | Description |
+| :--- | :--- | :--- |
+| `ChildContent` | `RenderFragment?` | Templates of the fields (`KlyFieldTemplate`). They draw nothing themselves: they hand their control to the field they name. |
+| `Form` | `FormController<TModel>?` | The controller to render. Its schema must declare sections (`Section`). Takes precedence over `KlyFormPage.Schema`. |
+| `Model` | `TModel` | The model to edit. Its values are the form's starting values, and a submit writes the values back into it (all or nothing, put back when a step fails), so members the form does not show keep their value. Without a model every submit creates a new `TModel`. A different instance reloads the form, dropping unsaved edits. |
+| `OnSave` | `Func<TModel, CancellationToken, Task<bool>>?` | Your save step: called with the model after validation and the schema hooks passed, while the form is still submitting. Return `true` when the save succeeded; the form is then clean and `KlyFormPage.OnSubmit` is raised. Return `false` to keep the edits dirty, after reporting the reason with `FormController.SetError` or `FormController.SetFormError`. The token is cancelled when the component is disposed. |
+| `OnSubmit` | `EventCallback<TModel>` | Called with the model after the form is submitted successfully, that is after validation, the schema hooks and `KlyFormPage.OnSave` passed. The submission is over at that point and the form is clean. |
+| `Schema` | `FormSchema<TModel>?` | The schema to render when no `KlyFormPage.Form` is given. It must declare sections. The component creates and owns the controller, and creates a new one when the schema instance changes. |
+
+Also accepts the parameters of `KlyComponentBase`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `EffectiveController` | `FormController<TModel>?` | The controller in use: `KlyFormPage.Form` if set, otherwise the one the component created from `KlyFormPage.Schema`, or `null` when neither is set. |
 
 #### `KlyFormProvider`
 
 `Klyroo.Form` · component · inherits `KlyComponentBase`
 
-Host of the overlay forms opened with `DynamicFormService`. Mount one instance in a layout, wrapping the page content, and call `DynamicFormService.CreateFormAsync` from anywhere in the same scope.
+Host of the overlay forms opened with `FormService` (typed) and `DynamicFormService` (runtime). Mount one instance in a layout, wrapping the page content, and call `FormService.CreateFormAsync`` or `DynamicFormService.CreateFormAsync` from anywhere in the same scope.
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
@@ -1110,7 +1222,7 @@ Renders one field of a `DynamicFormController` with the control of its `FormFiel
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `Field` | `DynamicFieldSchema?` | The field to render, usually one of `DynamicFormController.CurrentVisibleTopFields`. Containers render their children with nested `KlyDynamicFieldView` components. |
+| `Field` | `DynamicFieldSchema?` | The field to render, usually one of `DynamicFormController.CurrentVisibleTopFields`. Containers render their children too. |
 | `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<DynamicControlContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `DynamicFieldSchema.CustomKey`. They win over the ones registered with `KlyrooFormOptions.CustomField`, and reach the fields inside containers, tabs and lists. |
 | `Form` | `DynamicFormController` | The controller that holds the value of the field. |
 | `Key` | `string?` | The key of the field to render, as an alternative to `KlyDynamicFieldView.Field`: the field of `KlyDynamicFieldView.Form` with this key. `KlyDynamicFieldView.Field` wins when both are set. Nothing renders when the form has no field with this key. |
@@ -1157,6 +1269,30 @@ Renders a sectioned form as a page: a sidebar listing each section with its comp
 
 Also accepts the parameters of `KlyComponentBase`.
 
+#### `FieldNodeView`
+
+`Klyroo.Form.Internal` · component · inherits `KlyComponentBase`
+
+Renders one field of a form: the label, the control of its kind, the description, help and error. It is the one renderer of typed and dynamic forms, and it takes its parameters from `KlyFormFieldView<TModel>`, `KlyDynamicFieldView` and the form components, which are the API; do not use it directly.
+
+Also accepts the parameters of `KlyComponentBase`.
+
+#### `FormPageShell`
+
+`Klyroo.Form.Internal` · component · inherits `KlyComponentBase`
+
+The inside of `KlyFormPage<TModel>` and `KlyDynamicFormPage`: the sections, the navigation and the submit button of a form page, shared by both. It takes its parameters from the two components, which are the API; do not use it directly.
+
+Also accepts the parameters of `KlyComponentBase`.
+
+#### `FormShell`
+
+`Klyroo.Form.Internal` · component · inherits `KlyComponentBase`
+
+The inside of `KlyFormEngine<TModel>` and `KlyDynamicFormEngine`: the header, the stepper, the fields and the actions of a form, shared by both. It takes its parameters from the two components, which are the API; do not use it directly.
+
+Also accepts the parameters of `KlyComponentBase`.
+
 ### Static classes and extensions
 
 #### `FormLocales`
@@ -1190,9 +1326,25 @@ Dependency injection registration for Klyroo.Form.
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
-| `static AddKlyrooForm(IServiceCollection services, Action<KlyrooFormOptions>? configure = null)` | `IServiceCollection` | Registers `DynamicFormService` as a scoped service and calls `AddKlyrooUi()`, because the components build on Klyroo.UI. In a Blazor Web App with interactive WebAssembly or Auto, call it in the server project and in the client project. |
+| `static AddKlyrooForm(IServiceCollection services, Action<KlyrooFormOptions>? configure = null)` | `IServiceCollection` | Registers `FormService` and `DynamicFormService` as scoped services and calls `AddKlyrooUi()`, because the components build on Klyroo.UI. In a Blazor Web App with interactive WebAssembly or Auto, call it in the server project and in the client project. |
 
 ### Classes
+
+#### `FormService`
+
+`Klyroo.Form` · class
+
+Opens a typed form as an overlay and returns its result as a task. Register it with `AddKlyrooForm()` (scoped) and mount one `KlyFormProvider` in the layout so the form has somewhere to render. The runtime counterpart, for a form known only at run time, is `DynamicFormService`.
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `IsOpen` | `bool` | `true` while a form is open. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `CloseForm()` | `void` | Closes the open form without submitting and completes the task of `FormService.CreateFormAsync`` with `FormSubmitOutcome.IsCompleted` set to `false`. Does nothing when no form is open. |
+| `CreateFormAsync<TModel>(FormSchema<TModel> schema, TModel model = null, FormShellMode mode = Modal)` | `Task<FormSubmitOutcome<TModel>>` | Opens a form in the mounted `KlyFormProvider` and waits for its result. Opening a form while another is open replaces it, and the replaced form's task completes with `FormSubmitOutcome.IsCompleted` set to `false`, as if it had been closed. |
+| `SubmitActiveFormAsync()` | `Task<bool>` | Submits the open form with `FormController.SubmitAsync`. On success it closes the form and completes the task of `FormService.CreateFormAsync``. |
 
 #### `KlyrooFormOptions`
 
@@ -1206,10 +1358,26 @@ Configuration of Klyroo.Form: the built-in texts of each locale. It is an extens
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
-| `CustomField(string key, RenderFragment<DynamicControlContext> renderer)` | `KlyrooFormOptions` | Registers the renderer of `FormFieldKind.Custom` fields whose `DynamicFieldSchema.CustomKey` is `key`, for every form of the app. The renderer draws the control from a `DynamicControlContext`; the components draw the label, description, help and error around it. The `FieldTemplates` parameter of a component wins over it for that component. Registering a key again replaces its renderer. |
+| `CustomField(string key, RenderFragment<DynamicControlContext> renderer)` | `KlyrooFormOptions` | Registers the renderer of `FormFieldKind.Custom` fields of dynamic forms whose `DynamicFieldSchema.CustomKey` is `key`, for every form of the app. The renderer draws the control from a `DynamicControlContext`; the components draw the label, description, help and error around it. The `FieldTemplates` parameter of a component wins over it for that component. Registering a key again replaces its renderer. |
+| `CustomField<TValue>(string key, RenderFragment<FormControlContext<TValue>> renderer)` | `KlyrooFormOptions` | Registers the renderer of the custom fields of typed forms declared with `AsCustom()` whose value is a `TValue`, for every form of the app. The renderer draws the control from a `FormControlContext`; the components draw the label, description, help and error around it. A `KlyFieldTemplate` of a field wins over it. A field of another value type than `TValue` that names the key shows the "no renderer" notice instead of a control that would read the wrong type. Registering a key again replaces its renderer. |
 | `Texts(string localeCode, Func<FormTexts, FormTexts> change)` | `KlyrooFormOptions` | Changes the texts of a locale, like `KlyLocales.Extend` does for Klyroo.UI: `change` receives the set the locale resolves to and returns the one to use, usually `t => t with { ... }`. `localeCode` is a code of `KlyLocales.All` ("fr"), or the code of a locale you added ("en-AU", "tlh"): a locale without a set of its own starts from the set `KlyLocales.ResolveCode` picks for it, then its changes apply. The built-in validation messages are part of the set (`FormTexts.Messages`). The texts become read-only the first time a component resolves one. |
 
 ### Records
+
+#### `FormSubmitOutcome<TModel>`
+
+`Klyroo.Form` · record
+
+Result of an overlay opened with `FormService.CreateFormAsync``.
+
+| Constructor | Description |
+| :--- | :--- |
+| `FormSubmitOutcome<TModel>(bool IsCompleted, TModel Model)` | Result of an overlay opened with `FormService.CreateFormAsync``. |
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `IsCompleted` (init) | `bool` | `true` when the form was submitted successfully, `false` when it was closed without submitting. |
+| `Model` (init) | `TModel` | When completed, the model that was submitted: the one you passed, with the values written into it, or the new one the form created. Otherwise the model you passed (unchanged), or `null` when you passed none. |
 
 #### `FormTexts`
 

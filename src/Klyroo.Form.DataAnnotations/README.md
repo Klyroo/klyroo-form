@@ -28,7 +28,7 @@ var schema = FormSchema.For<Signup>(s => s.FromDataAnnotations());
 var form = new FormController<Signup>(schema, new Signup());
 await form.SubmitAsync(async (signup, ct) => await SaveAsync(signup, ct));   // signup is a Signup
 
-// Blazor: the typed components arrive in the next change
+// Blazor: <KlyFormEngine Schema="schema" Model="signup" OnSave="SaveAsync" />
 ```
 
 What it maps:

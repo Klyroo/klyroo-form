@@ -12,6 +12,9 @@ Klyroo.Form.Core (no UI dependency)
          |
          v
     FormController<TModel>      state read and written as the members of the model
+         ^
+         | opens and completes
+    FormService                 CreateFormAsync<TModel>() -> Task<FormSubmitOutcome<TModel>>
 
   Klyroo.Form.Dynamic           runtime mode: a form is data, values are object? keyed by name
     DynamicFormSchema           plain data: fields, steps or sections, hooks
@@ -30,15 +33,22 @@ Klyroo.Form.Core (no UI dependency)
 
 Klyroo.Form (Blazor, builds on Klyroo.UI)
 
+  KlyFormEngine<TModel>         renders a typed schema or controller, with a Model
+  KlyFormPage<TModel>           renders its sections with a completion status
+  KlyFormFieldView<TModel>      renders one field of a typed controller, for your own layout
+  KlyFieldTemplate              draws the control of one typed field from a FormControlContext<TValue>
   KlyDynamicFormEngine          renders a dynamic schema or controller
   KlyDynamicFormPage            renders sections with a completion status
-  KlyDynamicFieldView           renders one field; both components above use it
-  KlyFormProvider               hosts the overlay opened by DynamicFormService, in a KlyModal or KlySlideover
-  KlyFormErrorSummary           lists the errors and announces them; both form components render it
-  KlyFormNavigationGuard        blocks navigation while the controller is dirty
+  KlyDynamicFieldView           renders one field of a dynamic controller
+  KlyFormProvider               hosts the overlays opened by FormService and DynamicFormService, in a KlyModal or KlySlideover
+  KlyFormErrorSummary           lists the errors and announces them; the form components render it
+  KlyFormNavigationGuard        blocks navigation while the controller is dirty (either controller)
+
+  One renderer draws the fields of both modes: it reads the FieldNode tree through the engine, so the markup, the ids and the ARIA
+  attributes are the same for a typed and a dynamic form.
 ```
 
-A schema is declarative and holds no state, so one schema can back many controllers. A controller is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyDynamicFormEngine`, the controller it creates when you pass a schema. The typed components (`KlyFormEngine<TModel>` and its siblings) arrive in the next change; today the components render the runtime mode.
+A schema is declarative and holds no state, so one schema can back many controllers. A controller is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyDynamicFormEngine`, the controller it creates when you pass a schema. The typed and the dynamic components share one renderer, so a field looks and behaves the same in both modes.
 
 The typed mode is for forms bound to a model class, where the compiler checks the members and the types of the values. The runtime mode is for forms described as data, where the fields, conditions and steps are decided at runtime, and for code that works with values as text and JSON. Klyroo.UI also provides `KlyForm`, which works on an `EditContext`; Klyroo.Form is for forms described as a schema, with conditions, steps and a headless controller.
 
@@ -152,7 +162,9 @@ The typed controller runs the same lifecycle with the model in it: `SubmitAsync(
 
 An error set with `SetError` on a key that matches no field is a form-level error (`SetFormError` uses the key `FormErrorKey`). A blocking one makes `Validate()` fail whatever step is validated, and `GetErrorEntries()` lists it after the field errors, which is what the error summary renders.
 
-`DynamicFormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
+`FormService` opens typed forms as overlays: `CreateFormAsync<TModel>(schema, model, mode)` returns a task of `FormSubmitOutcome<TModel>`, which carries the submitted model instead of a dictionary, and otherwise behaves as described next.
+
+`DynamicFormService` wraps this for runtime forms. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 
 ## Localization
 
@@ -166,7 +178,7 @@ The components add the texts of their own: `FormTexts`, one set per locale of Kl
 
 | | `Klyroo.Form.Core` | `Klyroo.Form` |
 | :--- | :--- | :--- |
-| Contains | `FormSchema`, `FormController<TModel>`, the `Klyroo.Form.Dynamic` schema types, `DynamicFormController`, `DynamicFormService`, `IFormRuntime`, `FormMessages` | `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
+| Contains | `FormSchema`, `FormController<TModel>`, `FormControlContext<TValue>`, the `Klyroo.Form.Dynamic` schema types, `DynamicFormController`, `DynamicFormService`, `IFormRuntime`, `FormMessages` | `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
 | Dependencies | None | Klyroo.UI and `Klyroo.Form.Core` |
 | Runs in | Any .NET 10 host, including NativeAOT | Blazor (Interactive Server, WebAssembly, Auto) and .NET MAUI Blazor Hybrid |
 | Use it for | Tests, view models, background logic | Rendering |
