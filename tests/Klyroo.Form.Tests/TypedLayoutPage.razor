@@ -1,0 +1,13 @@
+@* A layout of your own: KlyFormFieldView draws single fields of a controller; TModel and TValue are inferred. *@
+<CascadingValue Value="Controller">
+    <div id="layout">
+        <KlyFormFieldView Field="@Form.Name" />
+        <KlyFormFieldView Field="@Form.Rating" Form="Controller" />
+    </div>
+</CascadingValue>
+
+@code {
+    [Parameter] public SignupForm Form { get; set; } = new();
+
+    [Parameter] public FormController<Signup> Controller { get; set; } = default!;
+}

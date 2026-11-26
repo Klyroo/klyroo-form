@@ -1,0 +1,11 @@
+<KlyFormPage Schema="Schema" Model="Model" OnSave="SaveAsync" />
+
+@code {
+    [Parameter] public FormSchema<Signup> Schema { get; set; } = default!;
+
+    [Parameter] public Signup Model { get; set; } = new();
+
+    [Parameter] public Func<Signup, CancellationToken, Task<bool>> Save { get; set; } = (_, _) => Task.FromResult(true);
+
+    private Task<bool> SaveAsync(Signup model, CancellationToken cancellationToken) => Save(model, cancellationToken);
+}

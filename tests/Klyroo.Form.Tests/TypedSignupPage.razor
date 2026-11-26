@@ -1,0 +1,23 @@
+@* Typed markup with no explicit TModel: it is inferred from Schema, Model and OnSave. A KlyFieldTemplate draws the Rating and the Nickname. *@
+<KlyFormEngine Schema="Form.Schema" Model="Model" OnSave="SaveAsync" OnSubmit="Submitted">
+    <KlyFieldTemplate Field="@Form.Rating" Context="c">
+        <input id="@c.Id" data-testid="rating" type="range" min="1" max="5" value="@c.Value" aria-describedby="@c.DescribedBy"
+               @oninput="@(e => c.Set(int.Parse(e.Value!.ToString()!)))" @onblur="c.Blur" />
+    </KlyFieldTemplate>
+    <KlyFieldTemplate Field="@Form.Nickname" Context="c">
+        <input id="@c.Id" data-testid="nick" value="@c.Text" aria-invalid="@(c.Error is null ? null : "true")"
+               @oninput="@(e => c.SetText(e.Value?.ToString()))" @onblur="c.Blur" />
+    </KlyFieldTemplate>
+</KlyFormEngine>
+
+@code {
+    [Parameter] public SignupForm Form { get; set; } = new();
+
+    [Parameter] public Signup Model { get; set; } = new();
+
+    [Parameter] public Func<Signup, CancellationToken, Task<bool>>? Save { get; set; }
+
+    [Parameter] public EventCallback<Signup> Submitted { get; set; }
+
+    private Task<bool> SaveAsync(Signup model, CancellationToken cancellationToken) => Save?.Invoke(model, cancellationToken) ?? Task.FromResult(true);
+}
