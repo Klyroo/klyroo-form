@@ -154,7 +154,11 @@ public sealed record FormPasswordRequirement(
 public sealed record FormValidatorRule(
     string Key,
     string Message,
-    Func<object?, FormController, bool> Validate);
+    Func<object?, FormController, bool> Validate)
+{
+    /// <summary>Computes the error message when the rule fails, from the <see cref="FormController.Messages"/> of the controller, so the message follows the language and the culture of the moment of validation instead of the ones of the moment the rule was created. When it is <c>null</c> or returns <c>null</c>, <see cref="Message"/> is used.</summary>
+    public Func<FormMessages, string?>? LocalizedMessage { get; init; }
+}
 
 /// <summary>
 /// An asynchronous validation rule of a field, for a check that needs I/O such as "is this username free". It runs in the background once the user has left the field
@@ -1246,7 +1250,7 @@ public sealed partial class FormController : IDisposable
             {
                 if (!rule.Validate(val, this))
                 {
-                    return rule.Message;
+                    return rule.LocalizedMessage?.Invoke(Messages) ?? rule.Message;
                 }
             }
         }

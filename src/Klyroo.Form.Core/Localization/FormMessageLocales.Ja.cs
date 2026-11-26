@@ -16,6 +16,9 @@ public static partial class FormMessageLocales
         FileTooLarge = (name, size) => $"{name} は {size} を超えています",
         FileTypeNotAllowed = (name, accept) => $"{name} は許可されていない形式です（{accept}）",
         SingleFileOnly = "ファイルは1つだけ選択してください",
+        WholeNumber = "整数を入力してください",
+        NumberOutOfRange = (min, max) => $"{Digits(min, ".")} から {Digits(max, ".")} までの数値を入力してください",
+        InvalidIdentifier = "有効な識別子を入力してください",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ".", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

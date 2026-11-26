@@ -16,6 +16,9 @@ public static partial class FormMessageLocales
         FileTooLarge = (name, size) => $"{name} 超过 {size}",
         FileTypeNotAllowed = (name, accept) => $"{name} 不是允许的类型（{accept}）",
         SingleFileOnly = "只能选择一个文件",
+        WholeNumber = "请输入整数",
+        NumberOutOfRange = (min, max) => $"请输入介于 {Digits(min, ".")} 和 {Digits(max, ".")} 之间的数字",
+        InvalidIdentifier = "请输入有效的标识符",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ".", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

@@ -16,6 +16,9 @@ public static partial class FormMessageLocales
         FileTooLarge = (name, size) => $"{name} больше {size}",
         FileTypeNotAllowed = (name, accept) => $"{name}: недопустимый тип ({accept})",
         SingleFileOnly = "Выберите только один файл",
+        WholeNumber = "Введите целое число",
+        NumberOutOfRange = (min, max) => $"Введите число от {Digits(min, ",")} до {Digits(max, ",")}",
+        InvalidIdentifier = "Введите корректный идентификатор",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["Б", "КБ", "МБ", "ГБ", "ТБ"]),
     };
 }

@@ -16,6 +16,9 @@ public static partial class FormMessageLocales
         FileTooLarge = (name, size) => $"{name} excede {size}",
         FileTypeNotAllowed = (name, accept) => $"{name} não é de um tipo aceite ({accept})",
         SingleFileOnly = "Escolha apenas um ficheiro",
+        WholeNumber = "Introduza um número inteiro",
+        NumberOutOfRange = (min, max) => $"Introduza um número entre {Digits(min, ",")} e {Digits(max, ",")}",
+        InvalidIdentifier = "Introduza um identificador válido",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

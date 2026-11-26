@@ -580,7 +580,7 @@
                            step="@field.Step?.ToString(CultureInfo.InvariantCulture)"
                            disabled="@b.Disabled"
                            placeholder="@field.Placeholder"
-                           value="@(TryDouble(b.Value, out var n) ? n.ToString(CultureInfo.InvariantCulture) : strVal)"
+                           value="@NumberText(b.Value, strVal)"
                            aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
                            class="@(InputClass(b.Error))"
                            data-slot="@b.Slot"
@@ -1168,6 +1168,12 @@
         return index < rows.Count ? rows[index].GetValueOrDefault(childKey) : null;
     }
 
+    // The text of the value of a number input, with every digit of a decimal, a long or a float (a conversion to a double would round it).
+    private static string NumberText(object? value, string fallback) =>
+        value is decimal or double or float or sbyte or byte or short or ushort or int or uint or long or ulong
+            ? ((IFormattable)value).ToString(null, CultureInfo.InvariantCulture)
+            : TryDouble(value, out var n) ? n.ToString(CultureInfo.InvariantCulture) : fallback;
+
     private static bool TryDouble(object? value, out double d)
     {
         switch (value)
@@ -1193,9 +1199,10 @@
         {
             b.Set(null);
         }
-        else if (double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+        else if (FormValueConverter.NumberFromInput(raw) is { } number)
         {
-            b.Set(d);
+            // A double, or a decimal when the digits typed do not fit a double: the model decides what it can hold.
+            b.Set(number);
         }
     }
 

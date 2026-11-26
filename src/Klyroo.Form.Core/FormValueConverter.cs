@@ -42,16 +42,18 @@ internal static class FormValueConverter
         var type = Nullable.GetUnderlyingType(target) ?? target;
         if (type.IsInstanceOfType(raw)) { value = raw; return true; }
         if (type != typeof(string) && raw is string text && string.IsNullOrWhiteSpace(text)) return false;
-        return TryConvertCore(raw, type, out value);
+        return TryConvertCore(raw, type, out value, lenientEnum: true);
     }
 
-    private static bool TryConvertCore(object raw, Type type, out object? result)
+    // lenientEnum: a number that no member of an enum has still converts, as long as it fits the underlying type. A model can hold such a value (a flag
+    // combination, a value from a newer version of a database), and the binding must give it back when the user did not change it.
+    private static bool TryConvertCore(object raw, Type type, out object? result, bool lenientEnum = false)
     {
         result = null;
         if (type == typeof(string)) return Set(ToText(raw), out result);
         if (type == typeof(bool)) return TryBool(raw, out result);
         if (type == typeof(double)) return TryDouble(raw, out var d) && Set(d, out result);
-        if (type == typeof(float)) return TryDouble(raw, out var f) && Set((float)f, out result);
+        if (type == typeof(float)) return TryFloat(raw, out var f) && Set(f, out result);
         if (type == typeof(decimal)) return TryDecimal(raw, out var m) && Set(m, out result);
         if (IsIntegral(type)) return TryDecimal(raw, out var whole) && TryIntegral(whole, type, out result);
         if (type == typeof(Guid)) return TryGuid(raw, out result);
@@ -60,7 +62,7 @@ internal static class FormValueConverter
         if (type == typeof(DateTime)) return TryDateTime(raw, out result);
         if (type == typeof(DateTimeOffset)) return TryDateTimeOffset(raw, out result);
         if (type == typeof(TimeSpan)) return TryTimeSpan(raw, out result);
-        if (type.IsEnum) return TryEnum(raw, type, out result);
+        if (type.IsEnum) return TryEnum(raw, type, lenientEnum, out result);
         if (type == typeof(List<string>) && raw is IEnumerable<string> strings) return Set(strings.ToList(), out result);
         if (type == typeof(string[]) && raw is IEnumerable<string> array) return Set(array.ToArray(), out result);
         if (raw is IConvertible && typeof(IConvertible).IsAssignableFrom(type))
@@ -90,8 +92,8 @@ internal static class FormValueConverter
         string s => s,
         bool b => b ? "true" : "false",
         DateOnly d => d.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-        TimeOnly t => t.ToString(t.Second == 0 && t.Millisecond == 0 ? "HH:mm" : "HH:mm:ss", CultureInfo.InvariantCulture),
-        DateTime dt => dt.ToString(dt.Second == 0 && dt.Millisecond == 0 ? "yyyy-MM-ddTHH:mm" : "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
+        TimeOnly t => t.ToString(t.Millisecond != 0 ? "HH:mm:ss.FFF" : t.Second == 0 ? "HH:mm" : "HH:mm:ss", CultureInfo.InvariantCulture),
+        DateTime dt => dt.ToString(dt.Millisecond != 0 ? "yyyy-MM-ddTHH:mm:ss.FFF" : dt.Second == 0 ? "yyyy-MM-ddTHH:mm" : "yyyy-MM-ddTHH:mm:ss", CultureInfo.InvariantCulture),
         DateTimeOffset dto => dto.ToString("O", CultureInfo.InvariantCulture),
         IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
         _ => raw.ToString(),
@@ -122,11 +124,32 @@ internal static class FormValueConverter
             default:
                 if (TryDecimal(raw, out var m))
                 {
-                    value = (double)m;
+                    // Through the text: the conversion of a decimal to a double is not always the nearest double, the parsing of its exact text is.
+                    value = double.Parse(m.ToString(CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture);
                     return true;
                 }
                 value = 0;
                 return false;
+        }
+    }
+
+    // A float is parsed from the text of what it is given, never from a double, so 0.1 stays 0.1f and a decimal or a long is rounded once.
+    private static bool TryFloat(object raw, out float value)
+    {
+        value = 0;
+        switch (raw)
+        {
+            case float f: value = f; return !float.IsNaN(f);
+            case double d:
+                if (double.IsNaN(d)) return false;
+                value = (float)d;
+                return double.IsInfinity(d) || float.IsFinite(value);
+            case string s:
+                return float.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && float.IsFinite(value);
+            default:
+                return TryDecimal(raw, out var m)
+                    && float.TryParse(m.ToString(CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                    && float.IsFinite(value);
         }
     }
 
@@ -138,8 +161,8 @@ internal static class FormValueConverter
             switch (raw)
             {
                 case decimal m: value = m; return true;
-                case double d: if (!double.IsFinite(d)) return false; value = (decimal)d; return true;
-                case float f: if (!float.IsFinite(f)) return false; value = (decimal)f; return true;
+                case double d: return double.IsFinite(d) && FromShortestText(d.ToString("R", CultureInfo.InvariantCulture), d != 0, out value);
+                case float f: return float.IsFinite(f) && FromShortestText(f.ToString("R", CultureInfo.InvariantCulture), f != 0, out value);
                 case sbyte v: value = v; return true;
                 case byte v: value = v; return true;
                 case short v: value = v; return true;
@@ -156,6 +179,49 @@ internal static class FormValueConverter
         {
             return false;
         }
+    }
+
+    // The decimal that has the shortest text which reads back as the double or the float, with all its digits: the conversion operators round to 15 and 7 digits.
+    // A number too small for a decimal is refused instead of becoming zero.
+    private static bool FromShortestText(string text, bool nonZero, out decimal value) =>
+        decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value) && (value != 0 || !nonZero);
+
+    // The decimal a number holds, or false when it is not a number or does not fit a decimal.
+    internal static bool TryExactDecimal(object? raw, out decimal value)
+    {
+        value = 0;
+        return raw is not null && TryDecimal(raw, out value);
+    }
+
+    // The value of a number the way a control of kind Number stores it: a double when the text of the number is the same for a double and for a decimal
+    // (up to 15 digits, which is what a user types and what an input shows), and the decimal otherwise, so no digit of a long, an ulong or a decimal is lost.
+    // A number that does not fit a decimal stays a double. NaN is no number.
+    internal static object? NumberToControl(object value)
+    {
+        if (TryDecimal(value, out var m)) return DoubleIfExact(m);
+        switch (value)
+        {
+            case double d: return double.IsNaN(d) ? null : d;
+            case float f: return float.IsNaN(f) ? null : double.Parse(f.ToString("R", CultureInfo.InvariantCulture), CultureInfo.InvariantCulture);
+            default: return null;
+        }
+    }
+
+    private static object DoubleIfExact(decimal m)
+    {
+        var d = double.Parse(m.ToString(CultureInfo.InvariantCulture), NumberStyles.Float, CultureInfo.InvariantCulture);
+        return d is > -1e28 and < 1e28 && (decimal)d == m ? d : m;
+    }
+
+    // What a Number input gives back: a double or a decimal as NumberToControl does, or null when the text is no number.
+    internal static object? NumberFromInput(string text)
+    {
+        if (decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var m)
+            && (m != 0 || !double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var tiny) || tiny == 0))
+        {
+            return DoubleIfExact(m);
+        }
+        return double.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out var d) && !double.IsNaN(d) ? d : null;
     }
 
     private static bool IsIntegral(Type t) =>
@@ -262,7 +328,7 @@ internal static class FormValueConverter
             || DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out value);
     }
 
-    private static bool TryEnum(object raw, Type type, out object? result)
+    private static bool TryEnum(object raw, Type type, bool lenient, out object? result)
     {
         result = null;
         if (raw.GetType() == type) return Set(raw, out result);
@@ -274,12 +340,12 @@ internal static class FormValueConverter
             if (!Enum.TryParse(type, s, ignoreCase: true, out var parsed) || parsed is null) return false;
             // "7" parses to 7 even when no member has that value: accept a number only when it names a member.
             var numeric = s.Length > 0 && (char.IsDigit(s[0]) || s[0] is '-' or '+');
-            return (!numeric || Enum.IsDefined(type, parsed)) && Set(parsed, out result);
+            return (!numeric || lenient || Enum.IsDefined(type, parsed)) && Set(parsed, out result);
         }
-        if (TryDecimal(raw, out var d) && d == decimal.Truncate(d) && d is >= long.MinValue and <= long.MaxValue)
+        if (TryDecimal(raw, out var d) && TryIntegral(d, Enum.GetUnderlyingType(type), out var number) && number is not null)
         {
-            var value = Enum.ToObject(type, (long)d);
-            return Enum.IsDefined(type, value) && Set(value, out result);
+            var value = Enum.ToObject(type, number);
+            return (lenient || Enum.IsDefined(type, value)) && Set(value, out result);
         }
         return false;
     }
@@ -311,7 +377,7 @@ internal static class FormValueConverter
             case FormFieldKind.Custom or FormFieldKind.File:
                 return value;
             case FormFieldKind.Number or FormFieldKind.Slider:
-                return TryConvert<double>(value, out var number) ? number : null;
+                return NumberToControl(value);
             case FormFieldKind.Rating:
                 return TryConvert<int>(value, out var rating) ? rating : null;
             case FormFieldKind.Checkbox or FormFieldKind.Switch:

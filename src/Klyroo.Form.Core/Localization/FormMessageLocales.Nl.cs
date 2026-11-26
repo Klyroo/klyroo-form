@@ -16,6 +16,9 @@ public static partial class FormMessageLocales
         FileTooLarge = (name, size) => $"{name} is groter dan {size}",
         FileTypeNotAllowed = (name, accept) => $"{name} is geen toegestaan type ({accept})",
         SingleFileOnly = "Kies slechts één bestand",
+        WholeNumber = "Voer een geheel getal in",
+        NumberOutOfRange = (min, max) => $"Voer een getal in tussen {Digits(min, ",")} en {Digits(max, ",")}",
+        InvalidIdentifier = "Voer een geldige id in",
         FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

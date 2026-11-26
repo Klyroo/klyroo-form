@@ -3,6 +3,13 @@ using System.Text;
 
 namespace Klyroo.Form;
 
+internal enum ControlValue
+{
+    Value,
+    Empty,
+    Invalid,
+}
+
 // What a member type means for a field: its kind, its settings and how its values move between the model and the controller.
 // Types are only compared, never inspected with reflection, so everything here is trim and AOT safe.
 internal static class FormValueMap
@@ -49,17 +56,59 @@ internal static class FormValueMap
             {
                 s.Step = 1;
                 (s.Min, s.Max) = Bounds(type);
-                s.Validators = [new FormValidatorRule("whole", "Enter a whole number", (v, _) => v is not double d || d == Math.Truncate(d))];
+                s.Validators = [WholeRule(), RangeRule(type)];
             }
             else if (type == typeof(decimal))
             {
                 s.Step = 0.01;
+                s.Validators = [RangeRule(type)];
+            }
+            else if (type == typeof(float))
+            {
+                s.Validators = [RangeRule(type)];
             }
         }
         if (type == typeof(Guid))
         {
-            s.Validators = [new FormValidatorRule("guid", "Enter a valid identifier", (v, c) => v is not string t || t.Length == 0 || Guid.TryParse(t.Trim(), out _))];
+            s.Validators =
+            [
+                new FormValidatorRule("guid", "Enter a valid identifier", (v, c) => v is not string t || t.Length == 0 || Guid.TryParse(t.Trim(), out _))
+                {
+                    LocalizedMessage = m => m.InvalidIdentifier,
+                },
+            ];
         }
+    }
+
+    // Min and Max are doubles, which cannot tell long.MaxValue from the next number: the exact checks are rules, with the message of the language of the form.
+    private static FormValidatorRule WholeRule() =>
+        new("whole", "Enter a whole number", (v, _) => FormController.IsEmptyValue(v) || !FormValueConverter.TryExactDecimal(v, out var m) || m == decimal.Truncate(m))
+        {
+            LocalizedMessage = m => m.WholeNumber,
+        };
+
+    private static FormValidatorRule RangeRule(Type type)
+    {
+        var (min, max) = BoundTexts(type);
+        return new FormValidatorRule("range", $"Enter a number between {min} and {max}", (v, _) => FormController.IsEmptyValue(v) || FormValueConverter.TryConvert(v, type, out object? _))
+        {
+            LocalizedMessage = m => m.NumberOutOfRange(min, max),
+        };
+    }
+
+    private static (string Min, string Max) BoundTexts(Type type)
+    {
+        var c = CultureInfo.InvariantCulture;
+        return type == typeof(byte) ? (byte.MinValue.ToString(c), byte.MaxValue.ToString(c))
+            : type == typeof(sbyte) ? (sbyte.MinValue.ToString(c), sbyte.MaxValue.ToString(c))
+            : type == typeof(short) ? (short.MinValue.ToString(c), short.MaxValue.ToString(c))
+            : type == typeof(ushort) ? (ushort.MinValue.ToString(c), ushort.MaxValue.ToString(c))
+            : type == typeof(int) ? (int.MinValue.ToString(c), int.MaxValue.ToString(c))
+            : type == typeof(uint) ? (uint.MinValue.ToString(c), uint.MaxValue.ToString(c))
+            : type == typeof(long) ? (long.MinValue.ToString(c), long.MaxValue.ToString(c))
+            : type == typeof(ulong) ? (ulong.MinValue.ToString(c), ulong.MaxValue.ToString(c))
+            : type == typeof(float) ? (float.MinValue.ToString("R", c), float.MaxValue.ToString("R", c))
+            : (decimal.MinValue.ToString(c), decimal.MaxValue.ToString(c));
     }
 
     private static (double Min, double Max) Bounds(Type type) =>
@@ -105,7 +154,7 @@ internal static class FormValueMap
         switch (kind)
         {
             case FormFieldKind.Number or FormFieldKind.Slider:
-                return FormValueConverter.TryConvert<double>(value, out var number) ? number : null;
+                return FormValueConverter.NumberToControl(value);
             case FormFieldKind.Rating:
                 return FormValueConverter.TryConvert<int>(value, out var rating) ? rating : null;
             case FormFieldKind.Checkbox or FormFieldKind.Switch:
@@ -139,12 +188,21 @@ internal static class FormValueMap
     // and the default for the others, an empty string for a string that is not nullable.
     public static object? FromControl(object? raw, Type member, bool nullableReference)
     {
-        if (FormValueConverter.TryConvert(raw, member, out var value))
+        TryFromControl(raw, member, nullableReference, out var value);
+        return value;
+    }
+
+    // Like FromControl, and says what happened: the value converted, the value was empty (the default is given), or there is a value that is not one of the member type
+    // (the default is given too, and a write refuses it instead of storing it).
+    public static ControlValue TryFromControl(object? raw, Type member, bool nullableReference, out object? value)
+    {
+        if (FormValueConverter.TryConvert(raw, member, out value))
         {
-            if (value is string { Length: 0 } && nullableReference) return null;
-            return value;
+            if (value is string { Length: 0 } && nullableReference) value = null;
+            return ControlValue.Value;
         }
-        return Default(member, nullableReference);
+        value = Default(member, nullableReference);
+        return raw is null || raw is string text && string.IsNullOrWhiteSpace(text) ? ControlValue.Empty : ControlValue.Invalid;
     }
 
     public static object? Default(Type member, bool nullableReference)

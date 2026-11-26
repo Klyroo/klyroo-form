@@ -4,7 +4,7 @@ namespace Klyroo.Form;
 
 /// <summary>
 /// The built-in validation messages of <see cref="FormController"/>, which has no UI and so no locale of its own: the required, number bounds, text length,
-/// date range and file errors. A new instance holds the English messages. Build a variant with a <c>with</c> expression, give it to the controller with
+/// date range and file errors, and the errors the typed model binding adds for integers, numbers out of range and identifiers. A new instance holds the English messages. Build a variant with a <c>with</c> expression, give it to the controller with
 /// <see cref="FormSchema.Messages"/> or <see cref="FormController.Messages"/>, or pick one of the twelve built-in sets (<see cref="FormMessageLocales"/>).
 /// The Blazor components do it for you: they give the controller the messages of the current Klyroo.UI locale, see <c>FormTexts</c>.
 /// </summary>
@@ -54,4 +54,13 @@ public sealed record FormMessages
 
     /// <summary>The error of a <see cref="FormFieldKind.File"/> field without <see cref="FormFieldSchema.Multiple"/> that holds several files (<c>"Choose one file only"</c>).</summary>
     public string SingleFileOnly { get; init; } = "Choose one file only";
+
+    /// <summary>The error of an integer member of a bound model whose value is not a whole number (<c>"Enter a whole number"</c>). Added by the typed model binding, see <see cref="FormModel"/>.</summary>
+    public string WholeNumber { get; init; } = "Enter a whole number";
+
+    /// <summary>The error of a numeric member of a bound model whose value does not fit the type of the member, given the lowest and the highest value of the type as exact invariant text (<c>"Enter a number between -128 and 127"</c>). Added by the typed model binding, see <see cref="FormModel"/>.</summary>
+    public Func<string, string, string> NumberOutOfRange { get; init; } = (min, max) => $"Enter a number between {min} and {max}";
+
+    /// <summary>The error of a <see cref="Guid"/> member of a bound model whose text is not an identifier (<c>"Enter a valid identifier"</c>). Added by the typed model binding, see <see cref="FormModel"/>.</summary>
+    public string InvalidIdentifier { get; init; } = "Enter a valid identifier";
 }

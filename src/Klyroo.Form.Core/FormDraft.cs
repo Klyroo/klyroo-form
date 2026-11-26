@@ -31,7 +31,7 @@ public sealed record FormDraft(IReadOnlyDictionary<string, object?> Values, int 
         return System.Text.Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    /// <summary>Reads a draft written by <see cref="ToJson"/>. Numbers come back as <see cref="double"/>; <see cref="FormController.RestoreDraft"/> converts each value to the type its field uses.</summary>
+    /// <summary>Reads a draft written by <see cref="ToJson"/>. Numbers come back as <see cref="double"/>, or as <see cref="decimal"/> when their digits do not fit a double (a large <see cref="long"/>); <see cref="FormController.RestoreDraft"/> converts each value to the type its field uses.</summary>
     /// <param name="json">The JSON document.</param>
     /// <returns>The draft.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="json"/> is <c>null</c>.</exception>
@@ -101,7 +101,7 @@ public sealed record FormDraft(IReadOnlyDictionary<string, object?> Values, int 
             case JsonValueKind.String: return element.GetString();
             case JsonValueKind.True: return true;
             case JsonValueKind.False: return false;
-            case JsonValueKind.Number: return element.GetDouble();
+            case JsonValueKind.Number: return FormValueConverter.NumberFromInput(element.GetRawText()) ?? element.GetDouble();
             case JsonValueKind.Object:
                 var map = new Dictionary<string, object?>(StringComparer.Ordinal);
                 foreach (var property in element.EnumerateObject()) map[property.Name] = ReadValue(property.Value);
