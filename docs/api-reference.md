@@ -98,7 +98,7 @@ Declarative definition of one field, or of a layout element such as a section he
 | `Kind` (init) | `FormFieldKind` | The kind of the field. The default is `FormFieldKind.Text`. |
 | `Label` (init) | `string?` | Text of the label shown above the control. For `FormFieldKind.Info`, `FormFieldKind.Section` and containers it is the heading. |
 | `Max` (init) | `double?` | Largest accepted value of a `FormFieldKind.Number` field, enforced on validation. Also the `max` attribute of number and slider inputs. |
-| `MaxLength` (init) | `int?` | The `maxlength` attribute of text-like inputs. The controller does not validate it; add a `FormValidatorRule` to enforce a length. |
+| `MaxLength` (init) | `int?` | Largest accepted number of characters of a text value, enforced on validation. Also the `maxlength` attribute of text-like inputs. |
 | `Min` (init) | `double?` | Smallest accepted value of a `FormFieldKind.Number` field, enforced on validation. Also the `min` attribute of number and slider inputs. |
 | `Multiple` (init) | `bool` | `true` if the field holds several values. Only `FormController.CreateFieldOption` reads it: the built-in components render no multi-select control. |
 | `OmitFromOutput` (init) | `bool` | `true` to validate and store the field but leave it out of `FormController.BuildOutput`. |

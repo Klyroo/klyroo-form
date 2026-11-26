@@ -17,7 +17,7 @@
              data-slot="form-provider-dialog">
             <KlyFormEngine Form="@activeForm"
                           Shell="@FormApi.ActiveMode"
-                          OnSubmit="@(_ => FormApi.SubmitActiveFormAsync())"
+                          OnSubmit="@(_ => FormApi.CompleteSubmittedForm(activeForm))"
                           OnCancel="@(_ => FormApi.CloseForm())" />
         </div>
     </div>

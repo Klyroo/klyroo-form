@@ -6,6 +6,12 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Fixed
+
+- A form opened with `FormService` ran validation, `OnBeforeSubmit` and `OnSubmit` twice when submitted from its button.
+- `Required` on a `Checkbox` or `Switch` field now requires it to be checked; an unchecked box no longer passes.
+- `FormFieldSchema.MaxLength` is now validated by the controller, not only rendered as the `maxlength` attribute.
+
 ## [0.1.0-preview.1] - 2026-11-24
 
 ### Added

@@ -28,29 +28,11 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 **Fix:** wrap the body of your layout in `<KlyFormProvider>`. With Auto render mode, register `AddKlyrooForm()` in the server and in the client project.
 
-### `OnSubmit` or `OnBeforeSubmit` of the schema runs twice for an overlay
-
-**Cause:** for a form opened through `FormService`, `KlyFormEngine` submits the controller, and then its `OnSubmit` callback, wired by `KlyFormProvider` to `FormService.SubmitActiveFormAsync`, submits it a second time. Validation and both schema hooks run on each pass.
-
-**Fix:** keep side effects out of `FormSchema.OnSubmit` for overlay forms and do them after `await CreateFormAsync(...)`, using the returned `FormData`. Make `OnBeforeSubmit` safe to run twice, or avoid it in overlay schemas.
-
 ### A validation error does not show
 
 **Cause:** errors are shown only for touched fields. A field becomes touched when `SetValue` is called with `markTouched: true`, when it loses focus in `KlyFormEngine`, when it has `Trigger = Input` and changes, or when `Validate()` or `SubmitAsync()` runs. Before that, `GetError` returns `null` even though a validation error may exist.
 
 **Fix:** call `Validate()` to touch and check every field, call `MarkTouched(key)` for one field, or pass `markTouched: true` when you set a value from code. A field with `Trigger = FormValidationTrigger.Submit` is also only validated by `Validate()` or a submit.
-
-### A required checkbox accepts an unchecked box
-
-**Cause:** the required check tests for emptiness, and `false` is not empty. A checkbox that has never been toggled holds `null`, so it fails the required check, but once the user checks and unchecks it the value is `false` and passes.
-
-**Fix:** use a validator that insists on `true`: `Validators = [new FormValidatorRule("accepted", "You must accept the terms", (value, _) => value is true)]`.
-
-### `MaxLength` does not stop a long value
-
-**Cause:** `FormFieldSchema.MaxLength` only sets the `maxlength` attribute on the built-in text-like inputs. The controller does not validate it, so a value set from code, or any value in a headless run, is not checked.
-
-**Fix:** add a `FormValidatorRule` that checks the length.
 
 ### Fields inside a hidden group are still validated and submitted
 

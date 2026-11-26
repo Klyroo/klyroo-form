@@ -225,7 +225,7 @@ public sealed class FormFieldSchema
     public double? Max { get; init; }
     /// <summary>The <c>step</c> attribute of number and slider inputs. It is not validated.</summary>
     public double? Step { get; init; }
-    /// <summary>The <c>maxlength</c> attribute of text-like inputs. The controller does not validate it; add a <see cref="FormValidatorRule"/> to enforce a length.</summary>
+    /// <summary>Largest accepted number of characters of a text value, enforced on validation. Also the <c>maxlength</c> attribute of text-like inputs.</summary>
     public int? MaxLength { get; init; }
     /// <summary><c>true</c> if the field holds several values. Only <see cref="FormController.CreateFieldOption"/> reads it: the built-in components render no multi-select control.</summary>
     public bool Multiple { get; init; }
@@ -784,7 +784,7 @@ public sealed class FormController
 
         if (Schema.ValidateMode is FormValidationMode.All or FormValidationMode.RequiredOnly)
         {
-            if (IsFieldRequired(field) && isEmpty)
+            if (IsFieldRequired(field) && IsMissingValue(field, val))
             {
                 _validationErrors[field.Key] = field.RequiredMessage ?? "This field is required";
                 return;
@@ -806,6 +806,13 @@ public sealed class FormController
                 _validationErrors[field.Key] = $"Value must be at most {max.ToString(CultureInfo.InvariantCulture)}";
                 return;
             }
+        }
+
+        // Text length
+        if (field.MaxLength is { } maxLength && val is string text && text.Length > maxLength)
+        {
+            _validationErrors[field.Key] = $"Must be at most {maxLength.ToString(CultureInfo.InvariantCulture)} characters";
+            return;
         }
 
         // Password requirements
@@ -981,7 +988,7 @@ public sealed class FormController
                 if (IsFieldRequired(leaf))
                 {
                     reqCount++;
-                    if (empty) missingCount++;
+                    if (IsMissingValue(leaf, val)) missingCount++;
                 }
                 if (_validationErrors.ContainsKey(leaf.Key) || _customErrors.ContainsKey(leaf.Key))
                 {
@@ -1101,6 +1108,10 @@ public sealed class FormController
         _ => false,
     };
 
+    // A required checkbox or switch is a consent: it is satisfied only when checked.
+    private static bool IsMissingValue(FormFieldSchema field, object? value) =>
+        IsEmptyValue(value) || (field.Kind is FormFieldKind.Checkbox or FormFieldKind.Switch && value is not true);
+
     private static bool TryConvertDouble(object? val, out double d)
     {
         switch (val)
@@ -1196,18 +1207,22 @@ public sealed class FormService
     /// <returns><c>true</c> if the form was submitted; <c>false</c> if no form is open or submission failed.</returns>
     public async Task<bool> SubmitActiveFormAsync()
     {
-        if (ActiveForm is null) return false;
-        var ok = await ActiveForm.SubmitAsync();
-        if (ok)
-        {
-            var data = ActiveForm.BuildOutput();
-            var tcs = _tcs;
-            ActiveForm = null;
-            _tcs = null;
-            Changed?.Invoke();
-            tcs?.TrySetResult(new FormSubmitOutcome(true, data));
-        }
+        if (ActiveForm is not { } form) return false;
+        var ok = await form.SubmitAsync();
+        if (ok) CompleteSubmittedForm(form);
         return ok;
+    }
+
+    // Called by KlyFormProvider once KlyFormEngine has already submitted the controller, so the schema hooks run once.
+    internal void CompleteSubmittedForm(FormController form)
+    {
+        if (!ReferenceEquals(form, ActiveForm)) return;
+        var data = form.BuildOutput();
+        var tcs = _tcs;
+        ActiveForm = null;
+        _tcs = null;
+        Changed?.Invoke();
+        tcs?.TrySetResult(new FormSubmitOutcome(true, data));
     }
 
     /// <summary>Closes the open form without submitting and completes the task of <see cref="CreateFormAsync"/> with <see cref="FormSubmitOutcome.IsCompleted"/> set to <c>false</c>. Does nothing when no form is open.</summary>

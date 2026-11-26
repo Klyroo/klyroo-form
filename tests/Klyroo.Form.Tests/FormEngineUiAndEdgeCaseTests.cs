@@ -257,4 +257,67 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
         var outcome2 = await task2;
         Assert.False(outcome2.IsCompleted);
     }
+
+    [Fact]
+    public async Task KlyFormProvider_submit_button_runs_schema_hooks_once()
+    {
+        var provider = Render<KlyFormProvider>();
+        var svc = Services.GetRequiredService<FormService>();
+        var beforeSubmitCalls = 0;
+        var submitCalls = 0;
+        var schema = new FormSchema
+        {
+            FormKey = "overlay-once",
+            Fields = [new FormFieldSchema { Key = "name", Label = "Name", DefaultValue = "Klyroo" }],
+            OnBeforeSubmit = _ => { beforeSubmitCalls++; return Task.FromResult(true); },
+            OnSubmit = _ => { submitCalls++; return Task.CompletedTask; },
+        };
+
+        var task = svc.CreateFormAsync(schema);
+        provider.Render();
+        await provider.Find("[data-slot=form-engine]").SubmitAsync();
+
+        var outcome = await task;
+        Assert.True(outcome.IsCompleted);
+        Assert.Equal("Klyroo", outcome.FormData["name"]);
+        Assert.Equal(1, beforeSubmitCalls);
+        Assert.Equal(1, submitCalls);
+        Assert.False(svc.IsOpen);
+    }
+
+    [Theory]
+    [InlineData(FormFieldKind.Checkbox)]
+    [InlineData(FormFieldKind.Switch)]
+    public void Required_checkbox_and_switch_must_be_checked(FormFieldKind kind)
+    {
+        var schema = new FormSchema
+        {
+            FormKey = "consent",
+            Fields = [new FormFieldSchema { Key = "terms", Label = "Terms", Kind = kind, Required = true }]
+        };
+        var ctrl = new FormController(schema, new Dictionary<string, object?> { ["terms"] = false });
+
+        Assert.False(ctrl.Validate());
+        Assert.Equal("This field is required", ctrl.GetError("terms"));
+
+        ctrl.SetValue("terms", true);
+        Assert.True(ctrl.Validate());
+    }
+
+    [Fact]
+    public void MaxLength_is_validated_without_a_custom_rule()
+    {
+        var schema = new FormSchema
+        {
+            FormKey = "max-length",
+            Fields = [new FormFieldSchema { Key = "code", Label = "Code", MaxLength = 4 }]
+        };
+        var ctrl = new FormController(schema, new Dictionary<string, object?> { ["code"] = "TOO-LONG" });
+
+        Assert.False(ctrl.Validate());
+        Assert.Equal("Must be at most 4 characters", ctrl.GetError("code"));
+
+        ctrl.SetValue("code", "KLY4");
+        Assert.True(ctrl.Validate());
+    }
 }

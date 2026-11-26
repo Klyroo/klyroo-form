@@ -70,10 +70,11 @@ Validate() / SubmitAsync()   touch and validate every field they check
 
 One validation pass on a field applies these checks in order, and the first failure wins:
 
-1. Required (`Required` or `RequiredWhen`), in modes `All` and `RequiredOnly`. Empty means `null`, a blank string or an empty collection.
+1. Required (`Required` or `RequiredWhen`), in modes `All` and `RequiredOnly`. Empty means `null`, a blank string or an empty collection. A required `Checkbox` or `Switch` must be checked: `false` fails the check.
 2. Number bounds, for `Number` fields, in modes `All` and `ValidatorsOnly`.
-3. Password requirements, for `Password` fields, in the same modes.
-4. Custom `Validators`, in the same modes. They also run for empty values.
+3. `MaxLength`, for string values, in the same modes.
+4. Password requirements, for `Password` fields, in the same modes.
+5. Custom `Validators`, in the same modes. They also run for empty values.
 
 `FormSchema.ValidateMode` selects the checks: `All`, `RequiredOnly`, `ValidatorsOnly` or `None`. Hidden and ignored fields are skipped.
 
