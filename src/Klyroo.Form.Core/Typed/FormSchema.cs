@@ -71,18 +71,19 @@ public sealed class FormSchema<[DynamicallyAccessedMembers(FormModelTrim.Members
     /// <summary>The title of the form, or <c>null</c>.</summary>
     public string? Title => Definition.Title;
 
-    /// <summary>Gets the handle of a field declared with a member of the model, to read and write it through a controller from code that did not keep the handle <c>Field</c> returned.</summary>
-    /// <typeparam name="TValue">The type of the member.</typeparam>
+    /// <summary>Gets the handle of a field declared with a member of the model, to read and write it through a controller from code that did not keep the handle <c>Field</c> returned. For a list use <see cref="List{TItem}"/>, and for a multiple choice <see cref="MultiSelect{TElement}"/>.</summary>
+    /// <typeparam name="TValue">The type of the member, or the type the field was declared with (a multiple choice is a field of <c>IReadOnlyList&lt;TElement&gt;</c>, so <c>Field&lt;IReadOnlyList&lt;Role&gt;&gt;(m =&gt; m.Roles)</c> finds it).</typeparam>
     /// <param name="member">The member, as in <c>m =&gt; m.Email</c>.</param>
     /// <returns>The handle declared for it.</returns>
     /// <exception cref="ArgumentException">No field is declared for the member, or its type is not <typeparamref name="TValue"/>.</exception>
     public FormField<TModel, TValue> Field<TValue>(Expression<Func<TModel, TValue>> member)
     {
         ArgumentNullException.ThrowIfNull(member);
-        var key = FormModelPath.Resolve(member, typeof(TValue)).Key;
+        var key = FormModelPath.Resolve(member, null).Key;
         if (_handles.TryGetValue(key, out var handle))
         {
-            return handle as FormField<TModel, TValue> ?? throw new ArgumentException($"'{key}' is not a field of {typeof(TValue).Name}.", nameof(member));
+            return handle as FormField<TModel, TValue> ?? throw new ArgumentException(
+                $"'{key}' is not a field of {typeof(TValue).Name}.{CollectionHint(typeof(TValue))}", nameof(member));
         }
         // A field of AllMembers has a type known only at run time: it gets its typed view here, the first time it is asked for.
         if (Bindings.OfType<ReflectedBinding<TModel>>().FirstOrDefault(b => b.Key == key) is { } reflected && reflected.Member.Type == typeof(TValue))
@@ -97,6 +98,25 @@ public sealed class FormSchema<[DynamicallyAccessedMembers(FormModelTrim.Members
             }
         }
         throw new ArgumentException($"No field is declared for '{key}'.", nameof(member));
+    }
+
+    private static string CollectionHint(Type value) =>
+        value != typeof(string) && typeof(System.Collections.IEnumerable).IsAssignableFrom(value)
+            ? " A list is got with List(...) and a multiple choice with MultiSelect(...)."
+            : "";
+
+    /// <summary>Gets the handle of a multiple choice declared with a collection member of the model.</summary>
+    /// <typeparam name="TElement">The type of one choice.</typeparam>
+    /// <param name="member">The collection member, as in <c>m =&gt; m.Roles</c>.</param>
+    /// <returns>The handle <c>MultiSelect</c> returned when the form was declared: a field whose value is the list of the chosen values.</returns>
+    /// <exception cref="ArgumentException">No multiple choice is declared for the member.</exception>
+    public FormField<TModel, IReadOnlyList<TElement>> MultiSelect<TElement>(Expression<Func<TModel, IEnumerable<TElement>>> member)
+    {
+        ArgumentNullException.ThrowIfNull(member);
+        var key = FormModelPath.Resolve(member, null).Key;
+        return _handles.TryGetValue(key, out var handle) && handle is FormField<TModel, IReadOnlyList<TElement>> and not FormListField<TModel, TElement>
+            ? (FormField<TModel, IReadOnlyList<TElement>>)handle
+            : throw new ArgumentException($"No multiple choice of {typeof(TElement).Name} is declared for '{key}'.", nameof(member));
     }
 
     /// <summary>Gets the handle of a repeatable list declared with a collection member of the model.</summary>
