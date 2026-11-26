@@ -2,6 +2,8 @@
 
 This tutorial builds a contact form twice. First you run it headless, as a console program, to see how the controller validates and submits. Then you render the same schema in a Blazor app. It takes about ten minutes and assumes the .NET 10 SDK.
 
+Check the [prerequisites](../README.md#prerequisites) first: the .NET 10 SDK, and for the components a Blazor app with Klyroo.UI set up.
+
 ## 1. Run a form without a UI
 
 Create a console project and add the engine package:
