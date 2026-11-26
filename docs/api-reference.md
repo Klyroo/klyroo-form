@@ -106,14 +106,17 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 | `Messages` (get, set) | `FormMessages` | The built-in validation messages in use: the ones set here, else `FormSchema.Messages`, else the ones a Klyroo.Form component gave for its locale, else English. Setting it fixes the language of this controller: components no longer replace it. Errors already computed are computed again with the new messages. |
 | `Schema` | `FormSchema` | The schema this controller runs. |
 | `SubmitFailed` | `bool` | `true` after a submission, or a move to the next step, failed because of validation, a hook or a handler, until a submission succeeds, the step changes or `FormController.Reset` runs. The components list every field error in the error summary while it is set. |
+| `SubmitFailureCount` | `int` | How many times a submission or a move to the next step failed since the controller was created or last reset. The error summary announces once per increase instead of on every edit. |
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
 | `AddArrayItem(FormFieldSchema arrayField)` | `void` | Appends a row to a repeatable list, filling each cell from the child field's default, then revalidates the list if it was touched and calls its `FormFieldSchema.Watch`. |
 | `BuildOutput()` | `IReadOnlyDictionary<string, object?>` | Builds the dictionary to submit: every field in effect (see `FormController.ActiveFields`) except those with `FormFieldSchema.OmitFromOutput`, with `FormFieldSchema.TransformOutput` applied. Fields that are hidden, in a hidden container, tab or section, or in a skipped step are left out, and their values stay in the state. Lists are copied. |
+| `CancelPendingValidations()` | `void` | Cancels the asynchronous validations that are waiting for their debounce or running, without changing any value or error. A component calls it when it goes away. |
 | `static CellPath(string arrayKey, int index, string childKey)` | `string` | Builds the path that identifies a cell of a repeatable list in `FormController.Errors` and `FormController.GetError`: `arrayKey[index].childKey`. |
 | `ClearError(string? path = null)` | `void` | Clears errors set with `FormController.SetError` and validation errors, for one field or for all. Clearing a repeatable list also clears the errors of its cells. |
 | `CreateFieldOption(FormFieldSchema field, string label)` | `FormOptionItem?` | Creates an option from user text with `FormFieldSchema.OnCreateOption`, adds it to the field options and selects it, appending to the value for a field with `FormFieldSchema.Multiple`. |
+| `Dispose()` | `void` | Cancels the pending asynchronous validations and stops starting new ones. The values and errors stay readable. |
 | `ExportState(bool includeSensitive = false)` | `FormDraft` | Takes a copy of the values the user has typed and of the current step, to keep them across a reload or a navigation: store `FormDraft.ToJson` and give the draft back to `FormController.RestoreDraft` on a controller built from the same initial input. |
 | `GetArrayItemError(string arrayKey, int index, string childKey)` | `string?` | Gets the error to show for a cell of a repeatable list. |
 | `GetArrayItems(string arrayKey)` | `IReadOnlyList<Dictionary<string, object?>>` | Gets the rows of a repeatable list. |
@@ -126,7 +129,7 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 | `GetValue<T>(string path)` | `T` | Gets the current value converted to `T`. A value already of that type is returned as is. Otherwise it is converted with the invariant culture, in the formats the controls store: `T` may be a `Nullable`, a number (a whole number only becomes an integer type: 3.5 is not an `Int32`), `Boolean`, `Guid`, an enum (by name, ignoring case, or by the number of a member), `DateOnly` (`yyyy-MM-dd`), `TimeOnly` (`HH:mm`), `DateTime` (`yyyy-MM-ddTHH:mm`), `DateTimeOffset` (a value without a zone counts as UTC), `TimeSpan`, a string, or a list of strings. |
 | `static IsContainer(FormFieldKind kind)` | `bool` | Tells whether a kind is a layout container whose children are fields of their own: `FormFieldKind.Group`, `FormFieldKind.Card`, `FormFieldKind.Object` and `FormFieldKind.Tabs`. A container never has a value, even without children. |
 | `static IsEmptyValue(object? value)` | `bool` | Tells whether a value counts as empty for required checks: `null`, a blank string or an empty collection. `false` and `0` are not empty. |
-| `IsFieldDisabled(FormFieldSchema field)` | `bool` | Tells whether a field is currently disabled, from `FormFieldSchema.Disabled` and `FormFieldSchema.DisabledWhen`. |
+| `IsFieldDisabled(FormFieldSchema field)` | `bool` | Tells whether a field is currently disabled, from `FormFieldSchema.Disabled`, `FormFieldSchema.DisabledWhen` and `FormController.IsSubmitting`: every field is disabled while a submission runs, so the user cannot edit values that are being validated or saved. The components render the controls disabled; `FormController.SetValue` from code still works. |
 | `IsFieldRequired(FormFieldSchema field)` | `bool` | Tells whether a field is currently required, from `FormFieldSchema.Required` and `FormFieldSchema.RequiredWhen`. |
 | `IsSectionVisible(FormPageSectionSchema section)` | `bool` | Tells whether a section is shown: its `FormPageSectionSchema.Condition` is absent or true. |
 | `static IsStateless(FormFieldKind kind)` | `bool` | Tells whether a kind carries no value: `FormFieldKind.Info`, `FormFieldKind.Divider`, `FormFieldKind.Section` and `FormFieldKind.Button`. |
@@ -139,7 +142,7 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 | `Reset(IReadOnlyDictionary<string, object?>? newInput = null)` | `void` | Clears errors and touched state, reloads the state from `newInput`, which also becomes the new dirty-tracking baseline, and returns to the first step that is not skipped. `FormFieldSchema.Watch` is not called. |
 | `ResetField(string path)` | `void` | Restores a field to its initial value, clears its errors and touched state (and those of its cells for a repeatable list), and calls `FormFieldSchema.Watch` when the value changed. |
 | `ResetSection(string sectionKey)` | `void` | Resets every field of a section with `FormController.ResetField`. Does nothing when the key matches no section. |
-| `RestoreDraft(FormDraft draft)` | `void` | Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields differ from it: `FormController.IsDirty` and `FormController.DirtyPaths` report the draft as unsaved changes, which is what lets a navigation guard protect it. This is what separates it from `FormController.Reset`, which makes the loaded values the new baseline. Errors and touched state are cleared and `FormFieldSchema.Watch` is not called, like `FormController.Reset`. Keys of the draft that match no value of the form are ignored, and a field the draft does not mention keeps its value (the sensitive fields `FormController.ExportState` leaves out among them). |
+| `RestoreDraft(FormDraft draft)` | `void` | Puts the values of a draft back into the form, as if the user had typed them. The baseline of dirty tracking is not touched, so the restored fields differ from it: `FormController.IsDirty` and `FormController.DirtyPaths` report the draft as unsaved changes, which is what lets a navigation guard protect it. This is what separates it from `FormController.Reset`, which makes the loaded values the new baseline. Errors and touched state are cleared and `FormFieldSchema.Watch` is not called, like `FormController.Reset`. Keys of the draft that match no value of the form are ignored, as are `FormFieldKind.File` and `FormFieldKind.Custom` fields (and such columns of a list), and a field the draft does not mention keeps its value (the sensitive fields `FormController.ExportState` leaves out among them). |
 | `SetArrayItemValue(string arrayKey, int index, string childKey, object? value, bool markTouched = false)` | `void` | Sets one cell of a repeatable list. Does nothing when the index is out of range. The cell follows the `FormFieldSchema.Trigger` of its child field, like `FormController.SetValue` does for a field: it is validated with the child's rules once touched, unless the trigger is `FormValidationTrigger.Submit`, which clears its error instead. Then the child's `FormFieldSchema.Watch` is called with the cell value and the list's with the rows. |
 | `SetError(string path, string message, bool blocking = false)` | `void` | Sets an error on a field, for example one returned by the server, and marks the field touched. The error is removed by the next `FormController.SetValue` on that key, by `FormController.ClearError` or by `FormController.Reset`. |
 | `SetFormError(string message, bool blocking = true)` | `void` | Sets an error on the form as a whole, for a failure that belongs to no field (a server rejection, a conflict). It is a `FormController.SetError` on `FormController.FormErrorKey`, so it shows in the error summary, and it clears with `FormController.ClearError` or `FormController.Reset`. |
@@ -186,7 +189,7 @@ Declarative definition of one field, or of a layout element such as a section he
 | `Kind` (init) | `FormFieldKind` | The kind of the field. The default is `FormFieldKind.Text`. |
 | `Label` (init) | `string?` | Text of the label shown above the control. For `FormFieldKind.Info`, `FormFieldKind.Section` and containers it is the heading. |
 | `Max` (init) | `double?` | Largest accepted value of a `FormFieldKind.Number` field, enforced on validation. Also the `max` attribute of number and slider inputs, and the number of stars of a `FormFieldKind.Rating` field. |
-| `MaxFileSize` (init) | `long?` | The largest accepted size in bytes of each file of a `FormFieldKind.File` field, enforced on validation. `null` means no limit. |
+| `MaxFileSize` (init) | `long?` | The largest accepted size in bytes of each file of a `FormFieldKind.File` field. The components read a chosen file into memory when it is chosen, so this is also the most memory one file can take (times the number of files with `FormFieldSchema.Multiple`, per field, for as long as the value is held). It is enforced on validation and when the content is read or opened. `null` means `FormFileValue.DefaultMaxSize` (10 MiB); set a larger value on purpose if you accept larger files. |
 | `MaxLength` (init) | `int?` | Largest accepted number of characters of a text value, enforced on validation. Also the `maxlength` attribute of text-like inputs, including textareas, passwords and one-time codes. |
 | `Min` (init) | `double?` | Smallest accepted value of a `FormFieldKind.Number` field, enforced on validation. Also the `min` attribute of number and slider inputs. |
 | `Multiple` (init) | `bool` | `true` if a `FormFieldKind.File` field takes several files (its value is a `List<FormFileValue>`), or if a `FormFieldKind.Select` or `FormFieldKind.AutoComplete` field holds several values: it renders a list of checkboxes and the value is a `List<string>`. `FormController.CreateFieldOption` appends to that list. |
@@ -219,6 +222,10 @@ A file chosen in a `FormFieldKind.File` field, without any UI type: the name, si
 | :--- | :--- |
 | `FormFileValue(string name, long size, string contentType, Func<CancellationToken, ValueTask<Stream>> open, DateTimeOffset? lastModified = null)` | Creates a file value. |
 
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `const DefaultMaxSize = 10485760` | `long` | The largest file a `FormFieldKind.File` field accepts, and keeps in memory, when `FormFieldSchema.MaxFileSize` is not set: 10 MiB. |
+
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `ContentType` | `string` | The content type, or an empty string when the device did not report one. |
@@ -230,7 +237,7 @@ A file chosen in a `FormFieldKind.File` field, without any UI type: the name, si
 | :--- | :--- | :--- |
 | `Equals(FormFileValue? other)` | `bool` | Two file values are equal when they have the same name, size, content type and modification time, which is how a field tells that the user chose the file that was already there. |
 | `Equals(object? obj)` | `bool` |  |
-| `static FormatSize(long bytes)` | `string` | Formats a size for a message, in the invariant culture: `512 B`, `1.5 KB`, `5 MB`. |
+| `static FormatSize(long bytes, string decimalSeparator = ".", IReadOnlyList<string>? units = null)` | `string` | Formats a size for a message: `512 B`, `1.5 KB`, `5 MB`. The default is the invariant culture and English-style units; a locale passes its own decimal separator and units (French: `1,5 Mo`). |
 | `static FromBytes(string name, ReadOnlySpan<byte> content, string contentType = "application/octet-stream")` | `FormFileValue` | Builds a file value over bytes in memory, for tests and for files your code produces. |
 | `GetHashCode()` | `int` |  |
 | `Matches(string? accept)` | `bool` | Tells whether the file matches an accept list in the syntax of the HTML `accept` attribute: comma-separated extensions (`.png`), content types (`image/png`) and wildcards (`image/*`), compared ignoring case. |
@@ -394,6 +401,7 @@ The built-in validation messages of `FormController`, which has no UI and so no 
 | :--- | :--- | :--- |
 | `DateRangeOrder` (init) | `string` | The error of a `FormFieldKind.DateRange` whose end is before its start (`"The end date must not be before the start date"`). |
 | `static Default` | `FormMessages` | The English messages, shared and read-only. |
+| `FileSize` (init) | `Func<long, string>` | Formats a size for a message and for the file list, with the decimal separator and the unit names of the language (`"1.5 MB"`, `"1,5 Mo"`). The default is `FormFileValue.FormatSize`. |
 | `FileTooLarge` (init) | `Func<string, string, string>` | The error of a `FormFieldKind.File` file above `FormFieldSchema.MaxFileSize`, given the file name and the limit as text (`"report.pdf is larger than 5 MB"`). |
 | `FileTypeNotAllowed` (init) | `Func<string, string, string>` | The error of a `FormFieldKind.File` file that does not match `FormFieldSchema.Accept`, given the file name and the accepted list (`"photo.gif is not an accepted type (.png,.jpg)"`). |
 | `MaxLength` (init) | `Func<int, string>` | The error of a text longer than `FormFieldSchema.MaxLength`, given the limit (`"Must be at most 20 characters"`). |
@@ -787,6 +795,7 @@ The built-in texts of `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlySch
 | `SelectPlaceholder` (init) | `string` | The empty option of a select list without a `Placeholder` (`"Select…"`). |
 | `Show` (init) | `string` | The visible text of the button that reveals a password (`"Show"`). |
 | `ShowPassword` (init) | `string` | The accessible name of the button that reveals a password (`"Show password"`). |
+| `SomethingWentWrong` (init) | `string` | The form-level error shown when saving, an asynchronous rule or a handler throws (`"Something went wrong. Try again."`). |
 | `StartDate` (init) | `string` | The accessible name of the first input of a date range (`"Start date"`). |
 | `Submit` (init) | `string` | The submit button when `SubmitLabel` is not set (`"Submit"`). |
 | `TagPlaceholder` (init) | `string` | The placeholder of a tag input without a `Placeholder` (`"Add a tag and press Enter"`). |

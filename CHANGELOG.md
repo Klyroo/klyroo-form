@@ -38,6 +38,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- `FormController.IsFieldDisabled` is `true` for every field while `IsSubmitting` is `true`, and the components render the controls disabled during a submission.
+- `FormController` implements `IDisposable` (it cancels the asynchronous validations still pending) and has `CancelPendingValidations()`. `FormService` disposes the form it closes or replaces, and `KlyFormEngine` disposes the controller it creates.
+- `FormFieldSchema.MaxFileSize` defaults to 10 MiB (`FormFileValue.DefaultMaxSize`) instead of no limit, because a chosen file is now read into memory when it is chosen. `FormFileValue.FormatSize` takes a decimal separator and unit names, and `FormMessages.FileSize` formats a size for the language of the messages.
 - `KlyFormEngine.SubmitLabel` is `string?` and defaults to the `Submit` text of the current locale instead of the literal `Submit`; `KlyFormNavigationGuard.Message` defaults the same way. `KlySchemaField` derives from `KlyComponentBase`, which gives it `Class` and unmatched attributes like the other components.
 - `KlyFormProvider` hosts its overlay in `KlyModal` (`Modal`, `Fullscreen`) and `KlySlideover` (`Drawer`) of Klyroo.UI instead of a hand-made `div`: the native modal dialog traps focus, closes on Escape and on a click on the backdrop, and returns focus to the opener. It cannot be dismissed while the form saves. The `form-provider-dialog` and `form-provider-overlay` class names are gone; the overlay carries `data-slot="form-provider-overlay"`, `data-mode` and `data-open` on a wrapper and `data-form-dialog` on the dialog.
 - `GetValue<T>` no longer rounds a fraction into an integer type (`GetValue<int>` on 3.5 returned 4): it returns `default`, as it does for any other value that does not fit the type.
@@ -53,6 +56,15 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- Editing a field while the form was submitting changed values that were being validated or saved.
+- An exception thrown by `OnSave`, an asynchronous rule, a hook or `OnSubmit` ended the Blazor Server circuit. `KlyFormEngine` and `KlyFormPage` now log it and show a localized form-level notice (`FormTexts.SomethingWentWrong`), and `IsSubmitting` resets.
+- An edit that replaced a running asynchronous rule could surface as an `OperationCanceledException` from `SubmitAsync` or `ValidateAsync`, and could let a submit succeed with a value whose rule had not answered. `ValidateAsync` now runs the rules again for missing or stale results, reports failure if they keep going stale, and makes no second call for a value a background run is already checking.
+- After a save, the baseline was the state at the end of the handler instead of the values the handler received, so an edit made meanwhile was marked clean.
+- `ExportState` put password and one-time code columns of repeatable lists, and file columns, in the draft, and `RestoreDraft` filled `File` and `Custom` fields from stored text. They are now left out and skipped.
+- A chosen file kept a live stream on the `InputFile` element, so a step change, a hidden field or removing another file left the value unreadable. Files are read into memory at selection time, bounded by `MaxFileSize`.
+- The live region of the error summary announced again on every edit after a failed submit. It now speaks once per failed attempt, when a form-level error appears, and when the last error is gone.
+- `GetValue<TEnum>` accepted a comma combination for an enum without `[Flags]`, and `GetValue<bool>` rejected a boxed `1` or `0`.
+- Validation messages showed numbers and file sizes with the invariant format in every language (`3.5`, `1.5 MB` in French). They follow the separator and units of the language (`3,5`, `1,5 Mo`).
 - The sections guide put `NavigationLock ConfirmExternalNavigation="@_form.IsDirty"` on a page that never re-renders when the user types, so the browser prompt never turned on. `KlyFormNavigationGuard` re-renders itself when `IsDirty` changes.
 - The overlay of `KlyFormProvider` was a `div` with `role="dialog"`: focus was not trapped, Escape did nothing and focus was lost on close.
 - `GetValue<T>` returned `default` for `Nullable<T>`, `DateOnly`, `TimeOnly`, `DateTime`, `Guid` and enum targets, which `Convert.ChangeType` cannot produce from the strings the controls store.

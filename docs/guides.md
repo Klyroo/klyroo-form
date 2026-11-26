@@ -143,7 +143,7 @@ The rule returns the error message, or `null` when the value is valid. It runs a
 
 `SubmitAsync()` and `NextStepAsync()` wait for the rules of the fields they validate, keep `IsSubmitting` set meanwhile, and fail if a rule returns a message. A run that already called the service with the current value is joined, not repeated, and an answer that is already known is reused. `await form.ValidateAsync()` does the same without submitting; the synchronous `Validate()` only uses the answers that are already known.
 
-If the service is unreachable during a background run, the exception is swallowed and the field simply stays unchecked: the user can still fix other fields, and `SubmitAsync()` runs the rule again and lets the exception reach your code, like any other hook that throws. A rule does not apply to the cells of a repeatable list. In a host without a synchronization context (a console app, a test), background runs finish on a thread-pool thread, and `Changed` is raised there.
+If the service is unreachable during a background run, the exception is swallowed and the field simply stays unchecked: the user can still fix other fields, and `SubmitAsync()` runs the rule again and lets the exception reach your code, like any other hook that throws. A value that is edited while its rule runs is checked again, and a submit never succeeds with a value no rule has seen: if results keep going stale, `SubmitAsync()` returns `false`. An edit that replaces a running rule cancels it silently, never as an `OperationCanceledException` from `SubmitAsync()` or `ValidateAsync()`. Dispose the controller (`FormController` is `IDisposable`) when you are done with it, which cancels the runs still pending; the components do it for the controller they create, and `FormService` for the form it closes. A rule does not apply to the cells of a repeatable list. In a host without a synchronization context (a console app, a test), background runs finish on a thread-pool thread, and `Changed` is raised there.
 
 ## Save from the component and keep the form busy
 
@@ -171,6 +171,8 @@ Goal: call your API when the user submits, show a saving state while it runs, ke
 ```
 
 `OnSave` runs inside `FormController.SubmitAsync`, after validation and the schema hooks, while `IsSubmitting` is still `true`: the button shows its saving state, a second submit is refused, and Back, Reset and Cancel are disabled. When it returns `true` the dirty snapshot is retaken, so `IsDirty` turns `false` and `OnSubmit` is raised. When it returns `false`, or throws, the snapshot is kept: the edits stay dirty and the user can fix and resubmit. The token is cancelled when the component is disposed.
+
+While the form submits, every field is disabled (`IsFieldDisabled` reports `true` for all of them while `IsSubmitting` is `true`), so the user cannot change values that are being validated or saved. If `OnSave`, an asynchronous rule, a hook or `OnSubmit` throws, the component logs the exception through `ILogger` and shows a form-level notice ("Something went wrong. Try again.", in the locale) instead of letting it end the Blazor Server circuit; `IsSubmitting` resets, the edits stay, and the notice goes away with the next attempt. After a successful save, the baseline is the set of values the handler received: an edit made from code while it ran stays dirty.
 
 `OnSubmit` on its own runs after the submission is already over (`IsSubmitting` is `false`, the form is clean), so it is the place to navigate, not to save. Without the component, the same lifecycle is `await form.SubmitAsync(async (f, ct) => (await api.SaveAsync(f.BuildOutput(), ct)).Ok, ct)`.
 
@@ -343,7 +345,7 @@ if (await storage.GetAsync("settings-draft") is { } json)
 }
 ```
 
-`RestoreDraft` puts the values back without changing the baseline, so the restored fields count as unsaved changes (`IsDirty` is `true` and the guard protects them). `Reset(input)` would have made the draft the new baseline and the form clean. `ExportState()` leaves password and one-time code fields out unless you pass `includeSensitive: true`, because a draft usually lives on the user's device.
+`RestoreDraft` puts the values back without changing the baseline, so the restored fields count as unsaved changes (`IsDirty` is `true` and the guard protects them). `Reset(input)` would have made the draft the new baseline and the form clean. `ExportState()` leaves password and one-time code fields, and those columns inside repeatable lists, out unless you pass `includeSensitive: true`, because a draft usually lives on the user's device.
 
 `KlyFormPage` renders fields exactly like `KlyFormEngine`: the same controls per kind, labels, containers, tabs and repeatable lists. The page is a `form` element, so pressing Enter in a text field submits it. `FormSchema.Columns` sets the number of columns of the field grids, and `FormPageSectionSchema.Span` lets two sections share a row on large screens (`Span = 6` each).
 
@@ -527,6 +529,8 @@ new FormFieldSchema
 }
 ```
 
+A chosen file is read into memory when it is chosen, so the value holds its bytes and does not depend on the browser input, which a step change, a hidden field or a removal unmounts. That makes `MaxFileSize` also the most memory one file can take: it defaults to 10 MiB (`FormFileValue.DefaultMaxSize`) when you leave it unset, each file of a `Multiple` field counts, and the bytes stay for as long as the form holds the value. A file above the limit is not read: it stays in the list so validation can name it, and opening it throws. Set a larger `MaxFileSize` on purpose if you accept larger files, and prefer to upload very large files by another route.
+
 The control is a Blazor `InputFile` behind a button, with the chosen files listed under it and a remove button on each. The value is a `FormFileValue` (or `null`) for a single file, or a `List<FormFileValue>` with `Multiple`: the name, size and content type the browser reported, and `OpenReadAsync()` to open the content. A `FormFileValue` has no UI type in it, so the same field works in a unit test (`FormFileValue.FromBytes("a.pdf", bytes, "application/pdf")`) and in the output you hand to your service:
 
 ```csharp
@@ -541,7 +545,7 @@ OnSave = async (data, ct) =>
 }
 ```
 
-`Accept` is the `accept` attribute of the input, which only filters the picker, so the controller checks it again on validation (`.png` matches the extension, `image/png` the content type, `image/*` a family, ignoring case), together with `MaxFileSize` for each file and the number of files for a field without `Multiple`. The messages name the file and the limit (`report.pdf is larger than 5 MB`) and follow the locale. A rejected file stays in the list so the user sees which one it was, and the form cannot be submitted until it is removed. The size and type come from the browser: they are for the user's benefit, so check them again on the server. Files are not part of `ExportState()` drafts, since their content cannot be restored.
+`Accept` is the `accept` attribute of the input, which only filters the picker, so the controller checks it again on validation (`.png` matches the extension, `image/png` the content type, `image/*` a family, ignoring case), together with `MaxFileSize` for each file and the number of files for a field without `Multiple`. The messages name the file and the limit (`report.pdf is larger than 5 MB`) and follow the locale. A rejected file stays in the list so the user sees which one it was, and the form cannot be submitted until it is removed. The size and type come from the browser: they are for the user's benefit, so check them again on the server. Files are not part of `ExportState()` drafts, since their content cannot be restored, and `RestoreDraft()` never fills a `File` or `Custom` field (or such a column of a list) from stored text.
 
 In Blazor Server the content streams over the circuit when you read it, and `InputFile` reads from the browser only then, so opening a file you do not need costs nothing. `OpenReadAsync` can be called several times, and each call returns a new stream.
 

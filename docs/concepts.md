@@ -98,7 +98,7 @@ Errors that your own code sets with `SetError`, such as a server response, are a
 
 `Condition` decides whether a field is shown. A hidden field is not rendered, not validated and not part of `BuildOutput()`, but its value stays in the state. The same applies to everything a hidden thing contains: the children of a hidden container, the fields of a hidden tab or section, and the fields of a step that `SkipWhen` skips. `ActiveFields` lists the fields that remain, which are exactly the ones validation checks and the output contains. Validation also drops the errors of fields that left that list.
 
-`Disabled` and `DisabledWhen` are rendering hints. A disabled field is still validated and still in the output, and `SetValue` still changes it. On a repeatable list they also disable the cells and the add and remove buttons.
+`Disabled` and `DisabledWhen` are rendering hints, and every field also counts as disabled (`IsFieldDisabled`) while `IsSubmitting` is `true`. A disabled field is still validated and still in the output, and `SetValue` still changes it. On a repeatable list they also disable the cells and the add and remove buttons.
 
 `Watch` runs after the value of its field changes: through `SetValue`, through `ResetField` when the value differs, and for a repeatable list after a row is added or removed or a cell changes (a child's `Watch` receives the cell value). `Reset` does not call it, because it loads a complete state that is already consistent.
 
@@ -132,7 +132,7 @@ SubmitAsync() / SubmitAsync(handler, ct)
    OnBeforeSubmit(controller)           -> false cancels
    OnSubmit(controller)
    handler(controller, ct)              -> false cancels (your save step)
-   new initial snapshot                 -> IsDirty = false
+   new initial snapshot                 -> the values the handler received; IsDirty = false
    IsSubmitting = false                 (also when a hook or the handler throws)
 ```
 
@@ -143,6 +143,8 @@ An error set with `SetError` on a key that matches no field is a form-level erro
 `FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 
 ## Localization
+
+Numbers and file sizes in the built-in messages follow the language of the set: French reports `3,5` and `1,5 Mo`, English `3.5` and `1.5 MB` (`FormMessages.FileSize` formats a size, and each locale chooses its decimal separator and unit names).
 
 The controller has no locale, so its built-in validation messages (required, number bounds, text length, date range order, files) are a `FormMessages` record: English by default, `FormSchema.Messages` or `FormController.Messages` to choose another, and `FormMessageLocales` for the twelve built-in sets, which work without Blazor. A message that contains a number or a name is a function, so each language can order the words and choose its plural forms. `RequiredMessage` on a field and the messages of your own validators are never translated.
 
