@@ -100,7 +100,10 @@ internal static class DataAnnotationsConvention
         {
             var other = member.SiblingKey(compare.OtherProperty);
             settings.DependsOn = [.. settings.DependsOn ?? [], other];
-            rules.Add(new FormValidatorRule("compare", attribute.FormatErrorMessage(display), (raw, form) => SameText(raw, form.GetValue(other))));
+            rules.Add(new FormValidatorRule("compare", attribute.FormatErrorMessage(display), (raw, form) => SameText(raw, form.GetValue(other)))
+            {
+                LocalizedMessage = _ => attribute.FormatErrorMessage(DisplayName(member, display)),
+            });
         }
         else if (ContextFree.Contains(type))
         {
@@ -114,13 +117,21 @@ internal static class DataAnnotationsConvention
     internal static bool HasMessage(ValidationAttribute attribute) =>
         !string.IsNullOrEmpty(attribute.ErrorMessage) || attribute.ErrorMessageResourceName is not null;
 
-    // The attribute checks the value as the member type, and an empty value is Required's business, as for model binding in ASP.NET Core.
+    // The attribute checks the value as the member type, and an empty value is Required's business, as for model binding in ASP.NET Core. The message is the one of
+    // the attribute, worked out again when the rule fails (with the [Display] name of that moment) so a resource message follows the UI culture of the validation,
+    // not the one that was current when the form was built. The text computed now is only the default.
     private static FormValidatorRule Rule(FormMemberInfo member, ValidationAttribute attribute, string display, string key) =>
         new(key, attribute.FormatErrorMessage(display), (raw, _) =>
         {
             if (FormModelRaw.IsEmpty(raw)) return true;
             return attribute.IsValid(FormModelRaw.ToMember(raw, member));
-        });
+        })
+        {
+            LocalizedMessage = _ => attribute.FormatErrorMessage(DisplayName(member, display)),
+        };
+
+    private static string DisplayName(FormMemberInfo member, string fallback) =>
+        member.Property.GetCustomAttributes(typeof(DisplayAttribute), true).OfType<DisplayAttribute>().FirstOrDefault()?.GetName() ?? fallback;
 
     private static bool SameText(object? a, object? b) =>
         string.Equals(FormModelRaw.Text(a), FormModelRaw.Text(b), StringComparison.Ordinal);
