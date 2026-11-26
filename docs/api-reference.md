@@ -1,4 +1,4 @@
-# Klyroo.Form API reference API reference
+# Klyroo.Form API reference
 
 > Generated from the compiled assemblies and their XML documentation. Do not edit by hand.
 

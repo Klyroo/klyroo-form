@@ -32,7 +32,6 @@ nav:
   - group: Reference
     pages:
       - page: api-reference
-        title: Klyroo.Form API reference   # the generated file says "API reference" twice in its first line
         description: Every public type and member, generated from the compiled assemblies and their XML documentation.
         tocDepth: 4        # the table of contents lists the types, not only the packages and kinds
         indexText: false   # the search finds the types by their headings, without the text of the page
