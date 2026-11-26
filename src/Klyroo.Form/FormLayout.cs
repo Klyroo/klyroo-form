@@ -13,8 +13,8 @@ internal static class FormLayout
         return $"grid-column: span {s} / span {s}";
     }
 
-    // Ids are built from field keys; anything that is not a letter, digit, dash or underscore becomes a dash.
-    public static string Id(string key)
+    // Ids are built from the id prefix of the form (unique per form instance) and the field key; anything in the key that is not a letter, digit, dash or underscore becomes a dash.
+    public static string Id(FormEngine form, string key)
     {
         Span<char> buffer = key.Length <= 128 ? stackalloc char[key.Length] : new char[key.Length];
         for (var i = 0; i < key.Length; i++)
@@ -22,17 +22,17 @@ internal static class FormLayout
             var c = key[i];
             buffer[i] = char.IsAsciiLetterOrDigit(c) || c is '-' or '_' ? c : '-';
         }
-        return "kly-ff-" + new string(buffer);
+        return form.IdPrefix + new string(buffer);
     }
 
     // The id of the error summary of a form.
-    public static string SummaryId(string formKey) => Id("summary-" + formKey);
+    public static string SummaryId(FormEngine form) => Id(form, "summary-" + form.Schema.FormKey);
 
     // The id of the control to focus for an error: the field, the cell of a list, or the summary when the error belongs to the form.
     public static string TargetId(FormEngine form, FormErrorEntry entry) =>
-        entry.FieldKey is null ? SummaryId(form.Schema.FormKey)
-        : entry.RowIndex is { } row && entry.ChildKey is { } child ? Id($"{entry.FieldKey}-{row}-{child}")
-        : Id(entry.FieldKey);
+        entry.FieldKey is null ? SummaryId(form)
+        : entry.RowIndex is { } row && entry.ChildKey is { } child ? Id(form, $"{entry.FieldKey}-{row}-{child}")
+        : Id(form, entry.FieldKey);
 
     // The id to focus after a failed submit or Next: the first field in error, else the summary, else nothing.
     public static string? FirstErrorTargetId(FormEngine form)

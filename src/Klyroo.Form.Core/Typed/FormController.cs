@@ -22,11 +22,15 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
         ArgumentNullException.ThrowIfNull(schema);
         Schema = schema;
         _engine = new FormEngine(schema.Definition, this);
-        IReadOnlyDictionary<string, object?>? input = null;
-        if (model is not null) input = schema.ToInput(model);
-        else if (schema.Factory is { } factory) input = schema.ToInput(factory(), skipDefaulted: true);
-        _engine.Start(input);
+        _engine.Start(model is not null ? schema.ToInput(model) : NewModelInput());
     }
+
+    // The values of a form without a model: the default of each field, over what the factory of the schema creates.
+    private IReadOnlyDictionary<string, object?>? NewModelInput() =>
+        Schema.Factory is { } factory ? Schema.ToInput(factory(), skipDefaulted: true) : null;
+
+    // Back to the state of a controller created without a model: the values a submit then creates a model from.
+    internal void ResetToNewModel() => _engine.Reset(NewModelInput());
 
     internal FormEngine Engine => _engine;
 

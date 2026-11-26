@@ -6,6 +6,16 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Changed
+
+- BREAKING (markup): the element ids of a form carry a number that is unique per form instance, so two forms with the same field keys on one page (an inline form and an overlay of the same schema) no longer share ids: `kly-ff-email` is now `kly-ff-3-email`, and the same goes for the ids of the label, description, help, error, tab, list cell and error summary elements. `for`, `aria-describedby`, `aria-labelledby`, the error summary links and the focus after a failed submit use them. A CSS or test selector on `#kly-ff-...` should select on `[data-form-field=...]` (or on the suffix of the id) instead.
+
+### Fixed
+
+- `KlyrooFormOptions.CustomField` (dynamic) and `CustomField<TValue>` (typed) no longer overwrite each other when they use the same key: renderers are kept by key and value type, so a dynamic renderer, and typed renderers of different value types, coexist under one key.
+- A typed overlay opened in `Fullscreen` mode gets the same centered width wrapper as the runtime overlay.
+- A `KlyFormEngine<TModel>` or `KlyFormPage<TModel>` whose `Model` goes from an instance to `null` resets the form to the state of a new model, so what the form shows is what a submit then creates.
+
 ### Added
 
 - Typed components: `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render a `FormSchema<TModel>` or a `FormController<TModel>` with a `Model`, and Razor infers `TModel` from `Form`, `Schema`, `Model` or `OnSave`. `OnSave` is `Func<TModel, CancellationToken, Task<bool>>`, `OnSubmit` is `EventCallback<TModel>` and `OnCancel` an `EventCallback`. A submit writes the values into the `Model` (all or nothing, put back when a step fails) or creates a new model when there is none. They have the shell, labels, reset, error summary and focus handling of the dynamic components.

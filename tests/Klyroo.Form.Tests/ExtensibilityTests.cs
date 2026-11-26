@@ -129,9 +129,9 @@ public sealed class ExtensibilityTests : BunitContext
         var cut = ctx.Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         var input = cut.Find("[data-custom=registered]");
-        Assert.Equal("kly-ff-nick", input.Id);
-        Assert.Equal("kly-ff-nick", cut.Find("label[data-slot=form-field-label]").GetAttribute("for"));
-        Assert.Equal("kly-ff-nick-help", input.GetAttribute("aria-describedby"));
+        Assert.Equal("kly-ff-nick", FormKit.Unscoped(input.Id));
+        Assert.Equal("kly-ff-nick", FormKit.Unscoped(cut.Find("label[data-slot=form-field-label]").GetAttribute("for")));
+        Assert.Equal("kly-ff-nick-help", FormKit.Unscoped(input.GetAttribute("aria-describedby")));
 
         input.Input("Ada");
         input.Blur();
@@ -141,8 +141,8 @@ public sealed class ExtensibilityTests : BunitContext
         cut.Find("[data-custom=registered]").Blur();
         var updated = cut.Find("[data-custom=registered]");
         Assert.Equal("true", updated.GetAttribute("aria-invalid"));
-        Assert.Equal("kly-ff-nick-help kly-ff-nick-error", updated.GetAttribute("aria-describedby"));
-        Assert.Contains("This field is required", cut.Find("#kly-ff-nick-error").TextContent, StringComparison.Ordinal);
+        Assert.Equal("kly-ff-nick-help kly-ff-nick-error", FormKit.Unscoped(updated.GetAttribute("aria-describedby")));
+        Assert.Contains("This field is required", cut.Find("[id$='-nick-error']").TextContent, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -450,13 +450,13 @@ public sealed class ExtensibilityTests : BunitContext
 
         var cut = Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
 
-        var one = cut.Find("input#kly-ff-one");
+        var one = cut.Find("input[id$='-one']");
         Assert.Equal("file", one.GetAttribute("type"));
         Assert.Equal(".pdf", one.GetAttribute("accept"));
         Assert.False(one.HasAttribute("multiple"));
         Assert.Equal("true", one.GetAttribute("aria-required"));
-        Assert.Equal("kly-ff-one-help", one.GetAttribute("aria-describedby"));
-        var many = cut.Find("input#kly-ff-many");
+        Assert.Equal("kly-ff-one-help", FormKit.Unscoped(one.GetAttribute("aria-describedby")));
+        var many = cut.Find("input[id$='-many']");
         Assert.True(many.HasAttribute("multiple"));
         Assert.Equal("image/*", many.GetAttribute("accept"));
         var pickers = cut.FindAll("[data-slot=form-file-picker]");
@@ -503,7 +503,7 @@ public sealed class ExtensibilityTests : BunitContext
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("hello", "big.png", contentType: "image/png"));
         Assert.Contains("big.png is larger than 3 B", cut.Find("[data-slot=form-field-error]").TextContent, StringComparison.Ordinal);
-        Assert.Equal("true", cut.Find("input#kly-ff-doc").GetAttribute("aria-invalid"));
+        Assert.Equal("true", cut.Find("input[id$='-doc']").GetAttribute("aria-invalid"));
     }
 
     [Fact]

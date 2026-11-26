@@ -103,14 +103,18 @@ internal sealed class FormOverlay<[DynamicallyAccessedMembers(FormModelTrim.Memb
 
     public override RenderFragment Body() => builder =>
     {
-        builder.OpenComponent<KlyFormEngine<TModel>>(0);
+        // The same wrapper as the runtime overlay: a fullscreen form does not stretch over the whole viewport.
+        builder.OpenElement(0, "div");
+        builder.AddAttribute(1, "class", Mode == FormShellMode.Fullscreen ? "mx-auto w-full max-w-3xl" : "w-full");
+        builder.OpenComponent<KlyFormEngine<TModel>>(2);
         builder.SetKey(this);
-        builder.AddComponentParameter(1, nameof(KlyFormEngine<TModel>.Form), _controller);
-        builder.AddComponentParameter(2, nameof(KlyFormEngine<TModel>.Model), _model);
-        builder.AddComponentParameter(3, nameof(KlyFormEngine<TModel>.Shell), Mode);
-        builder.AddComponentParameter(4, nameof(KlyFormEngine<TModel>.OnSubmit), EventCallback.Factory.Create<TModel>(this, Complete));
-        builder.AddComponentParameter(5, nameof(KlyFormEngine<TModel>.OnCancel), EventCallback.Factory.Create(this, Close));
+        builder.AddComponentParameter(3, nameof(KlyFormEngine<TModel>.Form), _controller);
+        builder.AddComponentParameter(4, nameof(KlyFormEngine<TModel>.Model), _model);
+        builder.AddComponentParameter(5, nameof(KlyFormEngine<TModel>.Shell), Mode);
+        builder.AddComponentParameter(6, nameof(KlyFormEngine<TModel>.OnSubmit), EventCallback.Factory.Create<TModel>(this, Complete));
+        builder.AddComponentParameter(7, nameof(KlyFormEngine<TModel>.OnCancel), EventCallback.Factory.Create(this, Close));
         builder.CloseComponent();
+        builder.CloseElement();
     };
 
     public override async Task<bool> SubmitAsync()

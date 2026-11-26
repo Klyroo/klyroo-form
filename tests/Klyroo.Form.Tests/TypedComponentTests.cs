@@ -179,7 +179,7 @@ public sealed class TypedComponentTests : BunitContext
         var page = Render<TypedSignupPage>();
 
         var rating = page.Find("[data-form-field=Rating] [data-testid=rating]");
-        Assert.Equal("kly-ff-Rating", rating.Id);
+        Assert.Equal("kly-ff-Rating", FormKit.Unscoped(rating.Id));
         Assert.Equal("3", rating.GetAttribute("value"));
         Assert.Empty(page.FindAll("[data-form-field=Rating] input[type=number]"));
     }
@@ -206,13 +206,13 @@ public sealed class TypedComponentTests : BunitContext
 
         // The label points at the control of the template, and the description and help are tied to it.
         var name = page.Find("[data-form-field=Name]");
-        Assert.Equal("kly-ff-Name", name.QuerySelector("label")!.GetAttribute("for"));
-        Assert.Equal("kly-ff-Name-description kly-ff-Name-help", name.QuerySelector("input")!.GetAttribute("aria-describedby"));
+        Assert.Equal("kly-ff-Name", FormKit.Unscoped(name.QuerySelector("label")!.GetAttribute("for")));
+        Assert.Equal("kly-ff-Name-description kly-ff-Name-help", FormKit.Unscoped(name.QuerySelector("input")!.GetAttribute("aria-describedby")));
 
         await page.Find("form").SubmitAsync();
         var error = page.Find("[data-form-field=Name] [data-slot=form-field-error]");
-        Assert.Equal("kly-ff-Name-error", error.Id);
-        Assert.Equal("kly-ff-Name-description kly-ff-Name-help kly-ff-Name-error", page.Find("[data-form-field=Name] input").GetAttribute("aria-describedby"));
+        Assert.Equal("kly-ff-Name-error", FormKit.Unscoped(error.Id));
+        Assert.Equal("kly-ff-Name-description kly-ff-Name-help kly-ff-Name-error", FormKit.Unscoped(page.Find("[data-form-field=Name] input").GetAttribute("aria-describedby")));
         Assert.Equal("true", page.Find("[data-form-field=Name] input").GetAttribute("aria-invalid"));
     }
 
@@ -223,7 +223,7 @@ public sealed class TypedComponentTests : BunitContext
 
         await page.Find("form").SubmitAsync();
 
-        page.WaitForAssertion(() => Assert.Equal(["kly-ff-Name"], FocusedIds(_module)));
+        page.WaitForAssertion(() => Assert.Equal(["kly-ff-Name"], FocusedIds(_module).Select(FormKit.Unscoped)));
         var summary = page.Find("[data-slot=form-error-summary]");
         Assert.Equal("-1", summary.GetAttribute("tabindex"));
         Assert.Contains("Name", page.Find("[data-slot=form-error-summary-link]").TextContent);
@@ -239,7 +239,7 @@ public sealed class TypedComponentTests : BunitContext
 
         await cut.Find("form").SubmitAsync();
 
-        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-summary-" + controller.FormKey], FocusedIds(_module)));
+        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-summary-" + controller.FormKey], FocusedIds(_module).Select(FormKit.Unscoped)));
     }
 
     [Fact]
@@ -308,7 +308,7 @@ public sealed class TypedComponentTests : BunitContext
 
         var input = cut.Find("[data-form-field=Nickname] input[data-marker=registered]");
         Assert.Equal("ada", input.GetAttribute("value"));
-        Assert.Equal("kly-ff-Nickname", input.Id);
+        Assert.Equal("kly-ff-Nickname", FormKit.Unscoped(input.Id));
     }
 
     [Fact]
@@ -325,19 +325,138 @@ public sealed class TypedComponentTests : BunitContext
     }
 
     [Fact]
-    public void A_dynamic_renderer_is_not_used_by_a_typed_field_and_the_other_way_round()
+    public void A_dynamic_and_a_typed_renderer_registered_under_one_key_coexist()
     {
         using var ctx = new BunitContext();
-        ctx.Services.AddKlyrooForm(f => f.CustomField("nick", (RenderFragment<DynamicControlContext>)(c => b => b.AddContent(0, "dynamic"))));
+        ctx.Services.AddKlyrooForm(f => f
+            .CustomField("nick", (RenderFragment<DynamicControlContext>)(c => b => b.AddContent(0, "dynamic")))
+            .CustomField<string>("nick", c => b => b.AddContent(0, "typed-string")));
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+
         var typed = ctx.Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
-        Assert.Single(typed.FindAll("[data-slot=form-custom-missing]"));
+        Assert.Contains("typed-string", typed.Markup);
+        Assert.DoesNotContain("dynamic", typed.Markup);
+        Assert.Empty(typed.FindAll("[data-slot=form-custom-missing]"));
 
         var dynamic = ctx.Render<KlyDynamicFormEngine>(p => p.Add(x => x.Schema, new DynamicFormSchema
         {
             Fields = [new DynamicFieldSchema { Key = "nick", Kind = FormFieldKind.Custom, CustomKey = "nick" }],
         }));
         Assert.Contains("dynamic", dynamic.Markup);
+        Assert.DoesNotContain("typed-string", dynamic.Markup);
+    }
+
+    [Fact]
+    public void Typed_renderers_of_different_value_types_under_one_key_coexist()
+    {
+        using var ctx = new BunitContext();
+        ctx.Services.AddKlyrooForm(f => f
+            .CustomField<int>("k", c => b => b.AddContent(0, "for-int"))
+            .CustomField<string>("k", c => b => b.AddContent(0, "for-string")));
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        var schema = FormSchema.For<Signup>(s =>
+        {
+            s.Field(m => m.Rating, f => f.AsCustom("k"));
+            s.Field(m => m.Nickname, f => f.AsCustom("k"));
+        });
+
+        var cut = ctx.Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, schema));
+
+        Assert.Contains("for-int", cut.Find("[data-form-field=Rating]").TextContent);
+        Assert.Contains("for-string", cut.Find("[data-form-field=Nickname]").TextContent);
+    }
+
+    [Fact]
+    public void A_renderer_registered_again_for_the_same_key_and_type_replaces_the_first()
+    {
+        using var ctx = new BunitContext();
+        ctx.Services.AddKlyrooForm(f => f
+            .CustomField<string>("nick", c => b => b.AddContent(0, "first"))
+            .CustomField<string>("nick", c => b => b.AddContent(0, "second")));
+        ctx.JSInterop.Mode = JSRuntimeMode.Loose;
+        var cut = ctx.Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
+        Assert.Contains("second", cut.Markup);
+        Assert.DoesNotContain("first", cut.Markup);
+    }
+
+    [Fact]
+    public void Two_forms_of_one_schema_on_a_page_have_no_id_in_common()
+    {
+        var first = Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
+        var second = Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
+        var dynamic = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Schema, new DynamicFormSchema { Fields = [new DynamicFieldSchema { Key = "Name", Label = "Name" }] }));
+
+        static HashSet<string> Ids(IRenderedComponent<IComponent> cut) => cut.FindAll("[id]").Select(e => e.Id!).ToHashSet();
+        Assert.NotEmpty(Ids(first));
+        Assert.Empty(Ids(first).Intersect(Ids(second)));
+        Assert.Empty(Ids(first).Intersect(Ids(dynamic)));
+        // A label and a description point inside their own form.
+        var label = first.Find("[data-form-field=Name] label");
+        Assert.Equal(first.Find("[data-form-field=Name] input").Id, label.GetAttribute("for"));
+        Assert.Contains(first.Find("[data-form-field=Name] [data-slot=form-field-description]").Id!, first.Find("[data-form-field=Name] input").GetAttribute("aria-describedby")!);
+    }
+
+    [Fact]
+    public async Task A_failed_submit_focuses_a_field_of_its_own_form_when_another_form_has_the_same_keys()
+    {
+        var first = Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
+        var second = Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Schema, Signup.Schema));
+
+        await second.Find("form").SubmitAsync();
+
+        second.WaitForAssertion(() => Assert.Single(FocusedIds(_module)));
+        var focused = FocusedIds(_module)[0];
+        Assert.Single(second.FindAll($"[id='{focused}']"));
+        Assert.Empty(first.FindAll($"[id='{focused}']"));
+        var link = second.Find("[data-slot=form-error-summary-link]");
+        await link.ClickAsync();
+        Assert.Equal(focused, FocusedIds(_module)[^1]);
+    }
+
+    [Fact]
+    public async Task A_fullscreen_typed_overlay_has_the_same_width_wrapper_as_the_dynamic_one()
+    {
+        var provider = Render<KlyFormProvider>();
+        var typed = Services.GetRequiredService<FormService>();
+        _ = typed.CreateFormAsync(Signup.Schema, mode: FormShellMode.Fullscreen);
+        provider.Render();
+        Assert.Single(provider.FindAll("div.mx-auto.w-full.max-w-3xl [data-slot=form-engine]"));
+
+        var inline = Services.GetRequiredService<FormService>();
+        _ = inline.CreateFormAsync(Signup.Schema, mode: FormShellMode.Modal);
+        provider.Render();
+        Assert.Empty(provider.FindAll("div.max-w-3xl"));
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task A_model_that_becomes_null_resets_the_form_to_what_a_submit_will_create()
+    {
+        Signup? saved = null;
+        var cut = Render<KlyFormEngine<Signup>>(p => p
+            .Add(x => x.Schema, Signup.Schema)
+            .Add(x => x.Model, new Signup { Name = "Ada", Email = "ada@example.com", Rating = 5 })
+            .Add(x => x.OnSave, (m, _) => { saved = m; return Task.FromResult(true); }));
+        Assert.Equal("Ada", cut.Find("[data-form-field=Name] input").GetAttribute("value"));
+
+        cut.Render(p => p.Add(x => x.Schema, Signup.Schema).Add(x => x.Model, (Signup?)null));
+
+        Assert.Equal("", cut.Find("[data-form-field=Name] input").GetAttribute("value") ?? "");
+        cut.Find("[data-form-field=Name] input").Input("Grace");
+        await cut.Find("form").SubmitAsync();
+        Assert.NotNull(saved);
+        Assert.Equal("Grace", saved.Name);
+        Assert.Null(saved.Email);
+        Assert.Equal(3, saved.Rating);
+    }
+
+    [Fact]
+    public void A_model_that_becomes_null_leaves_a_controller_given_through_Form_alone()
+    {
+        var controller = new FormController<Signup>(Signup.Schema, new Signup { Name = "Ada" });
+        var cut = Render<KlyFormEngine<Signup>>(p => p.Add(x => x.Form, controller).Add(x => x.Model, new Signup { Name = "Ada" }));
+        cut.Render(p => p.Add(x => x.Form, controller).Add(x => x.Model, (Signup?)null));
+        Assert.Equal("Ada", controller.Get(Signup.Name));
     }
 
     [Fact]
@@ -441,8 +560,8 @@ public sealed class TypedComponentTests : BunitContext
             Fields = [new DynamicFieldSchema { Key = "Name", Label = "Name", Required = true, Description = "As on your ID" }],
         }));
 
-        // Only the numbers Blazor gives the event handlers differ.
-        static string Html(AngleSharp.Dom.IElement e) => System.Text.RegularExpressions.Regex.Replace(e.InnerHtml, "blazor:(\\w+)=\"\\d+\"", "blazor:$1");
+        // Only the numbers Blazor gives the event handlers and the number of the form in its ids differ.
+        static string Html(AngleSharp.Dom.IElement e) => FormKit.Unscoped(System.Text.RegularExpressions.Regex.Replace(e.InnerHtml, "blazor:(\\w+)=\"\\d+\"", "blazor:$1"));
         Assert.Equal(Html(dynamic.Find("[data-form-field=Name]")), Html(typed.Find("[data-form-field=Name]")));
     }
 }

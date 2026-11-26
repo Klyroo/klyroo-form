@@ -737,7 +737,7 @@ builder.Services.AddKlyrooForm(f => f.CustomField<int>("stars", ctx => builder =
 }));
 ```
 
-A renderer is used only by fields of its value type: a field of another type that names the key, and a dynamic field that names the key of a typed renderer (or the other way round), shows the "no renderer" notice instead of a control that would read the wrong type. A `KlyFieldTemplate` of the field wins over the registered renderer. Templates apply to fields of the form, not to the columns of a repeatable list; a column declared with `AsCustom(key)` uses the registered renderer.
+A renderer is used only by fields of its value type: a field of another type that names the key, and a dynamic field that names the key of a typed renderer (or the other way round), shows the "no renderer" notice instead of a control that would read the wrong type. Renderers are kept by key and value type, so a dynamic renderer and typed renderers of several value types can share one key. A `KlyFieldTemplate` of the field wins over the registered renderer. Templates apply to fields of the form, not to the columns of a repeatable list; a column declared with `AsCustom(key)` uses the registered renderer.
 
 ## Upload files
 

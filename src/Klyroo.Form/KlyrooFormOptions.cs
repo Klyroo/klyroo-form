@@ -47,15 +47,15 @@ public sealed class KlyrooFormOptions
         return this;
     }
 
-    private readonly ConcurrentDictionary<string, CustomRenderer> _customFields = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string Key, Type? ValueType), CustomRenderer> _customFields = new();
 
-    // A renderer registered for a custom field: for a dynamic form (ValueType null), or for a typed form whose field has the value type it names.
+    // A renderer registered for a custom field, kept by key and value type: ValueType is null for a dynamic form, else the value type of the typed fields it draws.
     private sealed record CustomRenderer(Type? ValueType, RenderFragment<DynamicControlContext>? Dynamic, Func<FormControlContext, RenderFragment>? Typed);
 
     /// <summary>
     /// Registers the renderer of <see cref="FormFieldKind.Custom"/> fields of dynamic forms whose <see cref="DynamicFieldSchema.CustomKey"/> is <paramref name="key"/>, for every form of the app. The renderer draws the control from a
     /// <see cref="DynamicControlContext"/>; the components draw the label, description, help and error around it. The <c>FieldTemplates</c> parameter of a component wins over it for that component. Registering a
-    /// key again replaces its renderer.
+    /// key again replaces its dynamic renderer; typed renderers under the same key (<see cref="CustomField{TValue}"/>) are separate.
     /// </summary>
     /// <param name="key">The key a field names in <see cref="DynamicFieldSchema.CustomKey"/>. Keys are case sensitive.</param>
     /// <param name="renderer">Draws the control.</param>
@@ -66,14 +66,15 @@ public sealed class KlyrooFormOptions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(renderer);
-        _customFields[key] = new CustomRenderer(null, renderer, null);
+        _customFields[(key, null)] = new CustomRenderer(null, renderer, null);
         return this;
     }
 
     /// <summary>
     /// Registers the renderer of the custom fields of typed forms declared with <c>AsCustom(<paramref name="key"/>)</c> whose value is a <typeparamref name="TValue"/>, for every form of the app. The renderer draws the control from a
     /// <see cref="FormControlContext{TValue}"/>; the components draw the label, description, help and error around it. A <c>KlyFieldTemplate</c> of a field wins over it. A field of another value type than
-    /// <typeparamref name="TValue"/> that names the key shows the "no renderer" notice instead of a control that would read the wrong type. Registering a key again replaces its renderer.
+    /// <typeparamref name="TValue"/> that names the key shows the "no renderer" notice instead of a control that would read the wrong type, unless a renderer was registered for its type under the same key: renderers are kept by key and value type, and
+    /// the one of a dynamic form (<see cref="CustomField(string, RenderFragment{DynamicControlContext})"/>) is separate too. Registering the same key and type again replaces its renderer.
     /// </summary>
     /// <typeparam name="TValue">The type of the value of the fields the renderer draws.</typeparam>
     /// <param name="key">The key a field names in <c>AsCustom</c>. Keys are case sensitive.</param>
@@ -85,14 +86,14 @@ public sealed class KlyrooFormOptions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(renderer);
-        _customFields[key] = new CustomRenderer(typeof(TValue), null, context => renderer((FormControlContext<TValue>)context));
+        _customFields[(key, typeof(TValue))] = new CustomRenderer(typeof(TValue), null, context => renderer((FormControlContext<TValue>)context));
         return this;
     }
 
     internal bool TryGetCustomField(string key, out RenderFragment<DynamicControlContext> renderer)
     {
         renderer = null!;
-        if (!_customFields.TryGetValue(key, out var found) || found.Dynamic is not { } dynamic) return false;
+        if (!_customFields.TryGetValue((key, null), out var found) || found.Dynamic is not { } dynamic) return false;
         renderer = dynamic;
         return true;
     }
@@ -100,7 +101,7 @@ public sealed class KlyrooFormOptions
     internal bool TryGetCustomField(string key, Type valueType, out Func<FormControlContext, RenderFragment> renderer)
     {
         renderer = null!;
-        if (!_customFields.TryGetValue(key, out var found) || found.Typed is not { } typed || found.ValueType != valueType) return false;
+        if (!_customFields.TryGetValue((key, valueType), out var found) || found.Typed is not { } typed) return false;
         renderer = typed;
         return true;
     }

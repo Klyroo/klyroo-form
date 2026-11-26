@@ -40,6 +40,11 @@ internal sealed partial class FormEngine : IDisposable
 
     internal object? Owner { get; }
 
+    private static int _instances;
+
+    // The prefix of the element ids of this form, unique per engine: two forms with the same field keys can be on one page.
+    internal string IdPrefix { get; } = $"kly-ff-{Interlocked.Increment(ref _instances)}-";
+
     internal event Action? Changed;
 
     internal FormDefinition Schema { get; }

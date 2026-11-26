@@ -391,7 +391,7 @@ public sealed class AsyncValidationTests : BunitContext
         var gate = new Gate();
         var form = Form(Username(gate));
         var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
-        var input = cut.Find("#kly-ff-username");
+        var input = cut.Find("[id$='-username']");
 
         await input.InputAsync("ada");
         await input.BlurAsync();

@@ -73,7 +73,7 @@
     {
         var cols = Cols;
         var spanStyle = FormLayout.SpanStyle(field.Span, cols);
-        var fieldId = FormLayout.Id(field.Key);
+        var fieldId = FormLayout.Id(form, field.Key);
 
         switch (field.Kind)
         {
@@ -339,7 +339,7 @@
                 {
                     var isSelected = tab.Key == activeTab.Key;
                     var tabKey = tab.Key;
-                    <button type="button" role="tab" id="@(FormLayout.Id($"{field.Key}-tab-{tab.Key}"))"
+                    <button type="button" role="tab" id="@(FormLayout.Id(form, $"{field.Key}-tab-{tab.Key}"))"
                             aria-selected="@(isSelected ? "true" : "false")" aria-controls="@panelId"
                             class="rounded-(--klyroo-radius) px-3 py-1 text-xs font-semibold @(isSelected ? "bg-(--klyroo-bg-muted) text-(--klyroo-text-highlighted)" : "text-(--klyroo-text-muted) hover:text-(--klyroo-text)")"
                             data-slot="form-tab-trigger" data-tab="@tab.Key"
@@ -348,7 +348,7 @@
                     </button>
                 }
             </div>
-            <div id="@panelId" role="tabpanel" aria-labelledby="@(FormLayout.Id($"{field.Key}-tab-{activeTab.Key}"))"
+            <div id="@panelId" role="tabpanel" aria-labelledby="@(FormLayout.Id(form, $"{field.Key}-tab-{activeTab.Key}"))"
                  class="grid gap-4" style="@(FormLayout.GridStyle(cols))" data-slot="form-tab-panel">
                 @foreach (var child in activeTab.Fields)
                 {
@@ -429,7 +429,7 @@
                                 @foreach (var child in cells)
                                 {
                                     var childKey = child.Key;
-                                    var cellId = FormLayout.Id($"{field.Key}-{idx}-{child.Key}");
+                                    var cellId = FormLayout.Id(form, $"{field.Key}-{idx}-{child.Key}");
                                     var cellError = form.GetArrayItemError(field.Key, idx, child.Key);
                                     var cellRequired = form.IsFieldRequired(child);
                                     var cellGroup = IsGroupControl(child);

@@ -3,6 +3,9 @@ namespace Klyroo.Form.Tests;
 // Reads the control layer of a typed form (what the engine stores, the nodes it renders) so a test can say what a control would do, such as typing "abc" in a number field.
 internal static class FormKit
 {
+    // Element ids carry a number that is unique per form instance (kly-ff-3-email): tests compare them without it.
+    public static string Unscoped(string? id) => System.Text.RegularExpressions.Regex.Replace(id ?? "", @"kly-ff-\d+-", "kly-ff-");
+
     public static FieldNode Node<TModel>(this FormSchema<TModel> schema, string key) =>
         schema.TryFindNode(key, out var node) ? node : throw new InvalidOperationException($"No node for '{key}'.");
 

@@ -86,8 +86,8 @@ public sealed class AccessibilityTests : BunitContext
 
         await cut.Find("form").SubmitAsync();
 
-        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-email"], FocusedIds(_module)));
-        Assert.NotNull(cut.Find("#kly-ff-email"));
+        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-email"], FocusedIds(_module).Select(FormKit.Unscoped)));
+        Assert.NotNull(cut.Find("[id$='-email']"));
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public sealed class AccessibilityTests : BunitContext
 
         await cut.Find("[data-slot=form-action-next]").ClickAsync();
 
-        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-first"], FocusedIds(_module)));
+        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-first"], FocusedIds(_module).Select(FormKit.Unscoped)));
         Assert.Equal(0, form.CurrentStepIndex);
     }
 
@@ -119,7 +119,7 @@ public sealed class AccessibilityTests : BunitContext
 
         await cut.Find("form").SubmitAsync();
 
-        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-summary-f"], FocusedIds(_module)));
+        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-summary-f"], FocusedIds(_module).Select(FormKit.Unscoped)));
         Assert.Equal("-1", cut.Find("[data-slot=form-error-summary]").GetAttribute("tabindex"));
     }
 
@@ -138,8 +138,8 @@ public sealed class AccessibilityTests : BunitContext
 
         await cut.Find("form").SubmitAsync();
 
-        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-lines-0-sku"], FocusedIds(_module)));
-        Assert.NotNull(cut.Find("#kly-ff-lines-0-sku"));
+        cut.WaitForAssertion(() => Assert.Equal(["kly-ff-lines-0-sku"], FocusedIds(_module).Select(FormKit.Unscoped)));
+        Assert.NotNull(cut.Find("[id$='-lines-0-sku']"));
         var summaryLink = cut.Find("[data-slot=form-error-summary-link]");
         Assert.Contains("SKU (lines, 1)", summaryLink.TextContent, StringComparison.Ordinal);
     }
@@ -158,7 +158,7 @@ public sealed class AccessibilityTests : BunitContext
 
         await cut.Find("[data-slot=form-error-summary-link]").ClickAsync();
 
-        Assert.Equal(["kly-ff-email", "kly-ff-email"], FocusedIds(_module));
+        Assert.Equal(["kly-ff-email", "kly-ff-email"], FocusedIds(_module).Select(FormKit.Unscoped));
     }
 
     [Fact]
@@ -183,7 +183,7 @@ public sealed class AccessibilityTests : BunitContext
         var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         await cut.Find("form").SubmitAsync();
 
-        var input = cut.Find("#kly-ff-email");
+        var input = cut.Find("[id$='-email']");
         var error = cut.Find("[data-slot=form-field-error]");
         Assert.Null(error.GetAttribute("role"));
         Assert.Contains(error.Id!, input.GetAttribute("aria-describedby"), StringComparison.Ordinal);

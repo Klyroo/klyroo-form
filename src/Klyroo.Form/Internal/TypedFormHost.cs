@@ -38,6 +38,12 @@ internal sealed class TypedFormHost<[DynamicallyAccessedMembers(FormModelTrim.Me
             _owned.Reset(model);
             _loaded = model;
         }
+        else if (model is null && _loaded is not null)
+        {
+            // The model went away: a submit now creates a new one, so the form shows the state of a new one.
+            _owned.ResetToNewModel();
+            _loaded = default;
+        }
         Controller = _owned;
     }
 

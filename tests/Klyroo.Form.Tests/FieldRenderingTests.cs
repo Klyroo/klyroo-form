@@ -226,14 +226,14 @@ public sealed class FieldRenderingTests : BunitContext
             new DynamicFieldSchema { Key = "name", Label = "Name", Required = true },
             new DynamicFieldSchema { Key = "kind", Label = "Kind", Kind = FormFieldKind.Select, Required = true, Options = [new("a", "A")] },
             new DynamicFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, Required = true, Options = [new("a", "A")] });
-        Assert.Null(cut.Find("#kly-ff-name").GetAttribute("aria-invalid"));
+        Assert.Null(cut.Find("[id$='-name']").GetAttribute("aria-invalid"));
 
         form.Validate();
         cut.Render();
 
         foreach (var key in new[] { "name", "kind", "plan" })
         {
-            var control = cut.Find($"#kly-ff-{key}");
+            var control = cut.Find($"[id$='-{key}']");
             Assert.Equal("true", control.GetAttribute("aria-invalid"));
             var describedBy = control.GetAttribute("aria-describedby")!.Split(' ');
             var error = cut.Find($"[data-form-field={key}] [data-slot=form-field-error]");
@@ -264,7 +264,7 @@ public sealed class FieldRenderingTests : BunitContext
     {
         var (cut, _) = Engine(new DynamicFieldSchema { Key = "f", Kind = kind, MaxLength = 6 });
 
-        var input = cut.Find("#kly-ff-f");
+        var input = cut.Find("[id$='-f']");
         Assert.Equal(type, input.GetAttribute("type"));
         Assert.Equal(autocomplete, input.GetAttribute("autocomplete"));
         Assert.Equal(inputMode, input.GetAttribute("inputmode"));
@@ -304,13 +304,13 @@ public sealed class FieldRenderingTests : BunitContext
     {
         var (cut, form) = Engine(new DynamicFieldSchema { Key = "tags", Label = "Tags", Kind = FormFieldKind.Tag });
 
-        var input = cut.Find("#kly-ff-tags");
+        var input = cut.Find("[id$='-tags']");
         Assert.Equal("kly-form-detached", input.GetAttribute("form"));
         input.Input("blazor");
-        cut.Find("#kly-ff-tags").KeyDown(new KeyboardEventArgs { Key = "Enter" });
-        cut.Find("#kly-ff-tags").Input("dotnet, ui");
+        cut.Find("[id$='-tags']").KeyDown(new KeyboardEventArgs { Key = "Enter" });
+        cut.Find("[id$='-tags']").Input("dotnet, ui");
         Assert.Equal(["blazor", "dotnet"], form.GetValue<IReadOnlyList<string>>("tags"));
-        Assert.Equal(" ui", cut.Find("#kly-ff-tags").GetAttribute("value"));
+        Assert.Equal(" ui", cut.Find("[id$='-tags']").GetAttribute("value"));
 
         cut.FindAll("[data-slot=form-tag-remove]")[0].Click();
         Assert.Equal(["dotnet"], form.GetValue<IReadOnlyList<string>>("tags"));
@@ -344,14 +344,14 @@ public sealed class FieldRenderingTests : BunitContext
     {
         var (cut, form) = Engine(new DynamicFieldSchema { Key = "city", Label = "City", Kind = FormFieldKind.AutoComplete, Options = [new("par", "Paris"), new("lyo", "Lyon")] });
 
-        var input = cut.Find("#kly-ff-city");
+        var input = cut.Find("[id$='-city']");
         Assert.Equal("text", input.GetAttribute("type"));
         var list = cut.Find($"datalist#{input.GetAttribute("list")}");
         Assert.Equal(2, list.QuerySelectorAll("option").Length);
 
         input.Input("paris");
         Assert.Equal("par", form.GetValue("city"));
-        cut.Find("#kly-ff-city").Input("Nantes");
+        cut.Find("[id$='-city']").Input("Nantes");
         Assert.Equal("Nantes", form.GetValue("city"));
     }
 
@@ -532,13 +532,13 @@ public sealed class FieldRenderingTests : BunitContext
     {
         var (cut, form) = Engine(new DynamicFieldSchema { Key = "country", Kind = FormFieldKind.AutoComplete, Options = [new("DE", "Germany"), new("DK", "Denmark")] });
 
-        cut.Find("#kly-ff-country").Input("De");
-        Assert.Equal("De", cut.Find("#kly-ff-country").GetAttribute("value"));
-        cut.Find("#kly-ff-country").Input("denmark");
+        cut.Find("[id$='-country']").Input("De");
+        Assert.Equal("De", cut.Find("[id$='-country']").GetAttribute("value"));
+        cut.Find("[id$='-country']").Input("denmark");
         Assert.Equal("DK", form.GetValue("country"));
 
-        cut.Find("#kly-ff-country").Blur();
-        Assert.Equal("Denmark", cut.Find("#kly-ff-country").GetAttribute("value"));
+        cut.Find("[id$='-country']").Blur();
+        Assert.Equal("Denmark", cut.Find("[id$='-country']").GetAttribute("value"));
     }
 
     [Fact]

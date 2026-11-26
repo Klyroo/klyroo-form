@@ -93,12 +93,12 @@ public sealed class RobustnessTests : BunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.True(cut.Find("#kly-ff-a").HasAttribute("disabled"));
-            Assert.True(cut.Find("#kly-ff-t").HasAttribute("disabled"));
+            Assert.True(cut.Find("[id$='-a']").HasAttribute("disabled"));
+            Assert.True(cut.Find("[id$='-t']").HasAttribute("disabled"));
         });
         release.SetResult(true);
         await submit;
-        cut.WaitForAssertion(() => Assert.False(cut.Find("#kly-ff-a").HasAttribute("disabled")));
+        cut.WaitForAssertion(() => Assert.False(cut.Find("[id$='-a']").HasAttribute("disabled")));
     }
 
     [Fact]
@@ -433,7 +433,7 @@ public sealed class RobustnessTests : BunitContext
         var first = Live();
         Assert.Contains("2 errors", first, StringComparison.Ordinal);
 
-        cut.Find("#kly-ff-a").Input("x");
+        cut.Find("[id$='-a']").Input("x");
         Assert.Equal(first, Live());
         Assert.Contains("1 error", cut.Find("[data-slot=form-error-summary-title]").TextContent, StringComparison.Ordinal);
 
@@ -441,7 +441,7 @@ public sealed class RobustnessTests : BunitContext
         Assert.Contains("1 error", Live(), StringComparison.Ordinal);
         Assert.NotEqual(first, Live());
 
-        cut.Find("#kly-ff-b").Input("y");
+        cut.Find("[id$='-b']").Input("y");
         Assert.Equal("", Live());
     }
 
@@ -455,7 +455,7 @@ public sealed class RobustnessTests : BunitContext
         Assert.Contains("Server unavailable", cut.Find("[data-slot=form-live-region]").TextContent, StringComparison.Ordinal);
         var text = cut.Find("[data-slot=form-live-region]").TextContent;
 
-        cut.Find("#kly-ff-a").Input("typing");
+        cut.Find("[id$='-a']").Input("typing");
         Assert.Equal(text, cut.Find("[data-slot=form-live-region]").TextContent);
     }
 

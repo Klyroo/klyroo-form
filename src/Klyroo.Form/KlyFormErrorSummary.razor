@@ -8,7 +8,7 @@
     var engine = FormRuntime.EngineOf(Form);
     var entries = engine.GetErrorEntries().Where(e => e.IsFormLevel || engine.SubmitFailed).ToList();
     var liveText = NextLiveText(engine, entries);
-    var summaryId = FormLayout.SummaryId(Form.FormKey);
+    var summaryId = FormLayout.SummaryId(engine);
     var titleId = $"{summaryId}-title";
 
     @* One polite live region per form, always in the DOM so that assistive technology announces its text when it changes. *@
