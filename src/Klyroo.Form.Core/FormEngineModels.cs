@@ -22,7 +22,7 @@ public enum FormValidationTrigger
     Blur,
     /// <summary>Marks the field touched and validates it on every change.</summary>
     Input,
-    /// <summary>Does not validate while editing. The field is validated by <see cref="FormController.Validate"/> and by submission.</summary>
+    /// <summary>Does not validate while editing. The field is validated by <see cref="FormController.Validate"/> and by submission, and a change clears its validation error without validating again.</summary>
     Submit,
 }
 
@@ -33,9 +33,9 @@ public enum FormShellMode
     Inline,
     /// <summary>Renders in a centered dialog. This is the default of <see cref="FormService.CreateFormAsync"/>.</summary>
     Modal,
-    /// <summary>Drawer layout. <c>KlyFormProvider</c> currently renders it in the same centered dialog as <see cref="Modal"/> and only sets a <c>data-mode</c> attribute.</summary>
+    /// <summary>Side panel. <c>KlyFormProvider</c> renders it as a full-height panel docked to the end (right in left-to-right layouts) of the viewport.</summary>
     Drawer,
-    /// <summary>Fullscreen layout. <c>KlyFormProvider</c> currently renders it in the same centered dialog as <see cref="Modal"/> and only sets a <c>data-mode</c> attribute.</summary>
+    /// <summary>Full viewport. <c>KlyFormProvider</c> renders it over the whole viewport, without margins or rounded corners.</summary>
     Fullscreen,
 }
 
@@ -52,7 +52,7 @@ public enum FormPageSectionStatus
     Optional,
 }
 
-/// <summary>Kind of a field in a <see cref="FormFieldSchema"/>. The kind decides how the field is stored, validated and rendered; kinds without a dedicated control in <c>KlyFormEngine</c> are rendered as a text input.</summary>
+/// <summary>Kind of a field in a <see cref="FormFieldSchema"/>. The kind decides how the field is stored, validated and rendered. <c>KlyFormEngine</c>, <c>KlyFormPage</c> and <c>KlyFormField</c> render every kind with a dedicated control.</summary>
 public enum FormFieldKind
 {
     /// <summary>Single-line text input. The value is a string.</summary>
@@ -65,35 +65,35 @@ public enum FormFieldKind
     Number,
     /// <summary>Checkbox. The value is a <see cref="bool"/>.</summary>
     Checkbox,
-    /// <summary>Rendered by <c>KlyFormEngine</c> exactly like <see cref="Checkbox"/>. The value is a <see cref="bool"/>.</summary>
+    /// <summary>Checkbox exposed to assistive technology as a switch (<c>role="switch"</c>). The value is a <see cref="bool"/>.</summary>
     Switch,
     /// <summary>Radio group built from the field options. The value is the selected option value.</summary>
     Radio,
-    /// <summary>Multiple choice from a list of options. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Multiple choice rendered as a list of checkboxes built from the field options. The value is a <c>List&lt;string&gt;</c> of the checked option values.</summary>
     CheckboxGroup,
-    /// <summary>Native select list built from the field options. The value is the selected option value.</summary>
+    /// <summary>Native select list built from the field options, with an <c>optgroup</c> per <see cref="FormOptionItem.Group"/>. The value is the selected option value. With <see cref="FormFieldSchema.Multiple"/> it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>.</summary>
     Select,
-    /// <summary>Rendered by <c>KlyFormEngine</c> exactly like <see cref="Select"/>, as a native select list.</summary>
+    /// <summary>Text input that suggests the option labels through a <c>datalist</c>. The value is the value of the option whose label or value matches the text (ignoring case), otherwise the text itself. With <see cref="FormFieldSchema.Multiple"/> it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>.</summary>
     AutoComplete,
     /// <summary>Date input (<c>type="date"</c>). The value is the string produced by the browser, in <c>yyyy-MM-dd</c> form.</summary>
     Date,
-    /// <summary>Date and time value. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Date and time input (<c>type="datetime-local"</c>). The value is the string produced by the browser, in <c>yyyy-MM-ddTHH:mm</c> form.</summary>
     DateTime,
-    /// <summary>Range of two dates. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Range of two dates, rendered as a start and an end date input. The value is a <c>List&lt;string&gt;</c> of two items, start then end, in <c>yyyy-MM-dd</c> form, with an empty string for a missing date, or <c>null</c> when both are empty. A required range needs both dates, and validation rejects an end before the start.</summary>
     DateRange,
     /// <summary>Time input (<c>type="time"</c>). The value is the string produced by the browser.</summary>
     Time,
-    /// <summary>Phone number. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Phone number input (<c>type="tel"</c>, <c>autocomplete="tel"</c>). The value is a string; the format is not validated.</summary>
     PhoneNumber,
-    /// <summary>Range slider (<c>type="range"</c>) bounded by <see cref="FormFieldSchema.Min"/>, <see cref="FormFieldSchema.Max"/> and <see cref="FormFieldSchema.Step"/>. The value is a <see cref="double"/>. Bounds are only enforced on validation for <see cref="Number"/> fields.</summary>
+    /// <summary>Range slider (<c>type="range"</c>) bounded by <see cref="FormFieldSchema.Min"/>, <see cref="FormFieldSchema.Max"/> and <see cref="FormFieldSchema.Step"/>. The value is a <see cref="double"/>. While the value is <c>null</c> the slider shows <see cref="FormFieldSchema.Min"/> (or 0) and the state stays <c>null</c> until the user moves it. Bounds are only enforced on validation for <see cref="Number"/> fields.</summary>
     Slider,
-    /// <summary>Rating value. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Star rating from 1 to <see cref="FormFieldSchema.Max"/> (5 by default), rendered as a group of radio buttons. The value is an <see cref="int"/>.</summary>
     Rating,
-    /// <summary>Color value. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>Color input (<c>type="color"</c>). The value is the string produced by the browser, in <c>#rrggbb</c> form.</summary>
     ColorPicker,
-    /// <summary>One-time code. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>One-time code input (<c>autocomplete="one-time-code"</c>, <c>inputmode="numeric"</c>, <c>maxlength</c> from <see cref="FormFieldSchema.MaxLength"/>). The value is a string.</summary>
     OneTimeCode,
-    /// <summary>List of free-form tags. <c>KlyFormEngine</c> has no dedicated control for it and renders a text input.</summary>
+    /// <summary>List of free-form tags: Enter or a comma in the text input adds the typed tag, and each tag has a remove button. The value is a <c>List&lt;string&gt;</c> without blanks or duplicates.</summary>
     Tag,
     /// <summary>Hidden input. The value is stored and included in the output but nothing is shown to the user.</summary>
     Hidden,
@@ -103,28 +103,28 @@ public enum FormFieldKind
     Divider,
     /// <summary>Heading made of <see cref="FormFieldSchema.Label"/> and <see cref="FormFieldSchema.Description"/>. Stateless, like <see cref="Info"/>.</summary>
     Section,
-    /// <summary>Stateless placeholder: it has no value, is never validated and never appears in the output. <c>KlyFormEngine</c> has no dedicated rendering for it, so do not use it to add a button.</summary>
+    /// <summary>Button labelled by <see cref="FormFieldSchema.Label"/> that runs <see cref="FormFieldSchema.OnClick"/> and never submits the form. Stateless: it has no value, is never validated and never appears in the output.</summary>
     Button,
-    /// <summary>Container that lays out the fields in <see cref="FormFieldSchema.Fields"/> without a border. The child fields keep their own keys and are validated and output as top-level fields.</summary>
+    /// <summary>Container that lays out the fields in <see cref="FormFieldSchema.Fields"/> without a border. The child fields keep their own keys and are validated and output as top-level fields, unless the container is hidden. A container is layout only: without <see cref="FormFieldSchema.Fields"/> it renders nothing and has no value.</summary>
     Group,
     /// <summary>Bordered container for the fields in <see cref="FormFieldSchema.Fields"/>. Children behave as in <see cref="Group"/>.</summary>
     Card,
-    /// <summary>Tabbed container driven by <see cref="FormFieldSchema.Tabs"/>. The fields of every tab are validated and output, whether or not the tab is selected.</summary>
+    /// <summary>Tabbed container driven by <see cref="FormFieldSchema.Tabs"/>. The fields of every visible tab are validated and output, whether or not the tab is selected; the fields of a hidden tab are not. Without tabs it renders nothing and has no value.</summary>
     Tabs,
     /// <summary>Container with the same behavior as <see cref="Group"/>. Child values are not nested under the object key.</summary>
     Object,
-    /// <summary>Repeatable list of rows, each row holding the fields declared in <see cref="FormFieldSchema.Fields"/>. The value is a <c>List&lt;Dictionary&lt;string, object?&gt;&gt;</c>. Rows are edited with <c>AddArrayItem</c>, <c>SetArrayItemValue</c> and <c>RemoveArrayItem</c>, and <c>KlyFormEngine</c> renders each cell as a text input.</summary>
+    /// <summary>Repeatable list of rows, each row holding the fields declared in <see cref="FormFieldSchema.Fields"/>. The value is a <c>List&lt;Dictionary&lt;string, object?&gt;&gt;</c>. Rows are edited with <c>AddArrayItem</c>, <c>SetArrayItemValue</c> and <c>RemoveArrayItem</c>, each cell is rendered with the control of its child kind, and each cell is validated with the rules of its child field.</summary>
     ArrayList,
     /// <summary>Same value and behavior as <see cref="ArrayList"/>; <c>KlyFormEngine</c> renders both identically.</summary>
     ArrayTable,
 }
 
-/// <summary>One choice of a <see cref="FormFieldKind.Select"/>, <see cref="FormFieldKind.AutoComplete"/> or <see cref="FormFieldKind.Radio"/> field.</summary>
+/// <summary>One choice of a <see cref="FormFieldKind.Select"/>, <see cref="FormFieldKind.AutoComplete"/>, <see cref="FormFieldKind.Radio"/> or <see cref="FormFieldKind.CheckboxGroup"/> field.</summary>
 /// <param name="Value">The value stored in the form when the option is selected.</param>
 /// <param name="Label">The text shown to the user.</param>
-/// <param name="Description">Optional secondary text. Not rendered by the built-in components.</param>
-/// <param name="Group">Optional group name. Not rendered by the built-in components.</param>
-/// <param name="Icon">Optional icon name. Not rendered by the built-in components.</param>
+/// <param name="Description">Optional secondary text, shown under the label in radio and checkbox lists. A native select list cannot show it.</param>
+/// <param name="Group">Optional group name. Options with the same group are rendered together, in an <c>optgroup</c> in select lists and under a heading in radio and checkbox lists, in the order the groups first appear.</param>
+/// <param name="Icon">Optional icon name, in any form <c>KlyIcon</c> of Klyroo.UI accepts (<c>i-lucide-star</c>, <c>lucide:star</c> or a bare Lucide name), shown before the label in radio and checkbox lists. A native select list cannot show it.</param>
 /// <param name="Disabled"><c>true</c> to show the option but prevent selecting it.</param>
 public sealed record FormOptionItem(
     string Value,
@@ -161,7 +161,7 @@ public sealed class FormTabItemSchema
     public required string Label { get; init; }
     /// <summary>Fields shown when the tab is selected.</summary>
     public IReadOnlyList<FormFieldSchema> Fields { get; init; } = [];
-    /// <summary>Returns <c>false</c> to hide the tab. A hidden tab's fields are still validated and output.</summary>
+    /// <summary>Returns <c>false</c> to hide the tab. A hidden tab's fields are skipped by validation and left out of <see cref="FormController.BuildOutput"/>, and their values stay in the state.</summary>
     public Func<FormController, bool>? Condition { get; init; }
 }
 
@@ -196,14 +196,14 @@ public sealed class FormFieldSchema
     /// <summary>When the field is validated while the user edits it. The default is <see cref="FormValidationTrigger.Blur"/>.</summary>
     public FormValidationTrigger Trigger { get; init; } = FormValidationTrigger.Blur;
 
-    /// <summary><c>true</c> to render the control disabled. This only affects rendering: a disabled field is still validated and included in the output.</summary>
+    /// <summary><c>true</c> to render the control disabled; on a repeatable list it also disables its cells and the add and remove buttons. This only affects rendering: a disabled field is still validated and included in the output.</summary>
     public bool Disabled { get; init; }
     /// <summary>Disables the field while it returns <c>true</c>. Same scope as <see cref="Disabled"/>.</summary>
     public Func<FormController, bool>? DisabledWhen { get; init; }
     /// <summary>Text shown under a disabled control to explain why it is disabled.</summary>
     public string? DisabledReason { get; init; }
 
-    /// <summary>Returns <c>false</c> to hide the field. A hidden field is skipped by validation and left out of <see cref="FormController.BuildOutput"/>, but its value stays in the state. A container's condition hides the container only: put the condition on the children as well to exclude them from validation and output.</summary>
+    /// <summary>Returns <c>false</c> to hide the field. A hidden field is skipped by validation and left out of <see cref="FormController.BuildOutput"/>, but its value stays in the state. A hidden container hides its children too, with the same effect on validation and output. On a child of a repeatable list it hides that column: its cells are neither rendered nor validated, and their values stay in the rows.</summary>
     public Func<FormController, bool>? Condition { get; init; }
     /// <summary><c>true</c> to drop the field entirely: it has no state, is not rendered, validated or output, and its children are dropped with it.</summary>
     public bool Ignore { get; init; }
@@ -211,33 +211,33 @@ public sealed class FormFieldSchema
     public bool OmitFromOutput { get; init; }
     /// <summary><c>true</c> to show a per-field reset button in <c>KlyFormEngine</c> once the value differs from its initial value.</summary>
     public bool DirtyCheck { get; init; }
-    /// <summary>Reserved. The built-in components do not use it.</summary>
+    /// <summary><c>true</c> to render a <see cref="FormFieldKind.Group"/>, <see cref="FormFieldKind.Card"/> or <see cref="FormFieldKind.Object"/> container as a disclosure (<c>details</c> and <c>summary</c>) the user can collapse, with <see cref="Label"/> as its summary. Collapsing only hides the children: they are still validated and output.</summary>
     public bool Collapsible { get; init; }
-    /// <summary>Reserved. The built-in components do not use it.</summary>
+    /// <summary><c>true</c> to start a <see cref="Collapsible"/> container collapsed. Ignored when <see cref="Collapsible"/> is <c>false</c>.</summary>
     public bool DefaultCollapsed { get; init; }
-    /// <summary>Number of columns, from 1 to 12, the field occupies in the 12-column grid. Values outside the range are clamped. The default is 12.</summary>
+    /// <summary>Number of columns the field occupies in the grid of <see cref="FormSchema.Columns"/> columns. Values are clamped between 1 and the column count, so the default of 12 fills a row.</summary>
     public int Span { get; init; } = 12;
 
     // Bounds & rules
     /// <summary>Smallest accepted value of a <see cref="FormFieldKind.Number"/> field, enforced on validation. Also the <c>min</c> attribute of number and slider inputs.</summary>
     public double? Min { get; init; }
-    /// <summary>Largest accepted value of a <see cref="FormFieldKind.Number"/> field, enforced on validation. Also the <c>max</c> attribute of number and slider inputs.</summary>
+    /// <summary>Largest accepted value of a <see cref="FormFieldKind.Number"/> field, enforced on validation. Also the <c>max</c> attribute of number and slider inputs, and the number of stars of a <see cref="FormFieldKind.Rating"/> field.</summary>
     public double? Max { get; init; }
     /// <summary>The <c>step</c> attribute of number and slider inputs. It is not validated.</summary>
     public double? Step { get; init; }
-    /// <summary>Largest accepted number of characters of a text value, enforced on validation. Also the <c>maxlength</c> attribute of text-like inputs.</summary>
+    /// <summary>Largest accepted number of characters of a text value, enforced on validation. Also the <c>maxlength</c> attribute of text-like inputs, including textareas, passwords and one-time codes.</summary>
     public int? MaxLength { get; init; }
-    /// <summary><c>true</c> if the field holds several values. Only <see cref="FormController.CreateFieldOption"/> reads it: the built-in components render no multi-select control.</summary>
+    /// <summary><c>true</c> if a <see cref="FormFieldKind.Select"/> or <see cref="FormFieldKind.AutoComplete"/> field holds several values: it renders a list of checkboxes and the value is a <c>List&lt;string&gt;</c>. <see cref="FormController.CreateFieldOption"/> appends to that list.</summary>
     public bool Multiple { get; init; }
-    /// <summary><c>true</c> to show a clear button next to select lists and text-like inputs once they have a value.</summary>
+    /// <summary><c>true</c> to show a clear button once the field has a value, next to select lists, text-like inputs, textareas, passwords, number inputs and ratings. Clearing sets the value to <c>null</c>, or to an empty string for text-like inputs.</summary>
     public bool Clearable { get; init; }
     /// <summary>Static options of a choice field. Ignored when <see cref="OptionsFactory"/> is set.</summary>
     public IReadOnlyList<FormOptionItem>? Options { get; init; }
     /// <summary>Computes the options from the controller, for example to depend on another field. It takes precedence over <see cref="Options"/>.</summary>
     public Func<FormController, IReadOnlyList<FormOptionItem>>? OptionsFactory { get; init; }
-    /// <summary>Turns text typed by the user into a new option. Only <see cref="FormController.CreateFieldOption"/> calls it; the built-in components render no control that does.</summary>
+    /// <summary>Turns text typed by the user into a new option. On a <see cref="FormFieldKind.Select"/> or <see cref="FormFieldKind.AutoComplete"/> field the built-in components render a text input and a create button under the control, which call <see cref="FormController.CreateFieldOption"/>.</summary>
     public Func<string, FormOptionItem?>? OnCreateOption { get; init; }
-    /// <summary>Rules a <see cref="FormFieldKind.Password"/> value must satisfy. They are checked on validation, in order; the built-in components do not render them as a checklist.</summary>
+    /// <summary>Rules a <see cref="FormFieldKind.Password"/> value must satisfy. They are checked on validation, in order, and the built-in components show them as a live checklist under the field.</summary>
     public IReadOnlyList<FormPasswordRequirement>? PasswordRequirements { get; init; }
     /// <summary>Custom validation rules, run in order after the built-in checks. The first failing rule sets the error.</summary>
     public IReadOnlyList<FormValidatorRule>? Validators { get; init; }
@@ -247,21 +247,23 @@ public sealed class FormFieldSchema
     public Func<object?, object?>? TransformInput { get; init; }
     /// <summary>Converts the value in <see cref="FormController.BuildOutput"/>, for example to trim a string. The state keeps the untransformed value.</summary>
     public Func<object?, object?>? TransformOutput { get; init; }
-    /// <summary>Called with the new value and the controller after <see cref="FormController.SetValue"/> changes this field. It does not run for repeatable-list edits or resets.</summary>
+    /// <summary>Called with the new value and the controller after the value of this field changes: after <see cref="FormController.SetValue"/>, after <see cref="FormController.ResetField"/> when it changes the value, and, for a repeatable list, after a row is added or removed or a cell changes. On a child of a repeatable list it is called with the cell value after <see cref="FormController.SetArrayItemValue"/>. It does not run for <see cref="FormController.Reset"/>, which loads a complete new state.</summary>
     public Action<object?, FormController>? Watch { get; init; }
+    /// <summary>Runs when the user clicks a <see cref="FormFieldKind.Button"/> field. The button never submits the form, and is disabled like other fields by <see cref="Disabled"/> and <see cref="DisabledWhen"/>.</summary>
+    public Func<FormController, Task>? OnClick { get; init; }
 
     // Display / Info block
-    /// <summary>Reserved. The built-in components do not use it.</summary>
+    /// <summary>Presentation of a <see cref="FormFieldKind.Info"/> block: <c>callout</c> (the default) draws a tinted box with a border, <c>text</c> renders plain text without a box. Other values render as <c>callout</c>. Case is ignored.</summary>
     public string? DisplayKind { get; init; }
     /// <summary>Text of a <see cref="FormFieldKind.Info"/> block. Falls back to <see cref="Description"/>.</summary>
     public string? DisplayText { get; init; }
-    /// <summary>Reserved. The built-in components do not use it.</summary>
+    /// <summary>Color of a <see cref="FormFieldKind.Info"/> block, from the Klyroo.UI theme: <c>neutral</c> (the default), <c>info</c>, <c>success</c>, <c>warning</c> or <c>error</c>. Other values render as <c>neutral</c>. Case is ignored.</summary>
     public string? DisplayTone { get; init; }
 
     // Container / Array children
-    /// <summary>Child fields: the content of a container, or the columns of each row of a repeatable list.</summary>
+    /// <summary>Child fields: the content of a container, or the columns of each row of a repeatable list. A container without children renders nothing.</summary>
     public IReadOnlyList<FormFieldSchema>? Fields { get; init; }
-    /// <summary>Tabs of a <see cref="FormFieldKind.Tabs"/> field.</summary>
+    /// <summary>Tabs of a <see cref="FormFieldKind.Tabs"/> field. A tabs field without tabs renders nothing.</summary>
     public IReadOnlyList<FormTabItemSchema>? Tabs { get; init; }
     /// <summary>Label of the add button of a repeatable list. The default is <c>Add item</c>.</summary>
     public string? AddItemLabel { get; init; }
@@ -274,13 +276,13 @@ public sealed class FormStepSchema
     public required string Key { get; init; }
     /// <summary>Title shown in the stepper.</summary>
     public required string Title { get; init; }
-    /// <summary>Optional description. Not rendered by the built-in components.</summary>
+    /// <summary>Optional text shown under the stepper while the step is current.</summary>
     public string? Description { get; init; }
-    /// <summary>Reserved. Neither the controller nor the built-in components use it.</summary>
+    /// <summary>Reserved for a future use; its meaning is not defined yet. Neither the controller nor the built-in components read it, so leave it unset.</summary>
     public string? Root { get; init; }
     /// <summary>Fields of the step.</summary>
     public IReadOnlyList<FormFieldSchema> Fields { get; init; } = [];
-    /// <summary>Returns <c>true</c> to skip the step: <see cref="FormController.NextStepAsync"/> and <see cref="FormController.PreviousStepAsync"/> pass over it, and the stepper does not list it. Its fields are still validated and output on submit.</summary>
+    /// <summary>Returns <c>true</c> to skip the step: the controller starts on the first step that is not skipped, <see cref="FormController.NextStepAsync"/> and <see cref="FormController.PreviousStepAsync"/> pass over it, the stepper does not list it, and its fields are skipped by validation and left out of <see cref="FormController.BuildOutput"/>. The current step is never treated as skipped.</summary>
     public Func<FormController, bool>? SkipWhen { get; init; }
 }
 
@@ -295,9 +297,9 @@ public sealed class FormPageSectionSchema
     public string? Description { get; init; }
     /// <summary><c>true</c> if the section may stay empty: it then reports <see cref="FormPageSectionStatus.Optional"/> until a field has a value.</summary>
     public bool Optional { get; init; }
-    /// <summary>Reserved. <c>KlyFormPage</c> does not use it.</summary>
+    /// <summary>Number of columns, from 1 to 12, the section occupies in the 12-column grid of sections of <c>KlyFormPage</c>. Values outside the range are clamped. The default is 12, one section per row.</summary>
     public int Span { get; init; } = 12;
-    /// <summary>Returns <c>false</c> to hide the section and leave it out of <see cref="FormController.GetSectionStates"/>. Its fields are still validated and output.</summary>
+    /// <summary>Returns <c>false</c> to hide the section and leave it out of <see cref="FormController.GetSectionStates"/>. Its fields are skipped by validation and left out of <see cref="FormController.BuildOutput"/>, and their values stay in the state.</summary>
     public Func<FormController, bool>? Condition { get; init; }
     /// <summary>Fields of the section.</summary>
     public IReadOnlyList<FormFieldSchema> Fields { get; init; } = [];
@@ -333,7 +335,7 @@ public sealed class FormSchema
     public string? Description { get; init; }
     /// <summary>Small label shown above the title.</summary>
     public string? Eyebrow { get; init; }
-    /// <summary>Reserved. The built-in components always lay fields out on a 12-column grid.</summary>
+    /// <summary>Number of columns, from 1 to 12, of the grids that lay out the fields, including those of containers and tabs. Values outside the range are clamped. <see cref="FormFieldSchema.Span"/> is clamped to it. The default is 12.</summary>
     public int Columns { get; init; } = 12;
     /// <summary><c>true</c> to show the list of steps above a stepped form. The default is <c>true</c>.</summary>
     public bool ShowStepper { get; init; } = true;
@@ -373,9 +375,16 @@ public sealed class FormController
     private readonly Dictionary<string, string> _validationErrors = new(StringComparer.Ordinal);
     private readonly Dictionary<string, (string Message, bool Blocking)> _customErrors = new(StringComparer.Ordinal);
     private readonly HashSet<string> _touchedPaths = new(StringComparer.Ordinal);
+    private readonly Dictionary<CellKey, string> _cellErrors = [];
+    private readonly HashSet<CellKey> _touchedCells = [];
     private readonly Dictionary<string, List<FormOptionItem>> _createdOptions = new(StringComparer.Ordinal);
 
-    /// <summary>Creates a controller for <paramref name="schema"/> and initializes the state. Values in <paramref name="initialInput"/> win over default values, and the result becomes the baseline for dirty tracking.</summary>
+    private readonly record struct CellKey(string Array, int Row, string Child)
+    {
+        public override string ToString() => CellPath(Array, Row, Child);
+    }
+
+    /// <summary>Creates a controller for <paramref name="schema"/> and initializes the state. Values in <paramref name="initialInput"/> win over default values, and the result becomes the baseline for dirty tracking. A stepped form starts on its first step that is not skipped.</summary>
     /// <param name="schema">The schema to run.</param>
     /// <param name="initialInput">Initial values by field key. Keys that match no field are kept in <see cref="InternalState"/>.</param>
     /// <exception cref="ArgumentNullException"><paramref name="schema"/> is <c>null</c>.</exception>
@@ -384,6 +393,7 @@ public sealed class FormController
         ArgumentNullException.ThrowIfNull(schema);
         Schema = schema;
         InitializeState(initialInput);
+        CurrentStepIndex = FirstReachableStepIndex();
     }
 
     /// <summary>Raised synchronously, on the calling thread, after every change of state, error, step or submission status. Components subscribe to it to re-render.</summary>
@@ -399,10 +409,32 @@ public sealed class FormController
     public bool IsStepped => Schema.Steps.Count > 0;
     /// <summary>The current step, or <c>null</c> for a form without steps.</summary>
     public FormStepSchema? CurrentStep => IsStepped && CurrentStepIndex < Schema.Steps.Count ? Schema.Steps[CurrentStepIndex] : null;
-    /// <summary><c>true</c> on the first step, and for a form without steps.</summary>
-    public bool IsFirstStep => CurrentStepIndex <= 0;
-    /// <summary><c>true</c> on the last declared step, and for a form without steps. A later step that <see cref="FormStepSchema.SkipWhen"/> skips does not change this.</summary>
-    public bool IsLastStep => !IsStepped || CurrentStepIndex >= Schema.Steps.Count - 1;
+    /// <summary><c>true</c> when every step before the current one is skipped by <see cref="FormStepSchema.SkipWhen"/>, and for a form without steps.</summary>
+    public bool IsFirstStep
+    {
+        get
+        {
+            if (!IsStepped) return true;
+            for (var i = 0; i < CurrentStepIndex && i < Schema.Steps.Count; i++)
+            {
+                if (!IsStepSkipped(i)) return false;
+            }
+            return true;
+        }
+    }
+    /// <summary><c>true</c> when every step after the current one is skipped by <see cref="FormStepSchema.SkipWhen"/>, and for a form without steps. The components show the submit button instead of Next on such a step.</summary>
+    public bool IsLastStep
+    {
+        get
+        {
+            if (!IsStepped) return true;
+            for (var i = CurrentStepIndex + 1; i < Schema.Steps.Count; i++)
+            {
+                if (!IsStepSkipped(i)) return false;
+            }
+            return true;
+        }
+    }
 
     /// <summary>Live, read-only view of all values by key, including keys of the initial input that match no field.</summary>
     public IReadOnlyDictionary<string, object?> InternalState => _state;
@@ -435,7 +467,7 @@ public sealed class FormController
     /// <summary><c>true</c> when <see cref="DirtyPaths"/> is not empty.</summary>
     public bool IsDirty => DirtyPaths.Count > 0;
 
-    /// <summary>Errors to show: validation errors of touched fields plus every error set with <see cref="SetError"/>, by key.</summary>
+    /// <summary>Errors to show: validation errors of touched fields, validation errors of touched cells of repeatable lists keyed by <see cref="CellPath"/> (for example <c>lines[0].sku</c>), plus every error set with <see cref="SetError"/>, by key.</summary>
     public IReadOnlyDictionary<string, string> Errors
     {
         get
@@ -448,6 +480,13 @@ public sealed class FormController
                     result[path] = msg;
                 }
             }
+            foreach (var (cell, msg) in _cellErrors)
+            {
+                if (_touchedCells.Contains(cell))
+                {
+                    result[cell.ToString()] = msg;
+                }
+            }
             foreach (var (path, (msg, _)) in _customErrors)
             {
                 result[path] = msg;
@@ -456,11 +495,19 @@ public sealed class FormController
         }
     }
 
-    /// <summary><c>true</c> if any validation error exists, touched or not, or any error set with <see cref="SetError"/> as blocking. Validation errors only exist once validation has run.</summary>
-    public bool HasBlockingErrors =>
-        _validationErrors.Count > 0 || _customErrors.Values.Any(e => e.Blocking);
+    /// <summary><c>true</c> if a field in effect (see <see cref="ActiveFields"/>) or a cell of one of its repeatable lists has a validation error, touched or not, or if any error set with <see cref="SetError"/> is blocking. Validation errors only exist once validation has run.</summary>
+    public bool HasBlockingErrors
+    {
+        get
+        {
+            if (_customErrors.Values.Any(e => e.Blocking)) return true;
+            if (_validationErrors.Count == 0 && _cellErrors.Count == 0) return false;
+            var activeKeys = ActiveFields.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+            return _validationErrors.Keys.Any(activeKeys.Contains) || _cellErrors.Keys.Any(c => activeKeys.Contains(c.Array));
+        }
+    }
 
-    /// <summary>Every leaf field of the form: the fields of the steps, else of the sections, else of <see cref="FormSchema.Fields"/>, with groups, cards, objects and tabs flattened and ignored fields removed. Repeatable lists are leaves.</summary>
+    /// <summary>Every leaf field of the form: the fields of the steps, else of the sections, else of <see cref="FormSchema.Fields"/>, with groups, cards, objects and tabs flattened and ignored fields removed, whether they are visible or not. Repeatable lists are leaves; containers never are.</summary>
     public IReadOnlyList<FormFieldSchema> AllFields
     {
         get
@@ -468,6 +515,34 @@ public sealed class FormController
             if (IsStepped) return Schema.Steps.SelectMany(s => FlattenFields(s.Fields)).ToList();
             if (Schema.Sections.Count > 0) return Schema.Sections.SelectMany(s => FlattenFields(s.Fields)).ToList();
             return FlattenFields(Schema.Fields).ToList();
+        }
+    }
+
+    /// <summary>The stateful leaf fields in effect now, which are the ones validation checks and <see cref="BuildOutput"/> includes: the fields of <see cref="AllFields"/> that are visible, inside visible containers and visible tabs, in a visible section, and in the current step or a step that is not skipped. Stateless kinds are left out.</summary>
+    public IReadOnlyList<FormFieldSchema> ActiveFields
+    {
+        get
+        {
+            var result = new List<FormFieldSchema>();
+            if (IsStepped)
+            {
+                for (var i = 0; i < Schema.Steps.Count; i++)
+                {
+                    if (i == CurrentStepIndex || !IsStepSkipped(i)) CollectActive(Schema.Steps[i].Fields, result);
+                }
+            }
+            else if (Schema.Sections.Count > 0)
+            {
+                foreach (var section in Schema.Sections)
+                {
+                    if (IsSectionVisible(section)) CollectActive(section.Fields, result);
+                }
+            }
+            else
+            {
+                CollectActive(Schema.Fields, result);
+            }
+            return result;
         }
     }
 
@@ -513,7 +588,7 @@ public sealed class FormController
     public object? GetInitialValue(string path) =>
         _initialSnapshot.TryGetValue(path, out var val) ? val : null;
 
-    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key, validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/>, calls <see cref="FormFieldSchema.Watch"/> and raises <see cref="Changed"/>.</summary>
+    /// <summary>Sets a value, clears any error set with <see cref="SetError"/> on the key, validates the field if it has been touched and its trigger is not <see cref="FormValidationTrigger.Submit"/> (with that trigger, the validation error is cleared instead), calls <see cref="FormFieldSchema.Watch"/> and raises <see cref="Changed"/>.</summary>
     /// <param name="path">Key of the field.</param>
     /// <param name="value">The new value.</param>
     /// <param name="markTouched"><c>true</c> to mark the field touched, so its error is shown. Fields with the <see cref="FormValidationTrigger.Input"/> trigger are always marked.</param>
@@ -528,7 +603,11 @@ public sealed class FormController
             _touchedPaths.Add(path);
         }
 
-        if (_touchedPaths.Contains(path) && field is not null && field.Trigger != FormValidationTrigger.Submit)
+        if (field?.Trigger == FormValidationTrigger.Submit)
+        {
+            _validationErrors.Remove(path);
+        }
+        else if (_touchedPaths.Contains(path) && field is not null)
         {
             ValidateField(field);
         }
@@ -550,15 +629,22 @@ public sealed class FormController
         Changed?.Invoke();
     }
 
-    /// <summary>Restores a field to its initial value and clears its errors and touched state.</summary>
+    /// <summary>Restores a field to its initial value, clears its errors and touched state (and those of its cells for a repeatable list), and calls <see cref="FormFieldSchema.Watch"/> when the value changed.</summary>
     /// <param name="path">Key of the field.</param>
     public void ResetField(string path)
     {
+        _state.TryGetValue(path, out var before);
         _initialSnapshot.TryGetValue(path, out var init);
-        _state[path] = CloneValue(init);
+        var restored = CloneValue(init);
+        _state[path] = restored;
         _validationErrors.Remove(path);
         _customErrors.Remove(path);
         _touchedPaths.Remove(path);
+        RemoveCellState(path);
+        if (!ValuesEqual(before, restored))
+        {
+            FindField(path)?.Watch?.Invoke(restored, this);
+        }
         Changed?.Invoke();
     }
 
@@ -586,7 +672,7 @@ public sealed class FormController
         Changed?.Invoke();
     }
 
-    /// <summary>Clears errors set with <see cref="SetError"/> and validation errors, for one field or for all.</summary>
+    /// <summary>Clears errors set with <see cref="SetError"/> and validation errors, for one field or for all. Clearing a repeatable list also clears the errors of its cells.</summary>
     /// <param name="path">Key of the field, or <c>null</c> to clear every error.</param>
     public void ClearError(string? path = null)
     {
@@ -594,22 +680,27 @@ public sealed class FormController
         {
             _customErrors.Clear();
             _validationErrors.Clear();
+            _cellErrors.Clear();
         }
         else
         {
             _customErrors.Remove(path);
             _validationErrors.Remove(path);
+            foreach (var cell in _cellErrors.Keys.Where(c => c.Array == path).ToList())
+            {
+                _cellErrors.Remove(cell);
+            }
         }
         Changed?.Invoke();
     }
 
-    /// <summary>Gets the error to show for a field.</summary>
-    /// <param name="path">Key of the field.</param>
+    /// <summary>Gets the error to show for a field, or for a cell of a repeatable list by its <see cref="CellPath"/>.</summary>
+    /// <param name="path">Key of the field, or path of a cell.</param>
     /// <returns>The message, or <c>null</c> when there is none or the field has not been touched.</returns>
     public string? GetError(string path) =>
         Errors.TryGetValue(path, out var err) ? err : null;
 
-    /// <summary>Tells whether a field is shown: it is not ignored and its <see cref="FormFieldSchema.Condition"/> is absent or true.</summary>
+    /// <summary>Tells whether a field is shown: it is not ignored and its <see cref="FormFieldSchema.Condition"/> is absent or true. It does not look at the containers, tab, section or step that hold the field; <see cref="ActiveFields"/> does.</summary>
     /// <param name="field">The field to test.</param>
     /// <returns><c>true</c> if the field is visible.</returns>
     public bool ShouldRenderField(FormFieldSchema field) =>
@@ -695,10 +786,11 @@ public sealed class FormController
         return [];
     }
 
-    /// <summary>Appends a row to a repeatable list, filling each cell from the child field's default.</summary>
+    /// <summary>Appends a row to a repeatable list, filling each cell from the child field's default, then revalidates the list if it was touched and calls its <see cref="FormFieldSchema.Watch"/>.</summary>
     /// <param name="arrayField">The list field.</param>
     public void AddArrayItem(FormFieldSchema arrayField)
     {
+        ArgumentNullException.ThrowIfNull(arrayField);
         if (!_state.TryGetValue(arrayField.Key, out var val) || val is not List<Dictionary<string, object?>> list)
         {
             list = [];
@@ -713,10 +805,11 @@ public sealed class FormController
             }
         }
         list.Add(item);
+        AfterListChanged(arrayField, list);
         Changed?.Invoke();
     }
 
-    /// <summary>Removes a row from a repeatable list. Does nothing when the index is out of range.</summary>
+    /// <summary>Removes a row from a repeatable list, moving the errors and touched state of the following rows up, then revalidates the list if it was touched and calls its <see cref="FormFieldSchema.Watch"/>. Does nothing when the index is out of range.</summary>
     /// <param name="arrayKey">Key of the list field.</param>
     /// <param name="index">Zero-based index of the row.</param>
     public void RemoveArrayItem(string arrayKey, int index)
@@ -725,50 +818,133 @@ public sealed class FormController
             && index >= 0 && index < list.Count)
         {
             list.RemoveAt(index);
+            ShiftCellState(arrayKey, index);
+            if (FindField(arrayKey) is { } arrayField)
+            {
+                AfterListChanged(arrayField, list);
+            }
             Changed?.Invoke();
         }
     }
 
-    /// <summary>Sets one cell of a repeatable list. Does nothing when the index is out of range. Cells are not validated and do not call <see cref="FormFieldSchema.Watch"/>.</summary>
+    /// <summary>Sets one cell of a repeatable list. Does nothing when the index is out of range. The cell follows the <see cref="FormFieldSchema.Trigger"/> of its child field, like <see cref="SetValue"/> does for a field: it is validated with the child's rules once touched, unless the trigger is <see cref="FormValidationTrigger.Submit"/>, which clears its error instead. Then the child's <see cref="FormFieldSchema.Watch"/> is called with the cell value and the list's with the rows.</summary>
     /// <param name="arrayKey">Key of the list field.</param>
     /// <param name="index">Zero-based index of the row.</param>
     /// <param name="childKey">Key of the child field.</param>
     /// <param name="value">The new value.</param>
-    public void SetArrayItemValue(string arrayKey, int index, string childKey, object? value)
+    /// <param name="markTouched"><c>true</c> to mark the cell touched, so its error is shown. Children with the <see cref="FormValidationTrigger.Input"/> trigger are always marked.</param>
+    public void SetArrayItemValue(string arrayKey, int index, string childKey, object? value, bool markTouched = false)
     {
         if (_state.TryGetValue(arrayKey, out var val) && val is List<Dictionary<string, object?>> list
             && index >= 0 && index < list.Count)
         {
             list[index][childKey] = value;
+            var arrayField = FindField(arrayKey);
+            var child = arrayField?.Fields?.FirstOrDefault(f => f.Key == childKey);
+            if (arrayField is not null && child is not null)
+            {
+                var cell = new CellKey(arrayKey, index, childKey);
+                if (markTouched || child.Trigger == FormValidationTrigger.Input)
+                {
+                    _touchedCells.Add(cell);
+                }
+                if (child.Trigger == FormValidationTrigger.Submit)
+                {
+                    _cellErrors.Remove(cell);
+                }
+                else if (_touchedCells.Contains(cell))
+                {
+                    ValidateCell(arrayField, child, index);
+                }
+                child.Watch?.Invoke(value, this);
+                AfterListChanged(arrayField, list);
+            }
             Changed?.Invoke();
         }
     }
 
-    /// <summary>Validates the fields according to <see cref="FormSchema.ValidateMode"/> and marks them touched so their errors show. Hidden and stateless fields are skipped, and cells of repeatable lists are not checked.</summary>
+    /// <summary>Marks a cell of a repeatable list touched, which makes its validation error visible, and validates it unless the trigger of its child field is <see cref="FormValidationTrigger.Submit"/>. <c>KlyFormEngine</c> calls it when a cell loses focus.</summary>
+    /// <param name="arrayKey">Key of the list field.</param>
+    /// <param name="index">Zero-based index of the row.</param>
+    /// <param name="childKey">Key of the child field.</param>
+    public void MarkArrayItemTouched(string arrayKey, int index, string childKey)
+    {
+        var arrayField = FindField(arrayKey);
+        var child = arrayField?.Fields?.FirstOrDefault(f => f.Key == childKey);
+        if (arrayField is null || child is null || index < 0 || index >= GetArrayItems(arrayKey).Count) return;
+        _touchedCells.Add(new CellKey(arrayKey, index, childKey));
+        if (child.Trigger != FormValidationTrigger.Submit)
+        {
+            ValidateCell(arrayField, child, index);
+        }
+        Changed?.Invoke();
+    }
+
+    /// <summary>Gets the error to show for a cell of a repeatable list.</summary>
+    /// <param name="arrayKey">Key of the list field.</param>
+    /// <param name="index">Zero-based index of the row.</param>
+    /// <param name="childKey">Key of the child field.</param>
+    /// <returns>The message, or <c>null</c> when the cell has no error or has not been touched.</returns>
+    public string? GetArrayItemError(string arrayKey, int index, string childKey)
+    {
+        var cell = new CellKey(arrayKey, index, childKey);
+        return _touchedCells.Contains(cell) && _cellErrors.TryGetValue(cell, out var err) ? err : null;
+    }
+
+    /// <summary>Builds the path that identifies a cell of a repeatable list in <see cref="Errors"/> and <see cref="GetError"/>: <c>arrayKey[index].childKey</c>.</summary>
+    /// <param name="arrayKey">Key of the list field.</param>
+    /// <param name="index">Zero-based index of the row.</param>
+    /// <param name="childKey">Key of the child field.</param>
+    /// <returns>The path, for example <c>lines[0].sku</c>.</returns>
+    public static string CellPath(string arrayKey, int index, string childKey) =>
+        string.Create(CultureInfo.InvariantCulture, $"{arrayKey}[{index}].{childKey}");
+
+    /// <summary>Validates the fields in effect (see <see cref="ActiveFields"/>) according to <see cref="FormSchema.ValidateMode"/>, including each cell of their repeatable lists, and marks them touched so their errors show. Validation errors of fields that are not in effect, such as hidden ones, are removed.</summary>
     /// <param name="currentStepOnly"><c>true</c> to validate only the fields of the current step.</param>
-    /// <returns><c>true</c> if none of the validated fields has an error.</returns>
+    /// <returns><c>true</c> if none of the validated fields and cells has an error.</returns>
     public bool Validate(bool currentStepOnly = false)
     {
         if (Schema.ValidateMode == FormValidationMode.None)
         {
             _validationErrors.Clear();
+            _cellErrors.Clear();
             Changed?.Invoke();
             return !_customErrors.Values.Any(e => e.Blocking);
         }
 
-        var fieldsToValidate = currentStepOnly && CurrentStep is not null
-            ? FlattenFields(CurrentStep.Fields).ToList()
-            : AllFields;
+        var active = ActiveFields;
+        var activeKeys = active.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        foreach (var key in _validationErrors.Keys.Where(k => !activeKeys.Contains(k)).ToList())
+        {
+            _validationErrors.Remove(key);
+        }
+        foreach (var cell in _cellErrors.Keys.Where(c => !activeKeys.Contains(c.Array)).ToList())
+        {
+            _cellErrors.Remove(cell);
+        }
+
+        IReadOnlyList<FormFieldSchema> fieldsToValidate = active;
+        if (currentStepOnly && CurrentStep is not null)
+        {
+            var stepFields = new List<FormFieldSchema>();
+            CollectActive(CurrentStep.Fields, stepFields);
+            fieldsToValidate = stepFields;
+        }
 
         foreach (var field in fieldsToValidate)
         {
             _touchedPaths.Add(field.Key);
-            ValidateField(field);
+            ValidateFieldCore(field);
+            if (field.Kind is FormFieldKind.ArrayList or FormFieldKind.ArrayTable)
+            {
+                ValidateArrayCells(field);
+            }
         }
 
         Changed?.Invoke();
         var hasStepErrors = fieldsToValidate.Any(f =>
             _validationErrors.ContainsKey(f.Key)
+            || _cellErrors.Keys.Any(c => c.Array == f.Key)
             || (_customErrors.TryGetValue(f.Key, out var ce) && ce.Blocking));
         return !hasStepErrors;
     }
@@ -776,43 +952,132 @@ public sealed class FormController
     private void ValidateField(FormFieldSchema field)
     {
         _validationErrors.Remove(field.Key);
-        if (!ShouldRenderField(field) || IsStateless(field.Kind)) return;
-        if (Schema.ValidateMode == FormValidationMode.None) return;
+        if (!ActiveFields.Contains(field)) return;
+        ValidateFieldCore(field);
+    }
 
-        var val = GetValue(field.Key);
-        var isEmpty = IsEmptyValue(val);
-
-        if (Schema.ValidateMode is FormValidationMode.All or FormValidationMode.RequiredOnly)
+    private void ValidateFieldCore(FormFieldSchema field)
+    {
+        _validationErrors.Remove(field.Key);
+        if (CheckValue(field, GetValue(field.Key)) is { } error)
         {
-            if (IsFieldRequired(field) && IsMissingValue(field, val))
+            _validationErrors[field.Key] = error;
+        }
+    }
+
+    private void ValidateArrayCells(FormFieldSchema arrayField)
+    {
+        foreach (var cell in _cellErrors.Keys.Where(c => c.Array == arrayField.Key).ToList())
+        {
+            _cellErrors.Remove(cell);
+        }
+        var rows = GetArrayItems(arrayField.Key);
+        var children = CellFields(arrayField);
+        for (var i = 0; i < rows.Count; i++)
+        {
+            foreach (var child in children)
             {
-                _validationErrors[field.Key] = field.RequiredMessage ?? "This field is required";
-                return;
+                var cell = new CellKey(arrayField.Key, i, child.Key);
+                _touchedCells.Add(cell);
+                if (CheckValue(child, rows[i].GetValueOrDefault(child.Key)) is { } error)
+                {
+                    _cellErrors[cell] = error;
+                }
             }
         }
+    }
 
-        if (Schema.ValidateMode == FormValidationMode.RequiredOnly) return;
+    private void ValidateCell(FormFieldSchema arrayField, FormFieldSchema child, int index)
+    {
+        var cell = new CellKey(arrayField.Key, index, child.Key);
+        _cellErrors.Remove(cell);
+        if (!ActiveFields.Contains(arrayField) || !CellFields(arrayField).Contains(child)) return;
+        var rows = GetArrayItems(arrayField.Key);
+        if (index < 0 || index >= rows.Count) return;
+        if (CheckValue(child, rows[index].GetValueOrDefault(child.Key)) is { } error)
+        {
+            _cellErrors[cell] = error;
+        }
+    }
+
+    // The children of a repeatable list that are columns now: visible, stateful leaves.
+    private List<FormFieldSchema> CellFields(FormFieldSchema arrayField) =>
+        (arrayField.Fields ?? []).Where(c => ShouldRenderField(c) && !IsStateless(c.Kind) && !IsContainer(c.Kind)).ToList();
+
+    private void AfterListChanged(FormFieldSchema arrayField, List<Dictionary<string, object?>> list)
+    {
+        if (arrayField.Trigger == FormValidationTrigger.Submit)
+        {
+            _validationErrors.Remove(arrayField.Key);
+        }
+        else if (_touchedPaths.Contains(arrayField.Key))
+        {
+            ValidateField(arrayField);
+        }
+        arrayField.Watch?.Invoke(list, this);
+    }
+
+    private void RemoveCellState(string arrayKey)
+    {
+        _cellErrors.Keys.Where(c => c.Array == arrayKey).ToList().ForEach(c => _cellErrors.Remove(c));
+        _touchedCells.RemoveWhere(c => c.Array == arrayKey);
+    }
+
+    private void ShiftCellState(string arrayKey, int removedRow)
+    {
+        var errors = _cellErrors.Where(e => e.Key.Array == arrayKey).ToList();
+        var touched = _touchedCells.Where(c => c.Array == arrayKey).ToList();
+        RemoveCellState(arrayKey);
+        foreach (var (cell, msg) in errors)
+        {
+            if (cell.Row != removedRow) _cellErrors[cell.Row > removedRow ? cell with { Row = cell.Row - 1 } : cell] = msg;
+        }
+        foreach (var cell in touched)
+        {
+            if (cell.Row != removedRow) _touchedCells.Add(cell.Row > removedRow ? cell with { Row = cell.Row - 1 } : cell);
+        }
+    }
+
+    // The first failing check of a value against the rules of a field, or null.
+    private string? CheckValue(FormFieldSchema field, object? val)
+    {
+        if (Schema.ValidateMode == FormValidationMode.None) return null;
+        var isEmpty = IsEmptyValue(val);
+
+        if (Schema.ValidateMode is FormValidationMode.All or FormValidationMode.RequiredOnly
+            && IsFieldRequired(field) && IsMissingValue(field, val))
+        {
+            return field.RequiredMessage ?? "This field is required";
+        }
+
+        if (Schema.ValidateMode == FormValidationMode.RequiredOnly) return null;
 
         // Number bounds
         if (field.Kind == FormFieldKind.Number && !isEmpty && TryConvertDouble(val, out var num))
         {
             if (field.Min is { } min && num < min)
             {
-                _validationErrors[field.Key] = $"Value must be at least {min.ToString(CultureInfo.InvariantCulture)}";
-                return;
+                return $"Value must be at least {min.ToString(CultureInfo.InvariantCulture)}";
             }
             if (field.Max is { } max && num > max)
             {
-                _validationErrors[field.Key] = $"Value must be at most {max.ToString(CultureInfo.InvariantCulture)}";
-                return;
+                return $"Value must be at most {max.ToString(CultureInfo.InvariantCulture)}";
             }
         }
 
         // Text length
         if (field.MaxLength is { } maxLength && val is string text && text.Length > maxLength)
         {
-            _validationErrors[field.Key] = $"Must be at most {maxLength.ToString(CultureInfo.InvariantCulture)} characters";
-            return;
+            return $"Must be at most {maxLength.ToString(CultureInfo.InvariantCulture)} characters";
+        }
+
+        // Date range order
+        if (field.Kind == FormFieldKind.DateRange && val is IReadOnlyList<string> { Count: 2 } range
+            && DateOnly.TryParseExact(range[0], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var start)
+            && DateOnly.TryParseExact(range[1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)
+            && end < start)
+        {
+            return "The end date must not be before the start date";
         }
 
         // Password requirements
@@ -823,8 +1088,7 @@ public sealed class FormController
             {
                 if (!req.Validate(str))
                 {
-                    _validationErrors[field.Key] = req.Label;
-                    return;
+                    return req.Label;
                 }
             }
         }
@@ -836,21 +1100,21 @@ public sealed class FormController
             {
                 if (!rule.Validate(val, this))
                 {
-                    _validationErrors[field.Key] = rule.Message;
-                    return;
+                    return rule.Message;
                 }
             }
         }
+        return null;
     }
 
-    /// <summary>Builds the dictionary to submit: every visible, stateful field except those with <see cref="FormFieldSchema.OmitFromOutput"/>, with <see cref="FormFieldSchema.TransformOutput"/> applied. Lists are copied.</summary>
+    /// <summary>Builds the dictionary to submit: every field in effect (see <see cref="ActiveFields"/>) except those with <see cref="FormFieldSchema.OmitFromOutput"/>, with <see cref="FormFieldSchema.TransformOutput"/> applied. Fields that are hidden, in a hidden container, tab or section, or in a skipped step are left out, and their values stay in the state. Lists are copied.</summary>
     /// <returns>The values by field key.</returns>
     public IReadOnlyDictionary<string, object?> BuildOutput()
     {
         var output = new Dictionary<string, object?>(StringComparer.Ordinal);
-        foreach (var field in AllFields)
+        foreach (var field in ActiveFields)
         {
-            if (!ShouldRenderField(field) || IsStateless(field.Kind) || field.OmitFromOutput)
+            if (field.OmitFromOutput)
             {
                 continue;
             }
@@ -878,15 +1142,14 @@ public sealed class FormController
         }
 
         var nextIdx = CurrentStepIndex + 1;
-        while (nextIdx < Schema.Steps.Count && Schema.Steps[nextIdx].SkipWhen?.Invoke(this) == true)
+        while (nextIdx < Schema.Steps.Count && IsStepSkipped(nextIdx))
         {
             nextIdx++;
         }
         if (nextIdx >= Schema.Steps.Count) return false;
 
         CurrentStepIndex = nextIdx;
-        _validationErrors.Clear();
-        _touchedPaths.Clear();
+        ClearValidationState();
         Changed?.Invoke();
         return true;
     }
@@ -903,20 +1166,19 @@ public sealed class FormController
         }
 
         var prevIdx = CurrentStepIndex - 1;
-        while (prevIdx >= 0 && Schema.Steps[prevIdx].SkipWhen?.Invoke(this) == true)
+        while (prevIdx >= 0 && IsStepSkipped(prevIdx))
         {
             prevIdx--;
         }
         if (prevIdx < 0) return false;
 
         CurrentStepIndex = prevIdx;
-        _validationErrors.Clear();
-        _touchedPaths.Clear();
+        ClearValidationState();
         Changed?.Invoke();
         return true;
     }
 
-    /// <summary>Validates every field, runs <see cref="FormSchema.OnBeforeSubmit"/> then <see cref="FormSchema.OnSubmit"/>, and on success takes a new initial snapshot so the form is no longer dirty. <see cref="IsSubmitting"/> is true meanwhile.</summary>
+    /// <summary>Validates every field in effect, runs <see cref="FormSchema.OnBeforeSubmit"/> then <see cref="FormSchema.OnSubmit"/>, and on success takes a new initial snapshot so the form is no longer dirty. <see cref="IsSubmitting"/> is true meanwhile.</summary>
     /// <returns><c>true</c> if the form was submitted. <c>false</c> if a submission is already running, validation fails or <see cref="FormSchema.OnBeforeSubmit"/> returns <c>false</c>.</returns>
     public async Task<bool> SubmitAsync()
     {
@@ -953,19 +1215,19 @@ public sealed class FormController
         }
     }
 
-    /// <summary>Clears errors and touched state, returns to the first step and reloads the state from <paramref name="newInput"/>, which also becomes the new dirty-tracking baseline.</summary>
+    /// <summary>Clears errors and touched state, reloads the state from <paramref name="newInput"/>, which also becomes the new dirty-tracking baseline, and returns to the first step that is not skipped. <see cref="FormFieldSchema.Watch"/> is not called.</summary>
     /// <param name="newInput">New initial values, or <c>null</c> to start from the defaults.</param>
     public void Reset(IReadOnlyDictionary<string, object?>? newInput = null)
     {
-        _validationErrors.Clear();
+        ClearValidationState();
         _customErrors.Clear();
-        _touchedPaths.Clear();
         CurrentStepIndex = 0;
         InitializeState(newInput);
+        CurrentStepIndex = FirstReachableStepIndex();
         Changed?.Invoke();
     }
 
-    /// <summary>Computes the completion state of each visible section from the current values and errors.</summary>
+    /// <summary>Computes the completion state of each visible section from the current values and errors. Fields in hidden containers or tabs are not counted.</summary>
     /// <returns>One state per visible section, in schema order.</returns>
     public IReadOnlyList<FormPageSectionState> GetSectionStates()
     {
@@ -973,7 +1235,8 @@ public sealed class FormController
         var dirtySet = DirtyPaths.ToHashSet(StringComparer.Ordinal);
         foreach (var section in Schema.Sections.Where(IsSectionVisible))
         {
-            var leaves = FlattenFields(section.Fields).Where(f => ShouldRenderField(f) && !IsStateless(f.Kind)).ToList();
+            var leaves = new List<FormFieldSchema>();
+            CollectActive(section.Fields, leaves);
             var reqCount = 0;
             var missingCount = 0;
             var hasError = false;
@@ -990,7 +1253,8 @@ public sealed class FormController
                     reqCount++;
                     if (IsMissingValue(leaf, val)) missingCount++;
                 }
-                if (_validationErrors.ContainsKey(leaf.Key) || _customErrors.ContainsKey(leaf.Key))
+                if (_validationErrors.ContainsKey(leaf.Key) || _customErrors.ContainsKey(leaf.Key)
+                    || _cellErrors.Keys.Any(c => c.Array == leaf.Key))
                 {
                     hasError = true;
                 }
@@ -1058,29 +1322,72 @@ public sealed class FormController
         }
     }
 
+    private void ClearValidationState()
+    {
+        _validationErrors.Clear();
+        _touchedPaths.Clear();
+        _cellErrors.Clear();
+        _touchedCells.Clear();
+    }
+
+    private bool IsStepSkipped(int index) =>
+        Schema.Steps[index].SkipWhen?.Invoke(this) == true;
+
+    private int FirstReachableStepIndex()
+    {
+        for (var i = 0; i < Schema.Steps.Count; i++)
+        {
+            if (!IsStepSkipped(i)) return i;
+        }
+        return 0;
+    }
+
     private FormFieldSchema? FindField(string key) =>
         AllFields.FirstOrDefault(f => f.Key == key);
 
-    private IEnumerable<FormFieldSchema> FlattenFields(IEnumerable<FormFieldSchema> fields)
+    private void CollectActive(IEnumerable<FormFieldSchema> fields, List<FormFieldSchema> result)
+    {
+        foreach (var field in fields)
+        {
+            if (!ShouldRenderField(field)) continue;
+            if (field.Kind == FormFieldKind.Tabs)
+            {
+                foreach (var tab in field.Tabs ?? [])
+                {
+                    if (tab.Condition is null || tab.Condition(this)) CollectActive(tab.Fields, result);
+                }
+            }
+            else if (IsContainer(field.Kind))
+            {
+                CollectActive(field.Fields ?? [], result);
+            }
+            else if (!IsStateless(field.Kind))
+            {
+                result.Add(field);
+            }
+        }
+    }
+
+    private static IEnumerable<FormFieldSchema> FlattenFields(IEnumerable<FormFieldSchema> fields)
     {
         foreach (var field in fields)
         {
             if (field.Ignore) continue;
-            if (field.Kind is FormFieldKind.Group or FormFieldKind.Card or FormFieldKind.Object && field.Fields is not null)
+            if (field.Kind == FormFieldKind.Tabs)
             {
-                foreach (var child in FlattenFields(field.Fields))
-                {
-                    yield return child;
-                }
-            }
-            else if (field.Kind == FormFieldKind.Tabs && field.Tabs is not null)
-            {
-                foreach (var tab in field.Tabs)
+                foreach (var tab in field.Tabs ?? [])
                 {
                     foreach (var child in FlattenFields(tab.Fields))
                     {
                         yield return child;
                     }
+                }
+            }
+            else if (IsContainer(field.Kind))
+            {
+                foreach (var child in FlattenFields(field.Fields ?? []))
+                {
+                    yield return child;
                 }
             }
             else
@@ -1096,6 +1403,12 @@ public sealed class FormController
     public static bool IsStateless(FormFieldKind kind) =>
         kind is FormFieldKind.Info or FormFieldKind.Divider or FormFieldKind.Section or FormFieldKind.Button;
 
+    /// <summary>Tells whether a kind is a layout container whose children are fields of their own: <see cref="FormFieldKind.Group"/>, <see cref="FormFieldKind.Card"/>, <see cref="FormFieldKind.Object"/> and <see cref="FormFieldKind.Tabs"/>. A container never has a value, even without children.</summary>
+    /// <param name="kind">The kind to test.</param>
+    /// <returns><c>true</c> for a container kind.</returns>
+    public static bool IsContainer(FormFieldKind kind) =>
+        kind is FormFieldKind.Group or FormFieldKind.Card or FormFieldKind.Object or FormFieldKind.Tabs;
+
     /// <summary>Tells whether a value counts as empty for required checks: <c>null</c>, a blank string or an empty collection. <c>false</c> and <c>0</c> are not empty.</summary>
     /// <param name="value">The value to test.</param>
     /// <returns><c>true</c> if the value is empty.</returns>
@@ -1108,9 +1421,11 @@ public sealed class FormController
         _ => false,
     };
 
-    // A required checkbox or switch is a consent: it is satisfied only when checked.
+    // A required checkbox or switch is a consent: it is satisfied only when checked. A required date range needs both dates.
     private static bool IsMissingValue(FormFieldSchema field, object? value) =>
-        IsEmptyValue(value) || (field.Kind is FormFieldKind.Checkbox or FormFieldKind.Switch && value is not true);
+        IsEmptyValue(value)
+        || (field.Kind is FormFieldKind.Checkbox or FormFieldKind.Switch && value is not true)
+        || (field.Kind == FormFieldKind.DateRange && (value is not IReadOnlyList<string> { Count: 2 } range || range.Any(string.IsNullOrWhiteSpace)));
 
     private static bool TryConvertDouble(object? val, out double d)
     {
@@ -1186,20 +1501,26 @@ public sealed class FormService
     /// <summary><c>true</c> while a form is open.</summary>
     public bool IsOpen => ActiveForm is not null;
 
-    /// <summary>Opens a form in the mounted <c>KlyFormProvider</c> and waits for its result. Opening a form while another is open replaces it, and the replaced form's task never completes.</summary>
+    /// <summary>Opens a form in the mounted <c>KlyFormProvider</c> and waits for its result. Opening a form while another is open replaces it, and the replaced form's task completes with <see cref="FormSubmitOutcome.IsCompleted"/> set to <c>false</c> and that form's output, as if it had been closed.</summary>
     /// <param name="schema">The form to show.</param>
     /// <param name="input">Initial values by field key.</param>
     /// <param name="mode">How to present the form.</param>
-    /// <returns>A task that completes with <see cref="FormSubmitOutcome.IsCompleted"/> set to <c>true</c> after a successful submit, or <c>false</c> after <see cref="CloseForm"/>.</returns>
+    /// <returns>A task that completes with <see cref="FormSubmitOutcome.IsCompleted"/> set to <c>true</c> after a successful submit, or <c>false</c> after <see cref="CloseForm"/> or when another form replaces it.</returns>
     public Task<FormSubmitOutcome> CreateFormAsync(
         FormSchema schema,
         IReadOnlyDictionary<string, object?>? input = null,
         FormShellMode mode = FormShellMode.Modal)
     {
+        var replaced = ActiveForm;
+        var replacedTcs = _tcs;
         ActiveForm = new FormController(schema, input);
         ActiveMode = mode;
         _tcs = new TaskCompletionSource<FormSubmitOutcome>(TaskCreationOptions.RunContinuationsAsynchronously);
         Changed?.Invoke();
+        if (replaced is not null)
+        {
+            replacedTcs?.TrySetResult(new FormSubmitOutcome(false, replaced.BuildOutput()));
+        }
         return _tcs.Task;
     }
 
