@@ -34,6 +34,17 @@ internal static class FormValueConverter
         return false;
     }
 
+    // The same conversion for a target known only at run time (a model member). Type is compared, never inspected, so it stays trim and AOT safe.
+    internal static bool TryConvert(object? raw, Type target, out object? value)
+    {
+        value = null;
+        if (raw is null) return false;
+        var type = Nullable.GetUnderlyingType(target) ?? target;
+        if (type.IsInstanceOfType(raw)) { value = raw; return true; }
+        if (type != typeof(string) && raw is string text && string.IsNullOrWhiteSpace(text)) return false;
+        return TryConvertCore(raw, type, out value);
+    }
+
     private static bool TryConvertCore(object raw, Type type, out object? result)
     {
         result = null;
