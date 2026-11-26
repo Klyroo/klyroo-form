@@ -7,7 +7,8 @@
     var sectionStates = Form.GetSectionStates();
     var blockingCount = sectionStates.Count(s => s.Status is FormPageSectionStatus.Invalid or FormPageSectionStatus.Pending);
 
-    <div class="@RootClass" data-slot="form-page" @attributes="AdditionalAttributes">
+    <form novalidate class="@RootClass" data-slot="form-page" data-key="@Form.Schema.FormKey"
+          @onsubmit="OnSubmitAsync" @onsubmit:preventDefault @attributes="AdditionalAttributes">
         @if (!string.IsNullOrEmpty(Form.Schema.Title) || !string.IsNullOrEmpty(Form.Schema.Description))
         {
             <header class="flex flex-wrap items-start justify-between gap-4 border-b border-(--klyroo-border) pb-4" data-slot="form-page-header">
@@ -60,11 +61,13 @@
 
             @* Sections stack *@
             <div class="@(sectionStates.Count > 0 ? "lg:col-span-9" : "lg:col-span-12") flex flex-col gap-4" data-slot="form-page-sections">
+                <div class="grid grid-cols-12 gap-4">
                 @foreach (var sectionSchema in Form.Schema.Sections.Where(Form.IsSectionVisible))
                 {
                     var state = sectionStates.First(s => s.Key == sectionSchema.Key);
                     <section id="@sectionSchema.Key"
-                             class="flex flex-col gap-3 rounded-(--klyroo-radius-md) border @(state.Dirty ? "border-(--klyroo-primary-text)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-4"
+                             style="@($"--kly-section-span: span {Math.Clamp(sectionSchema.Span, 1, 12)} / span {Math.Clamp(sectionSchema.Span, 1, 12)}")"
+                             class="col-span-12 lg:[grid-column:var(--kly-section-span)] flex flex-col gap-3 rounded-(--klyroo-radius-md) border @(state.Dirty ? "border-(--klyroo-primary-text)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-4"
                              data-slot="form-page-section"
                              data-key="@sectionSchema.Key"
                              data-dirty="@(state.Dirty ? "true" : "false")"
@@ -88,48 +91,27 @@
                             }
                         </div>
 
-                        <div class="grid grid-cols-12 gap-4">
-                            @foreach (var field in sectionSchema.Fields.Where(Form.ShouldRenderField))
+                        <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(Form.Schema)))" data-slot="form-page-fields">
+                            @foreach (var field in sectionSchema.Fields)
                             {
-                                var val = Form.GetValue(field.Key)?.ToString() ?? "";
-                                var err = Form.GetError(field.Key);
-                                <div style="@($"grid-column: span {Math.Clamp(field.Span, 1, 12)} / span {Math.Clamp(field.Span, 1, 12)}")"
-                                     class="flex flex-col gap-1"
-                                     data-slot="form-page-field"
-                                     data-form-field="@field.Key">
-                                    <label class="text-xs font-semibold text-(--klyroo-text-highlighted)">
-                                        @field.Label
-                                        @if (Form.IsFieldRequired(field))
-                                        {
-                                            <span class="ms-0.5 text-(--klyroo-error-text)">*</span>
-                                        }
-                                    </label>
-                                    <input type="text"
-                                           value="@val"
-                                           placeholder="@field.Placeholder"
-                                           class="h-9 w-full rounded-(--klyroo-radius) border @(err is not null ? "border-(--klyroo-error)" : "border-(--klyroo-border)") bg-(--klyroo-bg) px-3 text-xs"
-                                           @oninput="@(e => Form.SetValue(field.Key, e.Value?.ToString(), markTouched: true))" />
-                                    @if (!string.IsNullOrEmpty(err))
-                                    {
-                                        <p class="m-0 text-xs font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-field-error">@err</p>
-                                    }
-                                </div>
+                                <KlySchemaField Form="Form" Field="field" />
                             }
                         </div>
                     </section>
                 }
+                </div>
 
                 <div class="flex justify-end gap-2 pt-2">
-                    <button type="button"
-                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90"
-                            data-slot="form-page-submit"
-                            @onclick="OnSubmitClickAsync">
-                        Submit
+                    <button type="submit"
+                            class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90 disabled:opacity-50"
+                            disabled="@Form.IsSubmitting"
+                            data-slot="form-page-submit">
+                        @(Form.IsSubmitting ? "Saving…" : "Submit")
                     </button>
                 </div>
             </div>
         </div>
-    </div>
+    </form>
 }
 
 @code {
@@ -157,7 +139,7 @@
 
     private void OnChanged() => _ = InvokeAsync(StateHasChanged);
 
-    private async Task OnSubmitClickAsync()
+    private async Task OnSubmitAsync()
     {
         var ok = await Form.SubmitAsync();
         if (ok && OnSubmit.HasDelegate)

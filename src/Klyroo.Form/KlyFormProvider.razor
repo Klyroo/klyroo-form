@@ -10,15 +10,29 @@
 
 @if (FormApi.IsOpen && FormApi.ActiveForm is { } activeForm)
 {
-    <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4"
+    var mode = FormApi.ActiveMode;
+    var overlayClass = mode switch
+    {
+        FormShellMode.Drawer => "fixed inset-0 z-50 flex justify-end bg-black/55",
+        FormShellMode.Fullscreen => "fixed inset-0 z-50 flex bg-(--klyroo-bg)",
+        _ => "fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4",
+    };
+    var panelClass = mode switch
+    {
+        FormShellMode.Drawer => "h-dvh w-full max-w-md overflow-y-auto border-s border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl",
+        FormShellMode.Fullscreen => "h-dvh w-full overflow-y-auto bg-(--klyroo-bg) p-5 sm:p-8",
+        _ => "max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-(--klyroo-radius-lg) border border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl",
+    };
+    <div class="@overlayClass"
          role="dialog" aria-modal="true" aria-label="@(activeForm.Schema.Title ?? "Form")"
-         data-slot="form-provider-overlay" data-mode="@FormApi.ActiveMode.ToString().ToLowerInvariant()">
-        <div class="max-h-[90dvh] w-full max-w-2xl overflow-y-auto rounded-(--klyroo-radius-lg) border border-(--klyroo-border) bg-(--klyroo-bg) p-5 shadow-xl"
-             data-slot="form-provider-dialog">
-            <KlyFormEngine Form="@activeForm"
-                          Shell="@FormApi.ActiveMode"
-                          OnSubmit="@(_ => FormApi.CompleteSubmittedForm(activeForm))"
-                          OnCancel="@(_ => FormApi.CloseForm())" />
+         data-slot="form-provider-overlay" data-mode="@mode.ToString().ToLowerInvariant()">
+        <div class="@panelClass" data-slot="form-provider-dialog">
+            <div class="@(mode == FormShellMode.Fullscreen ? "mx-auto w-full max-w-3xl" : "w-full")">
+                <KlyFormEngine Form="@activeForm"
+                              Shell="@mode"
+                              OnSubmit="@(_ => FormApi.CompleteSubmittedForm(activeForm))"
+                              OnCancel="@(_ => FormApi.CloseForm())" />
+            </div>
         </div>
     </div>
 }

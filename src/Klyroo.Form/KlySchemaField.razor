@@ -1,0 +1,1054 @@
+@namespace Klyroo.Form
+@using System.Globalization
+
+@if (Form is not null && Field is not null && Form.ShouldRenderField(Field))
+{
+    @RenderField(Form, Field)
+}
+
+@code {
+    // Inputs that must not submit the enclosing form when the user presses Enter (tag and create-option inputs) point their
+    // form attribute at an id that no element has: an input whose form attribute matches no form element has no form owner.
+    private const string DetachedFormId = "kly-form-detached";
+
+    private readonly HashSet<string> _revealedPasswords = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _drafts = new(StringComparer.Ordinal);
+    private string? _activeTab;
+
+    /// <summary>The controller that holds the value of the field.</summary>
+    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+
+    /// <summary>The field to render, usually one of <see cref="FormController.CurrentVisibleTopFields"/>. Containers render their children with nested <see cref="KlySchemaField"/> components.</summary>
+    [Parameter, EditorRequired] public FormFieldSchema Field { get; set; } = default!;
+
+    private int Cols => FormLayout.Columns(Form.Schema);
+
+    // Everything a control needs, so the same control renders a field or a cell of a repeatable list.
+    private sealed record Binding(
+        string Id,
+        object? Value,
+        Action<object?> Set,
+        Action<object?> Commit,
+        Action Blur,
+        string? Error,
+        bool Disabled,
+        bool Required,
+        string? LabelledBy,
+        string? DescribedBy,
+        string Slot,
+        bool IsCell);
+
+    private static bool HasInlineLabel(FormFieldKind kind) => kind is FormFieldKind.Checkbox or FormFieldKind.Switch;
+
+    // Controls made of several inputs are labelled through aria-labelledby instead of a label element.
+    private static bool IsGroupControl(FormFieldSchema field) =>
+        field.Kind is FormFieldKind.Radio or FormFieldKind.CheckboxGroup or FormFieldKind.Rating or FormFieldKind.DateRange
+        || (field.Kind is FormFieldKind.Select or FormFieldKind.AutoComplete && field.Multiple);
+
+    private static string? Join(params string?[] ids)
+    {
+        var list = ids.Where(i => !string.IsNullOrEmpty(i)).ToList();
+        return list.Count == 0 ? null : string.Join(' ', list);
+    }
+
+    private static string InputClass(string? error, string extra = "") =>
+        $"h-9 w-full rounded-(--klyroo-radius) border {(error is not null ? "border-(--klyroo-error)" : "border-(--klyroo-border)")} bg-(--klyroo-bg) px-3 text-xs text-(--klyroo-text) disabled:opacity-50 {extra}".Trim();
+
+    private const string ClearButtonClass = "inline-flex size-8 shrink-0 items-center justify-center rounded-(--klyroo-radius) border border-(--klyroo-border) text-xs text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50";
+
+    private RenderFragment RenderField(FormController form, FormFieldSchema field)
+    {
+        var cols = Cols;
+        var spanStyle = FormLayout.SpanStyle(field.Span, cols);
+        var fieldId = FormLayout.Id(field.Key);
+
+        switch (field.Kind)
+        {
+            case FormFieldKind.Hidden:
+                return @<input type="hidden" name="@field.Key" value="@(form.GetValue(field.Key)?.ToString())" data-form-field="@field.Key" />;
+
+            case FormFieldKind.Divider:
+                return @<div style="@spanStyle" class="my-1 border-t border-(--klyroo-border)" data-slot="form-divider"></div>;
+
+            case FormFieldKind.Section:
+                return @<div style="@spanStyle" class="flex flex-col gap-0.5 pt-2" data-slot="form-section-heading">
+                    <h3 class="m-0 text-sm font-bold text-(--klyroo-text-highlighted)">@field.Label</h3>
+                    @if (!string.IsNullOrEmpty(field.Description))
+                    {
+                        <p class="m-0 text-xs text-(--klyroo-text-muted)">@field.Description</p>
+                    }
+                </div>;
+
+            case FormFieldKind.Info:
+                return RenderInfo(field, spanStyle);
+
+            case FormFieldKind.Button:
+                var buttonDisabled = form.IsFieldDisabled(field);
+                return @<div style="@spanStyle" class="flex flex-col gap-1" data-slot="form-button-field" data-form-field="@field.Key">
+                    <button type="button" id="@fieldId"
+                            class="inline-flex h-9 w-fit items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3.5 text-xs font-semibold text-(--klyroo-text) hover:bg-(--klyroo-bg-muted) disabled:opacity-50"
+                            disabled="@buttonDisabled"
+                            aria-describedby="@(string.IsNullOrEmpty(field.Help) ? null : $"{fieldId}-help")"
+                            data-slot="form-button"
+                            @onclick="@(() => OnButtonClickAsync(form, field))">
+                        @(field.Label ?? field.Key)
+                    </button>
+                    @if (!string.IsNullOrEmpty(field.Help))
+                    {
+                        <span id="@($"{fieldId}-help")" class="text-xs text-(--klyroo-text-muted)" data-slot="form-field-help">@field.Help</span>
+                    }
+                </div>;
+
+            case FormFieldKind.Group:
+            case FormFieldKind.Card:
+            case FormFieldKind.Object:
+                return field.Fields is null ? @<text></text> : RenderContainer(form, field, spanStyle, cols);
+
+            case FormFieldKind.Tabs:
+                return field.Tabs is { Count: > 0 } ? RenderTabs(form, field, spanStyle, fieldId, cols) : @<text></text>;
+
+            case FormFieldKind.ArrayList:
+            case FormFieldKind.ArrayTable:
+                return RenderArrayField(form, field, spanStyle, fieldId, cols);
+        }
+
+        var error = form.GetError(field.Key);
+        var required = form.IsFieldRequired(field);
+        var disabled = form.IsFieldDisabled(field);
+        var isDirty = form.DirtyPaths.Contains(field.Key);
+        var labelId = $"{fieldId}-label";
+        var descriptionId = string.IsNullOrEmpty(field.Description) ? null : $"{fieldId}-description";
+        var helpId = string.IsNullOrEmpty(field.Help) ? null : $"{fieldId}-help";
+        var errorId = error is null ? null : $"{fieldId}-error";
+        var showLabel = !string.IsNullOrEmpty(field.Label) && !HasInlineLabel(field.Kind);
+        var showReset = field.DirtyCheck && isDirty;
+        var showHeader = showLabel || !string.IsNullOrEmpty(field.Hint) || showReset;
+        var groupControl = IsGroupControl(field);
+
+        var binding = new Binding(
+            fieldId,
+            form.GetValue(field.Key),
+            v => form.SetValue(field.Key, v),
+            v => form.SetValue(field.Key, v, markTouched: true),
+            () => form.MarkTouched(field.Key),
+            error,
+            disabled,
+            required,
+            groupControl && showLabel ? labelId : null,
+            Join(descriptionId, helpId, errorId),
+            "form-control",
+            IsCell: false);
+
+        return @<div style="@spanStyle" class="flex flex-col gap-1.5" data-slot="form-field" data-form-field="@field.Key"
+                     data-kind="@field.Kind.ToString().ToLowerInvariant()" data-invalid="@(error is not null ? "true" : null)">
+            @if (showHeader)
+            {
+                <div class="flex items-center justify-between gap-2" data-slot="form-field-header">
+                    @if (showLabel)
+                    {
+                        @if (groupControl)
+                        {
+                            <span id="@labelId" class="text-xs font-semibold text-(--klyroo-text-highlighted)" data-slot="form-field-label">
+                                @field.Label
+                                @if (required)
+                                {
+                                    <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                                }
+                            </span>
+                        }
+                        else
+                        {
+                            <label for="@fieldId" id="@labelId" class="text-xs font-semibold text-(--klyroo-text-highlighted)" data-slot="form-field-label">
+                                @field.Label
+                                @if (required)
+                                {
+                                    <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                                }
+                            </label>
+                        }
+                    }
+                    <div class="ms-auto flex items-center gap-2 text-xs text-(--klyroo-text-muted)">
+                        @if (!string.IsNullOrEmpty(field.Hint))
+                        {
+                            <span data-slot="form-field-hint">@field.Hint</span>
+                        }
+                        @if (showReset)
+                        {
+                            <button type="button" class="text-(--klyroo-primary-text) hover:underline"
+                                    data-slot="form-field-reset" @onclick="@(() => form.ResetField(field.Key))">
+                                Reset
+                            </button>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (descriptionId is not null)
+            {
+                <p id="@descriptionId" class="m-0 text-xs text-(--klyroo-text-muted)" data-slot="form-field-description">@field.Description</p>
+            }
+
+            @RenderControl(form, field, binding)
+
+            @if (field.OnCreateOption is not null && field.Kind is FormFieldKind.Select or FormFieldKind.AutoComplete)
+            {
+                @RenderCreateOption(form, field, binding)
+            }
+
+            @if (disabled && !string.IsNullOrEmpty(field.DisabledReason))
+            {
+                <span class="text-xs text-(--klyroo-text-muted)" data-slot="form-field-disabled-reason">🔒 @field.DisabledReason</span>
+            }
+
+            @if (helpId is not null)
+            {
+                <span id="@helpId" class="text-xs text-(--klyroo-text-muted)" data-slot="form-field-help">@field.Help</span>
+            }
+
+            @if (errorId is not null)
+            {
+                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-field-error">@error</p>
+            }
+        </div>;
+    }
+
+    private RenderFragment RenderInfo(FormFieldSchema field, string spanStyle)
+    {
+        var tone = (field.DisplayTone ?? "neutral").Trim().ToLowerInvariant();
+        tone = tone is "info" or "success" or "warning" or "error" ? tone : "neutral";
+        var plain = string.Equals(field.DisplayKind?.Trim(), "text", StringComparison.OrdinalIgnoreCase);
+        var toneText = tone switch
+        {
+            "info" => "text-(--klyroo-info-text)",
+            "success" => "text-(--klyroo-success-text)",
+            "warning" => "text-(--klyroo-warning-text)",
+            "error" => "text-(--klyroo-error-text)",
+            _ => "text-(--klyroo-text-muted)",
+        };
+        var box = tone switch
+        {
+            "info" => "rounded-(--klyroo-radius) border border-(--klyroo-info)/40 bg-(--klyroo-info)/10 p-3",
+            "success" => "rounded-(--klyroo-radius) border border-(--klyroo-success)/40 bg-(--klyroo-success)/10 p-3",
+            "warning" => "rounded-(--klyroo-radius) border border-(--klyroo-warning)/40 bg-(--klyroo-warning)/10 p-3",
+            "error" => "rounded-(--klyroo-radius) border border-(--klyroo-error)/40 bg-(--klyroo-error)/10 p-3",
+            _ => "rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg-muted) p-3",
+        };
+        var titleClass = tone == "neutral" ? "text-(--klyroo-text-highlighted)" : toneText;
+        var text = field.DisplayText ?? field.Description;
+        return @<div style="@spanStyle" class="@($"flex flex-col gap-0.5 text-xs {(plain ? "" : box)}")" data-slot="form-info" data-form-field="@field.Key"
+                     data-tone="@tone" data-display-kind="@(plain ? "text" : "callout")">
+            @if (!string.IsNullOrEmpty(field.Label))
+            {
+                <p class="@($"m-0 font-semibold {titleClass}")">@field.Label</p>
+            }
+            @if (!string.IsNullOrEmpty(text))
+            {
+                <p class="@($"m-0 {toneText}")">@text</p>
+            }
+        </div>;
+    }
+
+    private RenderFragment RenderContainer(FormController form, FormFieldSchema field, string spanStyle, int cols)
+    {
+        var isCard = field.Kind == FormFieldKind.Card;
+        var frame = isCard ? "rounded-(--klyroo-radius-md) border border-(--klyroo-border) bg-(--klyroo-bg) p-4" : "";
+        var gridStyle = FormLayout.GridStyle(cols);
+        var children = field.Fields ?? [];
+        if (field.Collapsible)
+        {
+            return @<details style="@spanStyle" class="@frame" open="@(!field.DefaultCollapsed)"
+                             data-slot="form-container" data-kind="@field.Kind.ToString().ToLowerInvariant()" data-collapsible="true">
+                <summary class="cursor-pointer text-sm font-semibold text-(--klyroo-text-highlighted)" data-slot="form-container-summary">@(field.Label ?? field.Key)</summary>
+                <div class="flex flex-col gap-3 pt-3">
+                    @if (!string.IsNullOrEmpty(field.Description))
+                    {
+                        <p class="m-0 text-xs text-(--klyroo-text-muted)">@field.Description</p>
+                    }
+                    <div class="grid gap-4" style="@gridStyle">
+                        @foreach (var child in children)
+                        {
+                            <KlySchemaField Form="form" Field="child" />
+                        }
+                    </div>
+                </div>
+            </details>;
+        }
+
+        return @<div style="@spanStyle" class="@($"flex flex-col gap-3 {frame}".Trim())"
+                     data-slot="form-container" data-kind="@field.Kind.ToString().ToLowerInvariant()">
+            @if (!string.IsNullOrEmpty(field.Label))
+            {
+                <div class="flex flex-col gap-0.5">
+                    <h4 class="m-0 text-sm font-semibold text-(--klyroo-text-highlighted)">@field.Label</h4>
+                    @if (!string.IsNullOrEmpty(field.Description))
+                    {
+                        <p class="m-0 text-xs text-(--klyroo-text-muted)">@field.Description</p>
+                    }
+                </div>
+            }
+            <div class="grid gap-4" style="@gridStyle">
+                @foreach (var child in children)
+                {
+                    <KlySchemaField Form="form" Field="child" />
+                }
+            </div>
+        </div>;
+    }
+
+    private RenderFragment RenderTabs(FormController form, FormFieldSchema field, string spanStyle, string fieldId, int cols)
+    {
+        var visibleTabs = field.Tabs!.Where(t => t.Condition is null || t.Condition(form)).ToList();
+        if (visibleTabs.Count == 0) return @<text></text>;
+        if (_activeTab is null || visibleTabs.All(t => t.Key != _activeTab))
+        {
+            _activeTab = visibleTabs[0].Key;
+        }
+        var activeTab = visibleTabs.First(t => t.Key == _activeTab);
+        var panelId = $"{fieldId}-panel";
+        return @<div style="@spanStyle" class="flex flex-col gap-3" data-slot="form-tabs" data-form-field="@field.Key">
+            <div class="flex items-center gap-1 border-b border-(--klyroo-border) pb-1.5" role="tablist" aria-label="@field.Label">
+                @foreach (var tab in visibleTabs)
+                {
+                    var isSelected = tab.Key == activeTab.Key;
+                    var tabKey = tab.Key;
+                    <button type="button" role="tab" id="@(FormLayout.Id($"{field.Key}-tab-{tab.Key}"))"
+                            aria-selected="@(isSelected ? "true" : "false")" aria-controls="@panelId"
+                            class="rounded-(--klyroo-radius) px-3 py-1 text-xs font-semibold @(isSelected ? "bg-(--klyroo-bg-muted) text-(--klyroo-text-highlighted)" : "text-(--klyroo-text-muted) hover:text-(--klyroo-text)")"
+                            data-slot="form-tab-trigger" data-tab="@tab.Key"
+                            @onclick="@(() => _activeTab = tabKey)">
+                        @tab.Label
+                    </button>
+                }
+            </div>
+            <div id="@panelId" role="tabpanel" aria-labelledby="@(FormLayout.Id($"{field.Key}-tab-{activeTab.Key}"))"
+                 class="grid gap-4" style="@(FormLayout.GridStyle(cols))" data-slot="form-tab-panel">
+                @foreach (var child in activeTab.Fields)
+                {
+                    <KlySchemaField Form="form" Field="child" />
+                }
+            </div>
+        </div>;
+    }
+
+    private RenderFragment RenderArrayField(FormController form, FormFieldSchema field, string spanStyle, string fieldId, int cols)
+    {
+        var items = form.GetArrayItems(field.Key);
+        var error = form.GetError(field.Key);
+        var required = form.IsFieldRequired(field);
+        var disabled = form.IsFieldDisabled(field);
+        var isDirty = form.DirtyPaths.Contains(field.Key);
+        var labelId = $"{fieldId}-label";
+        var descriptionId = string.IsNullOrEmpty(field.Description) ? null : $"{fieldId}-description";
+        var helpId = string.IsNullOrEmpty(field.Help) ? null : $"{fieldId}-help";
+        var errorId = error is null ? null : $"{fieldId}-error";
+        var describedBy = Join(descriptionId, helpId, errorId);
+        var cells = (field.Fields ?? []).Where(c => c.Kind != FormFieldKind.Hidden && form.ShouldRenderField(c) && !FormController.IsStateless(c.Kind) && !FormController.IsContainer(c.Kind)).ToList();
+        var gridStyle = FormLayout.GridStyle(cols);
+
+        return @<div style="@spanStyle"
+                     class="flex flex-col gap-2.5 rounded-(--klyroo-radius-md) border @(error is not null ? "border-(--klyroo-error)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-3.5"
+                     data-slot="form-array" data-form-field="@field.Key" data-kind="@field.Kind.ToString().ToLowerInvariant()"
+                     data-invalid="@(error is not null ? "true" : null)">
+            <div class="flex items-center justify-between gap-2">
+                <span id="@labelId" class="text-xs font-semibold text-(--klyroo-text-highlighted)" data-slot="form-field-label">
+                    @(field.Label ?? field.Key)
+                    @if (required)
+                    {
+                        <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                    }
+                </span>
+                <div class="flex items-center gap-2 text-xs text-(--klyroo-text-muted)">
+                    @if (!string.IsNullOrEmpty(field.Hint))
+                    {
+                        <span data-slot="form-field-hint">@field.Hint</span>
+                    }
+                    @if (field.DirtyCheck && isDirty)
+                    {
+                        <button type="button" class="text-(--klyroo-primary-text) hover:underline"
+                                data-slot="form-field-reset" @onclick="@(() => form.ResetField(field.Key))">
+                            Reset
+                        </button>
+                    }
+                    <button type="button"
+                            class="inline-flex h-7 items-center gap-1 rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg-muted) px-2.5 text-xs font-medium text-(--klyroo-text-highlighted) hover:bg-(--klyroo-bg-elevated) disabled:opacity-50"
+                            disabled="@disabled"
+                            aria-describedby="@describedBy"
+                            data-slot="form-array-add"
+                            @onclick="@(() => form.AddArrayItem(field))">
+                        + @(field.AddItemLabel ?? "Add item")
+                    </button>
+                </div>
+            </div>
+
+            @if (descriptionId is not null)
+            {
+                <p id="@descriptionId" class="m-0 text-xs text-(--klyroo-text-muted)" data-slot="form-field-description">@field.Description</p>
+            }
+
+            @if (items.Count == 0)
+            {
+                <p class="m-0 py-2 text-center text-xs text-(--klyroo-text-muted)" data-slot="form-array-empty">No items yet</p>
+            }
+            else
+            {
+                <div class="flex flex-col gap-2" role="group" aria-labelledby="@labelId">
+                    @for (var i = 0; i < items.Count; i++)
+                    {
+                        var idx = i;
+                        var item = items[i];
+                        <div class="flex items-start gap-2 rounded-(--klyroo-radius) border border-(--klyroo-border) p-2" data-slot="form-array-item">
+                            <div class="grid flex-1 gap-2" style="@gridStyle">
+                                @foreach (var child in cells)
+                                {
+                                    var childKey = child.Key;
+                                    var cellId = FormLayout.Id($"{field.Key}-{idx}-{child.Key}");
+                                    var cellError = form.GetArrayItemError(field.Key, idx, child.Key);
+                                    var cellRequired = form.IsFieldRequired(child);
+                                    var cellGroup = IsGroupControl(child);
+                                    var cellShowLabel = !string.IsNullOrEmpty(child.Label) && !HasInlineLabel(child.Kind);
+                                    var cellBinding = new Binding(
+                                        cellId,
+                                        item.GetValueOrDefault(child.Key),
+                                        v => form.SetArrayItemValue(field.Key, idx, childKey, v),
+                                        v => form.SetArrayItemValue(field.Key, idx, childKey, v, markTouched: true),
+                                        () => form.MarkArrayItemTouched(field.Key, idx, childKey),
+                                        cellError,
+                                        disabled || form.IsFieldDisabled(child),
+                                        cellRequired,
+                                        cellGroup && cellShowLabel ? $"{cellId}-label" : null,
+                                        cellError is null ? null : $"{cellId}-error",
+                                        "form-array-input",
+                                        IsCell: true);
+                                    <div style="@(FormLayout.SpanStyle(child.Span, cols))" class="flex flex-col gap-1" data-slot="form-array-cell"
+                                         data-child="@child.Key" data-invalid="@(cellError is not null ? "true" : null)">
+                                        @if (cellShowLabel)
+                                        {
+                                            @if (cellGroup)
+                                            {
+                                                <span id="@($"{cellId}-label")" class="text-[11px] font-medium text-(--klyroo-text-muted)">
+                                                    @child.Label
+                                                    @if (cellRequired)
+                                                    {
+                                                        <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                                                    }
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                <label for="@cellId" class="text-[11px] font-medium text-(--klyroo-text-muted)">
+                                                    @child.Label
+                                                    @if (cellRequired)
+                                                    {
+                                                        <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                                                    }
+                                                </label>
+                                            }
+                                        }
+                                        @RenderControl(form, child, cellBinding)
+                                        @if (cellError is not null)
+                                        {
+                                            <p id="@($"{cellId}-error")" class="m-0 text-[11px] font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-array-cell-error">@cellError</p>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <button type="button"
+                                    class="inline-flex size-7 shrink-0 items-center justify-center rounded-(--klyroo-radius) text-xs text-(--klyroo-error-text) hover:bg-(--klyroo-error)/10 disabled:opacity-50"
+                                    aria-label="@($"Remove item {idx + 1}")"
+                                    disabled="@disabled"
+                                    data-slot="form-array-remove"
+                                    @onclick="@(() => form.RemoveArrayItem(field.Key, idx))">
+                                ✕
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (disabled && !string.IsNullOrEmpty(field.DisabledReason))
+            {
+                <span class="text-xs text-(--klyroo-text-muted)" data-slot="form-field-disabled-reason">🔒 @field.DisabledReason</span>
+            }
+
+            @if (helpId is not null)
+            {
+                <span id="@helpId" class="text-xs text-(--klyroo-text-muted)" data-slot="form-field-help">@field.Help</span>
+            }
+
+            @if (errorId is not null)
+            {
+                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-field-error">@error</p>
+            }
+        </div>;
+    }
+
+    private RenderFragment RenderControl(FormController form, FormFieldSchema field, Binding b)
+    {
+        var invalid = b.Error is not null ? "true" : null;
+        var required = b.Required ? "true" : null;
+        var strVal = b.Value?.ToString() ?? "";
+
+        switch (field.Kind)
+        {
+            case FormFieldKind.Textarea:
+                return @<div class="flex items-start gap-1.5">
+                    <textarea id="@b.Id"
+                              rows="3"
+                              disabled="@b.Disabled"
+                              maxlength="@field.MaxLength"
+                              placeholder="@field.Placeholder"
+                              aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                              class="w-full rounded-(--klyroo-radius) border @(b.Error is not null ? "border-(--klyroo-error)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-2.5 text-xs text-(--klyroo-text) disabled:opacity-50"
+                              value="@strVal"
+                              data-slot="@b.Slot"
+                              @oninput="@(e => b.Set(e.Value?.ToString()))"
+                              @onblur="@b.Blur"></textarea>
+                    @if (field.Clearable && strVal.Length > 0)
+                    {
+                        @ClearButton(b, "")
+                    }
+                </div>;
+
+            case FormFieldKind.Password:
+                var revealed = _revealedPasswords.Contains(b.Id);
+                var requirements = field.PasswordRequirements is { Count: > 0 } reqs ? reqs : null;
+                var requirementsId = requirements is null ? null : $"{b.Id}-requirements";
+                return @<div class="flex flex-col gap-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <div class="relative flex flex-1 items-center">
+                            <input id="@b.Id"
+                                   type="@(revealed ? "text" : "password")"
+                                   disabled="@b.Disabled"
+                                   maxlength="@field.MaxLength"
+                                   placeholder="@field.Placeholder"
+                                   value="@strVal"
+                                   aria-invalid="@invalid" aria-required="@required" aria-describedby="@(Join(b.DescribedBy, requirementsId))"
+                                   class="@(InputClass(b.Error, "pe-14"))"
+                                   data-slot="@b.Slot"
+                                   @oninput="@(e => b.Set(e.Value?.ToString()))"
+                                   @onblur="@b.Blur" />
+                            <button type="button"
+                                    class="absolute end-1.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-(--klyroo-radius) px-2 py-0.5 text-[11px] font-medium text-(--klyroo-text-muted) hover:text-(--klyroo-text)"
+                                    aria-label="@(revealed ? "Hide password" : "Show password")"
+                                    data-slot="form-password-toggle"
+                                    @onclick="@(() => TogglePasswordReveal(b.Id))">
+                                @(revealed ? "Hide" : "Show")
+                            </button>
+                        </div>
+                        @if (field.Clearable && strVal.Length > 0)
+                        {
+                            @ClearButton(b, "")
+                        }
+                    </div>
+                    @if (requirements is not null)
+                    {
+                        <ul id="@requirementsId" class="m-0 flex list-none flex-col gap-0.5 p-0 text-[11px]" aria-label="Password requirements" data-slot="form-password-requirements">
+                            @foreach (var req in requirements)
+                            {
+                                var met = req.Validate(strVal);
+                                <li class="flex items-center gap-1.5 @(met ? "text-(--klyroo-success-text)" : "text-(--klyroo-text-muted)")"
+                                    data-slot="form-password-requirement" data-key="@req.Key" data-met="@(met ? "true" : "false")">
+                                    <span aria-hidden="true">@(met ? "✓" : "○")</span>
+                                    <span>@req.Label</span>
+                                    <span class="sr-only">@(met ? "(met)" : "(not met)")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>;
+
+            case FormFieldKind.Number:
+                return @<div class="flex items-center gap-1.5">
+                    <input id="@b.Id"
+                           type="number"
+                           min="@field.Min?.ToString(CultureInfo.InvariantCulture)"
+                           max="@field.Max?.ToString(CultureInfo.InvariantCulture)"
+                           step="@field.Step?.ToString(CultureInfo.InvariantCulture)"
+                           disabled="@b.Disabled"
+                           placeholder="@field.Placeholder"
+                           value="@(TryDouble(b.Value, out var n) ? n.ToString(CultureInfo.InvariantCulture) : strVal)"
+                           aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                           class="@(InputClass(b.Error))"
+                           data-slot="@b.Slot"
+                           @oninput="@(e => OnNumberInput(b, e.Value?.ToString()))"
+                           @onblur="@b.Blur" />
+                    @if (field.Clearable && b.Value is not null)
+                    {
+                        @ClearButton(b, null)
+                    }
+                </div>;
+
+            case FormFieldKind.Slider:
+                var shown = TryDouble(b.Value, out var sliderVal) ? sliderVal : field.Min ?? 0;
+                var shownText = shown.ToString(CultureInfo.InvariantCulture);
+                return @<div class="flex items-center gap-3">
+                    <input id="@b.Id"
+                           type="range"
+                           min="@field.Min?.ToString(CultureInfo.InvariantCulture)"
+                           max="@field.Max?.ToString(CultureInfo.InvariantCulture)"
+                           step="@field.Step?.ToString(CultureInfo.InvariantCulture)"
+                           disabled="@b.Disabled"
+                           value="@shownText"
+                           aria-invalid="@invalid" aria-describedby="@b.DescribedBy"
+                           class="h-9 w-full accent-(--klyroo-primary) disabled:opacity-50"
+                           data-slot="@b.Slot"
+                           @oninput="@(e => OnNumberInput(b, e.Value?.ToString()))"
+                           @onblur="@b.Blur" />
+                    <output for="@b.Id" class="min-w-8 text-end text-xs tabular-nums text-(--klyroo-text-muted)" data-slot="form-slider-value">@shownText</output>
+                </div>;
+
+            case FormFieldKind.Checkbox:
+            case FormFieldKind.Switch:
+                var isChecked = b.Value is true;
+                return @<label for="@b.Id" class="inline-flex cursor-pointer items-center gap-2 text-xs font-medium text-(--klyroo-text)">
+                    <input id="@b.Id"
+                           type="checkbox"
+                           role="@(field.Kind == FormFieldKind.Switch ? "switch" : null)"
+                           checked="@isChecked"
+                           disabled="@b.Disabled"
+                           aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                           class="size-4 rounded border-(--klyroo-border) accent-(--klyroo-primary)"
+                           data-slot="@b.Slot"
+                           @onchange="@(e => b.Commit(e.Value is bool v && v))" />
+                    <span>
+                        @field.Label
+                        @if (b.Required)
+                        {
+                            <span class="ms-0.5 text-(--klyroo-error-text)" aria-hidden="true">*</span>
+                        }
+                    </span>
+                </label>;
+
+            case FormFieldKind.Radio:
+                return RenderChoiceList(form, field, b, multiple: false);
+
+            case FormFieldKind.CheckboxGroup:
+                return RenderChoiceList(form, field, b, multiple: true);
+
+            case FormFieldKind.Select when field.Multiple:
+            case FormFieldKind.AutoComplete when field.Multiple:
+                return RenderChoiceList(form, field, b, multiple: true);
+
+            case FormFieldKind.Select:
+                var options = form.GetFieldOptions(field);
+                return @<div class="flex items-center gap-1.5">
+                    <select id="@b.Id"
+                            disabled="@b.Disabled"
+                            value="@strVal"
+                            aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                            class="@(InputClass(b.Error))"
+                            data-slot="@b.Slot"
+                            @onchange="@(e => b.Commit(string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value?.ToString()))">
+                        <option value="">@(field.Placeholder ?? "Select…")</option>
+                        @foreach (var (group, groupItems) in GroupOptions(options))
+                        {
+                            if (group is null)
+                            {
+                                foreach (var opt in groupItems)
+                                {
+                                    <option value="@opt.Value" disabled="@opt.Disabled" selected="@(opt.Value == strVal)">@opt.Label</option>
+                                }
+                            }
+                            else
+                            {
+                                <optgroup label="@group">
+                                    @foreach (var opt in groupItems)
+                                    {
+                                        <option value="@opt.Value" disabled="@opt.Disabled" selected="@(opt.Value == strVal)">@opt.Label</option>
+                                    }
+                                </optgroup>
+                            }
+                        }
+                    </select>
+                    @if (field.Clearable && strVal.Length > 0)
+                    {
+                        @ClearButton(b, null)
+                    }
+                </div>;
+
+            case FormFieldKind.AutoComplete:
+                var acOptions = form.GetFieldOptions(field);
+                var display = acOptions.FirstOrDefault(o => o.Value == strVal)?.Label ?? strVal;
+                var listId = $"{b.Id}-options";
+                return @<div class="flex items-center gap-1.5">
+                    <input id="@b.Id"
+                           type="text"
+                           list="@listId"
+                           autocomplete="off"
+                           disabled="@b.Disabled"
+                           maxlength="@field.MaxLength"
+                           placeholder="@field.Placeholder"
+                           value="@display"
+                           aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                           class="@(InputClass(b.Error))"
+                           data-slot="@b.Slot"
+                           @oninput="@(e => b.Set(ResolveAutoComplete(acOptions, e.Value?.ToString())))"
+                           @onblur="@b.Blur" />
+                    <datalist id="@listId" data-slot="form-autocomplete-options">
+                        @foreach (var opt in acOptions.Where(o => !o.Disabled))
+                        {
+                            <option value="@opt.Label"></option>
+                        }
+                    </datalist>
+                    @if (field.Clearable && strVal.Length > 0)
+                    {
+                        @ClearButton(b, null)
+                    }
+                </div>;
+
+            case FormFieldKind.DateRange:
+                var range = AsStringList(b.Value);
+                var start = range.Count > 0 ? range[0] : "";
+                var end = range.Count > 1 ? range[1] : "";
+                return @<div id="@b.Id" role="group" aria-labelledby="@b.LabelledBy" aria-describedby="@b.DescribedBy"
+                             class="flex flex-wrap items-center gap-2" data-slot="@b.Slot" data-control="date-range">
+                    <input id="@($"{b.Id}-start")" type="date" aria-label="Start date"
+                           disabled="@b.Disabled" value="@start" max="@(end.Length > 0 ? end : null)"
+                           aria-invalid="@invalid" aria-required="@required"
+                           class="@(InputClass(b.Error, "flex-1"))"
+                           data-slot="form-date-range-start"
+                           @oninput="@(e => b.Set(ToRange(e.Value?.ToString(), end)))"
+                           @onblur="@b.Blur" />
+                    <span aria-hidden="true" class="text-xs text-(--klyroo-text-muted)">–</span>
+                    <input id="@($"{b.Id}-end")" type="date" aria-label="End date"
+                           disabled="@b.Disabled" value="@end" min="@(start.Length > 0 ? start : null)"
+                           aria-invalid="@invalid" aria-required="@required"
+                           class="@(InputClass(b.Error, "flex-1"))"
+                           data-slot="form-date-range-end"
+                           @oninput="@(e => b.Set(ToRange(start, e.Value?.ToString())))"
+                           @onblur="@b.Blur" />
+                </div>;
+
+            case FormFieldKind.Rating:
+                var max = Math.Clamp((int)Math.Round(field.Max ?? 5), 1, 10);
+                var current = TryDouble(b.Value, out var r) ? (int)Math.Round(r) : 0;
+                return @<div class="flex items-center gap-1.5">
+                    <div id="@b.Id" role="radiogroup" aria-labelledby="@b.LabelledBy" aria-describedby="@b.DescribedBy"
+                         aria-invalid="@invalid" aria-required="@required"
+                         class="flex items-center gap-0.5" data-slot="@b.Slot" data-control="rating">
+                        @for (var i = 1; i <= max; i++)
+                        {
+                            var star = i;
+                            var on = current >= star;
+                            <label class="cursor-pointer rounded-(--klyroo-radius) px-0.5 text-lg leading-none has-focus-visible:outline-2 has-focus-visible:outline-(--klyroo-primary) @(on ? "text-(--klyroo-warning-text)" : "text-(--klyroo-text-muted)")"
+                                   data-slot="form-rating-star" data-active="@(on ? "true" : "false")">
+                                <input type="radio" class="sr-only" name="@b.Id" value="@star"
+                                       checked="@(current == star)" disabled="@b.Disabled"
+                                       aria-label="@($"{star} of {max}")"
+                                       @onchange="@(() => b.Commit(star))"
+                                       @onblur="@b.Blur" />
+                                <span aria-hidden="true">@(on ? "★" : "☆")</span>
+                            </label>
+                        }
+                    </div>
+                    @if (field.Clearable && current > 0)
+                    {
+                        @ClearButton(b, null)
+                    }
+                </div>;
+
+            case FormFieldKind.Tag:
+                return RenderTags(field, b);
+
+            default:
+                var (inputType, autocomplete, inputMode) = field.Kind switch
+                {
+                    FormFieldKind.Date => ("date", (string?)null, (string?)null),
+                    FormFieldKind.Time => ("time", null, null),
+                    FormFieldKind.DateTime => ("datetime-local", null, null),
+                    FormFieldKind.PhoneNumber => ("tel", "tel", "tel"),
+                    FormFieldKind.ColorPicker => ("color", null, null),
+                    FormFieldKind.OneTimeCode => ("text", "one-time-code", "numeric"),
+                    _ => ("text", null, null),
+                };
+                var isColor = field.Kind == FormFieldKind.ColorPicker;
+                var hasLength = field.Kind is FormFieldKind.Text or FormFieldKind.PhoneNumber or FormFieldKind.OneTimeCode;
+                return @<div class="flex items-center gap-1.5">
+                    <input id="@b.Id"
+                           type="@inputType"
+                           autocomplete="@autocomplete"
+                           inputmode="@inputMode"
+                           disabled="@b.Disabled"
+                           maxlength="@(hasLength ? field.MaxLength : null)"
+                           placeholder="@(isColor ? null : field.Placeholder)"
+                           value="@strVal"
+                           aria-invalid="@invalid" aria-required="@required" aria-describedby="@b.DescribedBy"
+                           class="@(isColor ? InputClass(b.Error, "w-16 cursor-pointer p-1") : InputClass(b.Error))"
+                           data-slot="@b.Slot"
+                           @oninput="@(e => b.Set(e.Value?.ToString()))"
+                           @onblur="@b.Blur" />
+                    @if (field.Clearable && strVal.Length > 0)
+                    {
+                        @ClearButton(b, "")
+                    }
+                </div>;
+        }
+    }
+
+    private RenderFragment ClearButton(Binding b, object? cleared) =>
+        @<button type="button"
+                 class="@ClearButtonClass"
+                 aria-label="Clear"
+                 disabled="@b.Disabled"
+                 data-slot="form-control-clear"
+                 @onclick="@(() => b.Commit(cleared))">✕</button>;
+
+    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, Binding b, bool multiple)
+    {
+        var options = form.GetFieldOptions(field);
+        var selected = multiple ? AsStringList(b.Value) : [];
+        var single = multiple ? null : b.Value?.ToString();
+        var groups = GroupOptions(options);
+        var index = 0;
+        return @<div id="@b.Id" role="@(multiple ? "group" : "radiogroup")"
+                     aria-labelledby="@b.LabelledBy" aria-describedby="@b.DescribedBy"
+                     aria-invalid="@(b.Error is not null ? "true" : null)" aria-required="@(!multiple && b.Required ? "true" : null)"
+                     class="flex flex-col gap-2" data-slot="@b.Slot" data-control="@(multiple ? "checkbox-list" : "radio-list")">
+            @foreach (var (group, groupItems) in groups)
+            {
+                <div class="flex flex-wrap gap-x-4 gap-y-2" role="@(group is null ? null : "group")" aria-label="@group" data-slot="form-option-group">
+                    @if (group is not null)
+                    {
+                        <span class="w-full text-[11px] font-bold uppercase tracking-wider text-(--klyroo-text-muted)" data-slot="form-option-group-label">@group</span>
+                    }
+                    @foreach (var opt in groupItems)
+                    {
+                        var optId = $"{b.Id}-opt-{index++}";
+                        var optDescriptionId = string.IsNullOrEmpty(opt.Description) ? null : $"{optId}-description";
+                        var value = opt.Value;
+                        var isOn = multiple ? selected.Contains(opt.Value, StringComparer.Ordinal) : opt.Value == single;
+                        <label for="@optId" class="inline-flex cursor-pointer items-start gap-1.5 text-xs" data-slot="form-option" data-value="@opt.Value">
+                            @if (multiple)
+                            {
+                                <input id="@optId" type="checkbox" value="@opt.Value"
+                                       checked="@isOn" disabled="@(b.Disabled || opt.Disabled)"
+                                       aria-describedby="@optDescriptionId"
+                                       class="mt-0.5 size-4 shrink-0 accent-(--klyroo-primary)"
+                                       @onchange="@(e => b.Commit(Toggle(b.Value, value, e.Value is bool on && on)))"
+                                       @onblur="@b.Blur" />
+                            }
+                            else
+                            {
+                                <input id="@optId" type="radio" name="@b.Id" value="@opt.Value"
+                                       checked="@isOn" disabled="@(b.Disabled || opt.Disabled)"
+                                       aria-describedby="@optDescriptionId"
+                                       class="mt-0.5 size-4 shrink-0 accent-(--klyroo-primary)"
+                                       @onchange="@(() => b.Commit(value))"
+                                       @onblur="@b.Blur" />
+                            }
+                            @if (!string.IsNullOrEmpty(opt.Icon))
+                            {
+                                <KlyIcon Name="@opt.Icon" Size="KlySize.Sm" Class="mt-0.5 shrink-0" data-slot="form-option-icon" />
+                            }
+                            <span class="flex flex-col gap-0.5">
+                                <span>@opt.Label</span>
+                                @if (optDescriptionId is not null)
+                                {
+                                    <span id="@optDescriptionId" class="text-[11px] text-(--klyroo-text-muted)" data-slot="form-option-description">@opt.Description</span>
+                                }
+                            </span>
+                        </label>
+                    }
+                </div>
+            }
+        </div>;
+    }
+
+    private RenderFragment RenderTags(FormFieldSchema field, Binding b)
+    {
+        var tags = AsStringList(b.Value);
+        var draft = _drafts.GetValueOrDefault(b.Id, "");
+        return @<div class="flex flex-col gap-1.5" data-control="tags">
+            @if (tags.Count > 0)
+            {
+                <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="@(field.Label ?? "Tags")" data-slot="form-tag-list">
+                    @foreach (var tag in tags)
+                    {
+                        var value = tag;
+                        <li class="inline-flex items-center gap-1 rounded-full bg-(--klyroo-bg-muted) py-0.5 ps-2.5 pe-1 text-xs text-(--klyroo-text)" data-slot="form-tag">
+                            <span>@tag</span>
+                            <button type="button"
+                                    class="inline-flex size-5 items-center justify-center rounded-full text-[11px] text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50"
+                                    aria-label="@($"Remove {tag}")"
+                                    disabled="@b.Disabled"
+                                    data-slot="form-tag-remove"
+                                    @onclick="@(() => b.Commit(Toggle(b.Value, value, false)))">✕</button>
+                        </li>
+                    }
+                </ul>
+            }
+            <input id="@b.Id"
+                   type="text"
+                   form="@DetachedFormId"
+                   disabled="@b.Disabled"
+                   maxlength="@field.MaxLength"
+                   placeholder="@(field.Placeholder ?? "Add a tag and press Enter")"
+                   value="@draft"
+                   aria-invalid="@(b.Error is not null ? "true" : null)" aria-required="@(b.Required ? "true" : null)" aria-describedby="@b.DescribedBy"
+                   class="@(InputClass(b.Error))"
+                   data-slot="@b.Slot"
+                   @oninput="@(e => OnTagInput(b, e.Value?.ToString()))"
+                   @onkeydown="@(e => OnTagKeyDown(b, e))"
+                   @onblur="@b.Blur" />
+        </div>;
+    }
+
+    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, Binding b)
+    {
+        var draftKey = $"{b.Id}-create";
+        var draft = _drafts.GetValueOrDefault(draftKey, "");
+        return @<div class="flex items-center gap-1.5" data-slot="form-create-option">
+            <input id="@draftKey"
+                   type="text"
+                   form="@DetachedFormId"
+                   disabled="@b.Disabled"
+                   placeholder="New option"
+                   aria-label="@($"New option for {field.Label ?? field.Key}")"
+                   value="@draft"
+                   class="@(InputClass(null))"
+                   data-slot="form-create-option-input"
+                   @oninput="@(e => _drafts[draftKey] = e.Value?.ToString() ?? "")"
+                   @onkeydown="@(e => { if (e.Key == "Enter") CreateOption(form, field, draftKey); })" />
+            <button type="button"
+                    class="inline-flex h-9 shrink-0 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg-muted) px-3 text-xs font-medium text-(--klyroo-text-highlighted) hover:bg-(--klyroo-bg-elevated) disabled:opacity-50"
+                    disabled="@(b.Disabled || string.IsNullOrWhiteSpace(draft))"
+                    data-slot="form-create-option-button"
+                    @onclick="@(() => CreateOption(form, field, draftKey))">
+                Create
+            </button>
+        </div>;
+    }
+
+    private void CreateOption(FormController form, FormFieldSchema field, string draftKey)
+    {
+        var text = _drafts.GetValueOrDefault(draftKey, "");
+        if (form.CreateFieldOption(field, text) is not null)
+        {
+            _drafts[draftKey] = "";
+        }
+    }
+
+    private void OnTagInput(Binding b, string? raw)
+    {
+        raw ??= "";
+        var parts = raw.Split(',');
+        if (parts.Length > 1)
+        {
+            var tags = AsStringList(b.Value);
+            foreach (var part in parts[..^1])
+            {
+                AddTag(tags, part);
+            }
+            b.Commit(tags);
+        }
+        _drafts[b.Id] = parts[^1];
+    }
+
+    private void OnTagKeyDown(Binding b, KeyboardEventArgs e)
+    {
+        if (e.Key != "Enter") return;
+        var tags = AsStringList(b.Value);
+        if (AddTag(tags, _drafts.GetValueOrDefault(b.Id, "")))
+        {
+            b.Commit(tags);
+        }
+        _drafts[b.Id] = "";
+    }
+
+    private static bool AddTag(List<string> tags, string text)
+    {
+        var tag = text.Trim();
+        if (tag.Length == 0 || tags.Contains(tag, StringComparer.Ordinal)) return false;
+        tags.Add(tag);
+        return true;
+    }
+
+    private static List<(string? Group, List<FormOptionItem> Items)> GroupOptions(IReadOnlyList<FormOptionItem> options)
+    {
+        var groups = new List<(string? Group, List<FormOptionItem> Items)>();
+        foreach (var opt in options)
+        {
+            var group = string.IsNullOrEmpty(opt.Group) ? null : opt.Group;
+            var existing = groups.FindIndex(g => g.Group == group);
+            if (existing < 0)
+            {
+                groups.Add((group, [opt]));
+            }
+            else
+            {
+                groups[existing].Items.Add(opt);
+            }
+        }
+        return groups;
+    }
+
+    private static List<string> AsStringList(object? value) => value switch
+    {
+        null => [],
+        string s => s.Length == 0 ? [] : [s],
+        IEnumerable<string> list => list.ToList(),
+        System.Collections.IEnumerable items => items.Cast<object?>().Select(i => i?.ToString() ?? "").ToList(),
+        _ => [value.ToString() ?? ""],
+    };
+
+    private static List<string> Toggle(object? current, string value, bool on)
+    {
+        var list = AsStringList(current);
+        list.RemoveAll(v => v == value);
+        if (on) list.Add(value);
+        return list;
+    }
+
+    private static List<string>? ToRange(string? start, string? end)
+    {
+        start ??= "";
+        end ??= "";
+        return start.Length == 0 && end.Length == 0 ? null : [start, end];
+    }
+
+    private static string? ResolveAutoComplete(IReadOnlyList<FormOptionItem> options, string? text)
+    {
+        if (string.IsNullOrEmpty(text)) return null;
+        var match = options.FirstOrDefault(o => !o.Disabled && (string.Equals(o.Label, text, StringComparison.OrdinalIgnoreCase) || string.Equals(o.Value, text, StringComparison.OrdinalIgnoreCase)));
+        return match?.Value ?? text;
+    }
+
+    private static bool TryDouble(object? value, out double d)
+    {
+        switch (value)
+        {
+            case double dbl: d = dbl; return true;
+            case int i: d = i; return true;
+            case long l: d = l; return true;
+            case float f: d = f; return true;
+            case decimal m: d = (double)m; return true;
+            case string s when s.Length > 0: return double.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out d);
+            default: d = 0; return false;
+        }
+    }
+
+    private void TogglePasswordReveal(string id)
+    {
+        if (!_revealedPasswords.Remove(id)) _revealedPasswords.Add(id);
+    }
+
+    private static void OnNumberInput(Binding b, string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            b.Set(null);
+        }
+        else if (double.TryParse(raw, NumberStyles.Any, CultureInfo.InvariantCulture, out var d))
+        {
+            b.Set(d);
+        }
+    }
+
+    private static async Task OnButtonClickAsync(FormController form, FormFieldSchema field)
+    {
+        if (field.OnClick is not null)
+        {
+            await field.OnClick(form);
+        }
+    }
+}
