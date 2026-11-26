@@ -1,7 +1,8 @@
 # Guides
 
-Task-oriented recipes. Each one states a goal, shows complete code and explains the parts that are not obvious. The Blazor samples assume the setup from [Getting started](getting-started.md): `AddKlyrooForm()` is registered, `@using Klyroo.Form` and `@using Klyroo.Form.Dynamic` are in `_Imports.razor` and the stylesheets are loaded. Except for [Bind a C# model](#bind-a-c-model), which is the typed mode, the recipes use the runtime mode (`Klyroo.Form.Dynamic`), where a form is data and values are keyed by name. Names such as `accounts` and `WorkspaceDirectory` stand for your own services.
+Task-oriented recipes. Each one states a goal, shows complete code and explains the parts that are not obvious. Every recipe uses the typed API: a schema declared with `FormSchema.For<TModel>`, a `FormController<TModel>` and the `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` components. The Blazor samples assume the setup from [Getting started](getting-started.md): `AddKlyrooForm()` is registered, `@using Klyroo.Form` is in `_Imports.razor` and the stylesheets are loaded. Names such as `accounts`, `orders` and `WorkspaceDirectory` stand for your own services. A form that is only known at runtime, such as one stored as JSON, is covered on its own page: [Forms defined at runtime](runtime-forms.md).
 
+- [Declare a form from a C# model](#declare-a-form-from-a-c-model)
 - [Validate a field with custom rules](#validate-a-field-with-custom-rules)
 - [Report a server error on a field](#report-a-server-error-on-a-field)
 - [Check a value against a service while the user types](#check-a-value-against-a-service-while-the-user-types)
@@ -12,480 +13,18 @@ Task-oriented recipes. Each one states a goal, shows complete code and explains 
 - [Open a form in a dialog from anywhere](#open-a-form-in-a-dialog-from-anywhere)
 - [Edit repeatable rows](#edit-repeatable-rows)
 - [Prefill and reset a form](#prefill-and-reset-a-form)
-- [Bind a C# model](#bind-a-c-model)
+- [Lay out the fields yourself](#lay-out-the-fields-yourself)
 - [Add your own control](#add-your-own-control)
 - [Upload files](#upload-files)
+- [Read the rules from data annotations](#read-the-rules-from-data-annotations)
 - [Test your forms](#test-your-forms)
+- [Things to know when binding a model](#things-to-know-when-binding-a-model)
 
-## Validate a field with custom rules
+## Declare a form from a C# model
 
-Goal: reject a value that passes the built-in checks, and choose when the error appears.
+Goal: declare a form from a C# class, read and write its values as the types of the members, and receive the class back on submit.
 
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-var schema = new DynamicFormSchema
-{
-    FormKey = "signup",
-    Fields =
-    [
-        new DynamicFieldSchema
-        {
-            Key = "username",
-            Label = "Username",
-            Required = true,
-            Trigger = FormValidationTrigger.Input,
-            Validators =
-            [
-                new DynamicValidatorRule("length", "Use 3 to 20 characters",
-                    (value, _) => value?.ToString() is { Length: >= 3 and <= 20 }),
-                new DynamicValidatorRule("charset", "Use letters, digits and dashes only",
-                    (value, _) => value?.ToString()?.All(c => char.IsLetterOrDigit(c) || c == '-') == true),
-            ],
-        },
-        new DynamicFieldSchema { Key = "age", Label = "Age", Kind = FormFieldKind.Number, Min = 18, Max = 120 },
-        new DynamicFieldSchema
-        {
-            Key = "password",
-            Label = "Password",
-            Kind = FormFieldKind.Password,
-            Required = true,
-            PasswordRequirements =
-            [
-                new FormPasswordRequirement("length", "Use at least 12 characters", p => p.Length >= 12),
-                new FormPasswordRequirement("digit", "Use at least one digit", p => p.Any(char.IsDigit)),
-            ],
-        },
-        new DynamicFieldSchema
-        {
-            Key = "terms",
-            Label = "I accept the terms",
-            Kind = FormFieldKind.Checkbox,
-            Validators = [new DynamicValidatorRule("accepted", "You must accept the terms", (value, _) => value is true)],
-        },
-    ],
-};
-```
-
-`Required`, number bounds (`Min` and `Max` on `FormFieldKind.Number`), `MaxLength`, password requirements and `Validators` run in that order on each validation, and the first failure becomes the error. For a field that is empty and required, only the required message is reported.
-
-`Validators` also run when the value is empty and the field is not required, so a rule such as `terms` above sees `null` until the user toggles the checkbox. Write rules that accept `null`, or reject it on purpose, as `terms` does. A `Required` checkbox or switch must be checked, so `Required = true` is enough for a consent box; a validator like `terms` is only needed for a custom message or rule.
-
-`Trigger` decides when a field is validated while the user edits it. `Blur` (the default) starts validating when the control first loses focus and then validates on every change, `Input` validates from the first change, and `Submit` waits for `Validate()` or a submit. Errors only show for touched fields, and `Validate()` and `SubmitAsync()` touch every field they check.
-
-Rules that read another field, such as a confirmation that compares itself with the password, stay correct while the user edits the other field. After every change the controller validates again the touched fields that currently show an error, so a stale "Passwords differ" disappears when the password is changed to match. It cannot guess that an untouched-looking valid field became invalid, so name the fields your rules read with `DependsOn`:
-
-```csharp
-new DynamicFieldSchema
-{
-    Key = "confirm",
-    Kind = FormFieldKind.Password,
-    DependsOn = ["password"],
-    Validators = [new DynamicValidatorRule("match", "Passwords differ",
-        (value, form) => Equals(value, form.GetValue("password")))],
-}
-```
-
-With `DependsOn`, a change of `password` validates `confirm` again once the user has touched it, so the mismatch appears and clears as soon as the other field changes. A field the user has not touched yet stays quiet, and a field with `Trigger = Submit` still waits for submission. `RequiredWhen` follows the same rule: its error disappears when the condition stops holding, and appears on a touched field when you list the field the condition reads in `DependsOn`.
-
-## Report a server error on a field
-
-Goal: check a value against a service on submit and show the result on the field.
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-// accounts is your own service
-var schema = new DynamicFormSchema
-{
-    FormKey = "register",
-    Fields = [new DynamicFieldSchema { Key = "email", Label = "Email", Required = true }],
-    OnBeforeSubmit = async form =>
-    {
-        if (await accounts.IsEmailTakenAsync(form.GetValue<string>("email")!))
-        {
-            form.SetError("email", "This email is already registered");
-            return false;
-        }
-        return true;
-    },
-    OnSubmit = form => accounts.CreateAsync(form.BuildOutput()),
-};
-```
-
-`OnBeforeSubmit` runs after local validation passes and before `OnSubmit`. Returning `false` cancels the submit, `SetError` puts the message on the field, and the next `SetValue` on that field clears it. `SubmitAsync()` returns `false` and the form stays dirty.
-
-`SetError` takes a `blocking` argument. A blocking error makes `Validate()` and `SubmitAsync()` fail until it is cleared, without calling your service again. Use it when you set the error outside of the submit pipeline, for example from `OnBeforeNext` in a wizard. For an error set inside `OnBeforeSubmit`, which already returns `false`, the default is enough.
-
-## Check a value against a service while the user types
-
-Goal: tell the user that a username is taken as soon as they leave the field, without calling the service on every key and without letting a stale answer through.
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-new DynamicFieldSchema
-{
-    Key = "username",
-    Label = "Username",
-    Required = true,
-    AsyncValidators =
-    [
-        new DynamicAsyncValidatorRule("free", async (value, form, ct) =>
-            await accounts.IsUsernameTakenAsync((string)value!, ct) ? "This username is taken" : null)
-        {
-            Debounce = TimeSpan.FromMilliseconds(400),
-        },
-    ],
-}
-```
-
-The rule returns the error message, or `null` when the value is valid. It runs after the synchronous checks pass and only for a value that is not empty. Once the field is touched (it loses focus, or `Trigger = Input` and it changes), a run starts when the value has stayed unchanged for `Debounce`. A newer value cancels the older run through the token and its answer is ignored: the error is only ever the answer for the value on screen. While a run is waiting or running, `form.IsValidating("username")` is `true`, and the components show a spinner and "Checking..." under the field and set `aria-busy` on it.
-
-`SubmitAsync()` and `NextStepAsync()` wait for the rules of the fields they validate, keep `IsSubmitting` set meanwhile, and fail if a rule returns a message. A run that already called the service with the current value is joined, not repeated, and an answer that is already known is reused. `await form.ValidateAsync()` does the same without submitting; the synchronous `Validate()` only uses the answers that are already known.
-
-If the service is unreachable during a background run, the exception is swallowed and the field simply stays unchecked: the user can still fix other fields, and `SubmitAsync()` runs the rule again and lets the exception reach your code, like any other hook that throws. A value that is edited while its rule runs is checked again, and a submit never succeeds with a value no rule has seen: if results keep going stale, `SubmitAsync()` returns `false`. An edit that replaces a running rule cancels it silently, never as an `OperationCanceledException` from `SubmitAsync()` or `ValidateAsync()`. Dispose the controller (`DynamicFormController` is `IDisposable`) when you are done with it, which cancels the runs still pending; the components do it for the controller they create, and `DynamicFormService` for the form it closes. A rule does not apply to the cells of a repeatable list. In a host without a synchronization context (a console app, a test), background runs finish on a thread-pool thread, and `Changed` is raised there.
-
-## Save from the component and keep the form busy
-
-Goal: call your API when the user submits, show a saving state while it runs, keep the edits when it fails and report the failure.
-
-```razor
-<KlyDynamicFormEngine Form="_form" OnSave="SaveAsync" OnSubmit="Saved" />
-
-@code {
-    private readonly DynamicFormController _form = new(Schemas.Profile);
-
-    private async Task<bool> SaveAsync(IReadOnlyDictionary<string, object?> data, CancellationToken ct)
-    {
-        var result = await profiles.SaveAsync(data, ct);
-        if (result.Conflict)
-        {
-            _form.SetFormError("Someone else changed this profile. Reload it and try again.");
-            return false;
-        }
-        return true;
-    }
-
-    private void Saved(IReadOnlyDictionary<string, object?> data) => nav.NavigateTo("/profile");
-}
-```
-
-`OnSave` runs inside `DynamicFormController.SubmitAsync`, after validation and the schema hooks, while `IsSubmitting` is still `true`: the button shows its saving state, a second submit is refused, and Back, Reset and Cancel are disabled. When it returns `true` the dirty snapshot is retaken, so `IsDirty` turns `false` and `OnSubmit` is raised. When it returns `false`, or throws, the snapshot is kept: the edits stay dirty and the user can fix and resubmit. The token is cancelled when the component is disposed.
-
-While the form submits, every field is disabled (`IsFieldDisabled` reports `true` for all of them while `IsSubmitting` is `true`), so the user cannot change values that are being validated or saved. If `OnSave`, an asynchronous rule, a hook or `OnSubmit` throws, the component logs the exception through `ILogger` and shows a form-level notice ("Something went wrong. Try again.", in the locale) instead of letting it end the Blazor Server circuit; `IsSubmitting` resets, the edits stay, and the notice goes away with the next attempt. After a successful save, the baseline is the set of values the handler received: an edit made from code while it ran stays dirty.
-
-`OnSubmit` on its own runs after the submission is already over (`IsSubmitting` is `false`, the form is clean), so it is the place to navigate, not to save. Without the component, the same lifecycle is `await form.SubmitAsync(async (f, ct) => (await api.SaveAsync(f.BuildOutput(), ct)).Ok, ct)`.
-
-`SetFormError` reports a failure that belongs to no field. It is a blocking error on the key `DynamicFormController.FormErrorKey`, listed in the error summary at the top of the form, and it keeps `Validate()` failing until you call `ClearError()` (or `Reset`). Any `SetError` on a key that matches no field behaves the same way. After a failed submit or Next, the summary lists every field error as a button that focuses the field, a polite live region announces the count and the first error, and focus moves to the first invalid field (or to the summary when only form-level errors remain).
-
-## Show and require fields conditionally
-
-Goal: show a field only for some answers, and make another required depending on a third.
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-var schema = new DynamicFormSchema
-{
-    FormKey = "billing",
-    Fields =
-    [
-        new DynamicFieldSchema
-        {
-            Key = "accountType", Label = "Account type", Kind = FormFieldKind.Select, DefaultValue = "personal",
-            Options = [new("personal", "Personal"), new("business", "Business")],
-        },
-        new DynamicFieldSchema
-        {
-            Key = "company", Label = "Company", Required = true,
-            Condition = form => form.GetValue<string>("accountType") == "business",
-        },
-        new DynamicFieldSchema { Key = "country", Label = "Country", DefaultValue = "FR" },
-        new DynamicFieldSchema
-        {
-            Key = "vat", Label = "VAT number",
-            Condition = form => form.GetValue<string>("accountType") == "business",
-            RequiredWhen = form => form.GetValue<string>("country") != "US",
-            TransformOutput = value => value?.ToString()?.Replace(" ", "").ToUpperInvariant(),
-        },
-    ],
-};
-```
-
-A field whose `Condition` returns `false` is not rendered, is skipped by validation and is left out of `BuildOutput()`. Its value stays in the state, so it comes back if the user changes their mind. `RequiredWhen` is evaluated on each validation, in addition to `Required`.
-
-`TransformOutput` changes the value only in the output, here to normalize a VAT number. The state keeps what the user typed, so the field does not change under their cursor.
-
-A `Condition` on a container (`Group`, `Card`, `Object` or `Tabs`) hides its children too, with the same effect: they are not validated and not output, and their values stay in the state. So `company` and `vat` above could share a single condition on a `Group` that holds both.
-
-## Build a multi-step wizard
-
-Goal: split a long form into steps, skip one that does not apply, and run an async check before moving on.
-
-```razor
-@page "/onboarding"
-@rendermode InteractiveServer
-
-<KlyDynamicFormEngine Schema="_schema" SubmitLabel="Finish" OnSubmit="Finish" />
-
-@code {
-    private readonly DynamicFormSchema _schema = new()
-    {
-        FormKey = "onboarding",
-        Title = "Create your workspace",
-        OnBeforeNext = async (form, stepIndex) =>
-        {
-            if (stepIndex != 0) return true;
-            var taken = await WorkspaceDirectory.IsTakenAsync(form.GetValue<string>("slug")!);
-            if (taken) form.SetError("slug", "This address is taken", blocking: true);
-            return !taken;
-        },
-        Steps =
-        [
-            new DynamicStepSchema
-            {
-                Key = "workspace", Title = "Workspace",
-                Fields =
-                [
-                    new DynamicFieldSchema { Key = "slug", Label = "Address", Required = true },
-                    new DynamicFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, DefaultValue = "free",
-                        Options = [new("free", "Free"), new("team", "Team")] },
-                ],
-            },
-            new DynamicStepSchema
-            {
-                Key = "billing", Title = "Billing",
-                SkipWhen = form => form.GetValue<string>("plan") == "free",
-                Fields =
-                [
-                    new DynamicFieldSchema { Key = "vat", Label = "VAT number", Required = true },
-                ],
-            },
-            new DynamicStepSchema
-            {
-                Key = "invite", Title = "Invite",
-                Fields = [new DynamicFieldSchema { Key = "emails", Label = "Teammates", Kind = FormFieldKind.Textarea }],
-            },
-        ],
-    };
-
-    private Task Finish(IReadOnlyDictionary<string, object?> data)
-    {
-        Console.WriteLine($"Created {data["slug"]}");
-        return Task.CompletedTask;
-    }
-}
-```
-
-`Steps` replaces `Fields` and `Sections`. The controller validates only the current step when the user presses Next, then runs `OnBeforeNext` with the index of the step being left. Returning `false` keeps the user on the step. The step with `SkipWhen` returning `true` is passed over in both directions, and the stepper does not list it. If the steps after the current one are all skipped, the current step is the last one: the engine shows the submit button there instead of Next. A form whose first step is skipped starts on the next one.
-
-`SubmitAsync()` validates the fields of the steps that are not skipped, and `BuildOutput()` leaves the skipped ones out. A field in a skippable step can therefore be `Required`, as `vat` is: a user on the free plan never sees the billing step and is never asked for a VAT number.
-
-The error in `OnBeforeNext` is blocking: pressing Next again fails validation straight away, without another call to the directory, until the user edits `slug`.
-
-## Build a settings page with sections
-
-Goal: show every group of settings on one page, with a completion status per section and a guard against leaving with unsaved changes.
-
-```razor
-@page "/settings"
-@rendermode InteractiveServer
-
-<KlyFormNavigationGuard Form="_form" />
-<KlyDynamicFormPage Form="_form" OnSave="SaveAsync" />
-
-@code {
-    private readonly DynamicFormController _form = new(
-        new DynamicFormSchema
-        {
-            FormKey = "settings",
-            Title = "Workspace settings",
-            Sections =
-            [
-                new DynamicSectionSchema
-                {
-                    Key = "general", Label = "General",
-                    Fields =
-                    [
-                        new DynamicFieldSchema { Key = "name", Label = "Workspace name", Required = true },
-                        new DynamicFieldSchema { Key = "domain", Label = "Domain", Required = true },
-                    ],
-                },
-                new DynamicSectionSchema
-                {
-                    Key = "notes", Label = "Notes", Optional = true,
-                    Fields = [new DynamicFieldSchema { Key = "description", Label = "Description" }],
-                },
-            ],
-        },
-        new Dictionary<string, object?> { ["name"] = "Acme", ["domain"] = "acme.example" });
-
-    private async Task<bool> SaveAsync(IReadOnlyDictionary<string, object?> data, CancellationToken ct)
-    {
-        await workspaces.SaveAsync(data, ct);
-        return true;
-    }
-}
-```
-
-`KlyDynamicFormPage` takes a controller, not a schema, because it needs the controller to compute section states. It lists the sections in a sidebar with a status: `Complete`, `Pending` (a required field is empty), `Invalid` (a field has an error) or `Optional` (the section is marked optional and empty). Each section has its own Reset button once one of its fields has changed.
-
-The controller is created with initial input, so the form starts clean and `IsDirty` turns `true` on the first edit. `KlyFormNavigationGuard` is a `NavigationLock` that follows the controller. It subscribes to `Changed` and re-renders itself when `IsDirty` flips, which a `NavigationLock` placed on the page cannot do: a page that renders the form through `KlyDynamicFormPage` never re-renders when the user types, so `ConfirmExternalNavigation="@_form.IsDirty"` on the page stays at the value it had on the first render and the browser prompt never switches on. While the form is dirty the guard asks the browser to confirm leaving the site or closing the tab, and it asks `window.confirm` before in-app navigation, or calls your `ConfirmLeave` (return `true` to leave) if you prefer your own dialog. Because `OnSave` returning `true` retakes the baseline, the guard lets the page navigate after a successful save.
-
-To keep unsaved edits across a reload, store a draft and restore it on the new controller:
-
-```csharp
-// while the user edits, for example on form.Changed
-await storage.SetAsync("settings-draft", _form.ExportState().ToJson());
-
-// when the page loads, with the controller built from the saved data as before
-if (await storage.GetAsync("settings-draft") is { } json)
-{
-    _form.RestoreDraft(FormDraft.FromJson(json));
-}
-```
-
-`RestoreDraft` puts the values back without changing the baseline, so the restored fields count as unsaved changes (`IsDirty` is `true` and the guard protects them). `Reset(input)` would have made the draft the new baseline and the form clean. `ExportState()` leaves password and one-time code fields, and those columns inside repeatable lists, out unless you pass `includeSensitive: true`, because a draft usually lives on the user's device.
-
-`KlyDynamicFormPage` renders fields exactly like `KlyDynamicFormEngine`: the same controls per kind, labels, containers, tabs and repeatable lists. The page is a `form` element, so pressing Enter in a text field submits it. `DynamicFormSchema.Columns` sets the number of columns of the field grids, and `DynamicSectionSchema.Span` lets two sections share a row on large screens (`Span = 6` each).
-
-## Open a form in a dialog from anywhere
-
-Goal: ask the user for a few values from code, wherever you are, and await the answer.
-
-Mount one `KlyFormProvider` in the layout:
-
-```razor
-@inherits LayoutComponentBase
-
-<KlyFormProvider>
-    @Body
-</KlyFormProvider>
-```
-
-Then open a form from any component in the same scope:
-
-```razor
-@page "/projects"
-@rendermode InteractiveServer
-@inject DynamicFormService Forms
-
-<button type="button" @onclick="Create">New project</button>
-
-<ul>
-    @foreach (var name in _projects)
-    {
-        <li>@name</li>
-    }
-</ul>
-
-@code {
-    private readonly List<string> _projects = [];
-
-    private static readonly DynamicFormSchema NewProject = new()
-    {
-        FormKey = "new-project",
-        Title = "New project",
-        Fields = [new DynamicFieldSchema { Key = "name", Label = "Name", Required = true }],
-    };
-
-    private async Task Create()
-    {
-        var outcome = await Forms.CreateFormAsync(NewProject, mode: FormShellMode.Modal);
-        if (outcome.IsCompleted)
-        {
-            _projects.Add((string)outcome.FormData["name"]!);
-        }
-    }
-}
-```
-
-The example uses the runtime mode. For a typed form inject `FormService` and call `await Forms.CreateFormAsync(schema, model, FormShellMode.Drawer)`: the task completes with a `FormSubmitOutcome<TModel>`, whose `Model` is the submitted model (the one you passed with the values written into it, or the new one the form created) after a submit, and the model you passed, unchanged, after a close. Both services are registered by `AddKlyrooForm()` and one `KlyFormProvider` hosts both.
-
-`CreateFormAsync` shows the form in the provider and returns a task. It completes with `IsCompleted` set to `true` and the output after a successful submit, or with `false` if the user cancels. `FormShellMode.Modal` is the default and renders a centered dialog; `Drawer` renders a full-height panel docked to the end of the viewport, and `Fullscreen` covers the whole viewport. The overlay carries the mode in a `data-mode` attribute. It is a native modal dialog from Klyroo.UI (`KlyModal`, `KlySlideover` for `Drawer`), so focus stays inside it, Escape and a click on the backdrop close the form (the task completes with `IsCompleted = false`), and focus returns to the element that opened the form. While the form is saving it cannot be dismissed.
-
-Do the work after the `await`, as above. The schema hooks `OnBeforeSubmit` and `OnSubmit` run once per submit. Calling `CreateFormAsync` while another form is open replaces it, and the replaced form's task completes with `IsCompleted` set to `false`, as if the user had closed it.
-
-## Edit repeatable rows
-
-Goal: let the user add and remove rows, such as invoice lines, and validate each row.
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-var lines = new DynamicFieldSchema
-{
-    Key = "lines",
-    Label = "Lines",
-    Kind = FormFieldKind.ArrayTable,
-    Required = true,
-    AddItemLabel = "Add line",
-    Fields =
-    [
-        new DynamicFieldSchema { Key = "sku", Label = "SKU", Required = true, MaxLength = 12 },
-        new DynamicFieldSchema { Key = "qty", Label = "Quantity", Kind = FormFieldKind.Number, Min = 1, DefaultValue = 1.0 },
-    ],
-    Validators =
-    [
-        new DynamicValidatorRule("unique", "Each SKU can appear once", (value, _) =>
-            value is List<Dictionary<string, object?>> rows
-            && rows.Select(row => row.GetValueOrDefault("sku")?.ToString()).Distinct().Count() == rows.Count),
-    ],
-};
-
-var schema = new DynamicFormSchema { FormKey = "invoice", Fields = [lines] };
-```
-
-`ArrayList` and `ArrayTable` hold a `List<Dictionary<string, object?>>`, one dictionary per row, keyed by the child field keys. `KlyDynamicFormEngine` and `KlyDynamicFormPage` show an add button (labelled by `AddItemLabel`), the control of each child's kind per cell and a remove button per row. The two kinds are rendered identically. In code, use `AddArrayItem`, `SetArrayItemValue`, `RemoveArrayItem` and `GetArrayItems`.
-
-Each cell is validated with the rules of its child field: `Required`, `Min`, `Max`, `MaxLength`, password requirements and `Validators`. `Validate()` and a submit check every cell, and a cell the user edited is checked as it changes, following the child's `Trigger`. The error shows under the cell, and `GetArrayItemError("lines", 0, "sku")` or `GetError("lines[0].sku")` reads it. A rule that spans rows, like `unique` above, goes on the list field, which receives the whole list. A `Number` cell holds a `double`, like a `Number` field. `Required` on the list itself requires at least one row, `Disabled` disables the cells and the buttons, a child's `Condition` hides its column, and a child's `Watch` runs with the cell value when the cell changes.
-
-## Prefill and reset a form
-
-Goal: load existing data into a form, and restore it on demand.
-
-```razor
-@page "/controlled"
-@rendermode InteractiveServer
-
-<KlyDynamicFormEngine Form="_form" ShowReset="false" />
-
-<button type="button" @onclick="Prefill" disabled="@_form.IsSubmitting">Use my profile</button>
-
-@code {
-    private readonly DynamicFormController _form = new(new DynamicFormSchema
-    {
-        FormKey = "profile",
-        Fields =
-        [
-            new DynamicFieldSchema { Key = "name", Label = "Name" },
-            new DynamicFieldSchema { Key = "email", Label = "Email" },
-        ],
-    });
-
-    private void Prefill() => _form.Reset(new Dictionary<string, object?>
-    {
-        ["name"] = "Alice",
-        ["email"] = "alice@example.com",
-    });
-}
-```
-
-Pass a `DynamicFormController` to `KlyDynamicFormEngine` through `Form` when you need to read or change the form from code. `Reset(newInput)` clears errors and touched state, returns to the first step, loads the values and makes them the new baseline, so the form is not dirty afterwards. `Reset()` without input returns to the defaults. To restore a single field use `ResetField(key)`, and for a section `ResetSection(key)`; both go back to the baseline, not to the defaults.
-
-Keys of the input that match no field are kept in `InternalState` but never appear in the output.
-
-## Bind a C# model
-
-Goal: declare a form from a C# class, read and write its values as the types of the members, validate it with the attributes you already put on it, and receive the class back on submit.
-
-This is the typed mode of Klyroo.Form: `FormSchema.For<TModel>` declares the form once, the builder returns a handle for each field, and a `FormController<TModel>` reads and writes values through those handles. The schema and the controller live in `Klyroo.Form.Core` and work in a test, a view model or a console app; `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render them in Blazor (see [Render the model in Blazor](#render-the-model-in-blazor)).
+`FormSchema.For<TModel>` declares the form once, the builder returns a handle for each field, and a `FormController<TModel>` reads and writes values through those handles. The schema and the controller live in `Klyroo.Form.Core` and work in a test, a view model or a console app; `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` render them in Blazor.
 
 ```csharp
 public sealed class Order
@@ -505,8 +44,10 @@ public sealed class OrderLine
 }
 
 public enum Plan { Free, Team, Business }
+```
 
-var schema = FormSchema.For<Order>(s =>
+```csharp
+public static readonly FormSchema<Order> Schema = FormSchema.For<Order>(s =>
 {
     s.Title = "New order";
     s.Field(o => o.Customer, f => f.Required().MaxLength(80));
@@ -540,43 +81,709 @@ var saved = await form.SubmitAsync(async (order, ct) =>
 });
 ```
 
-`Get` returns the value as its type (the default of the type while the field is empty or holds text that is not a value yet: `0` for an `int`, `null` for a string, and an empty list, never `null`, for a list or a multiple choice), and `TryGet` tells those cases apart: it returns `false` while the field is empty, which includes an empty list, or holds text that is not a value. `CreateModel()` builds a new model, `ApplyTo(target)` writes into an existing one, and `Reset(model)` loads another.
-
 What happens when `SubmitAsync(save, target)` runs:
 
 1. The field rules run, waiting for asynchronous ones.
 2. The values are written into `target`, or into a new model when there is none, and every conversion is checked before the first member is set.
-3. The model checks (`s.Validate((order, errors) => errors.Add(o => o.Seats, "..."))`, and the attributes below) run on that model, then `OnBeforeSubmit` and `OnSubmit`.
+3. The model checks (`s.Validate((order, errors) => errors.Add(o => o.Seats, "..."))`, and the attributes in [Read the rules from data annotations](#read-the-rules-from-data-annotations)) run on that model, then `OnBeforeSubmit` and `OnSubmit`.
 4. `save` runs inside the submit lifecycle, so `IsSubmitting` stays true while it works. When a step fails, or `save` returns `false` or throws, the members the write changed get their previous values again (a list holds its previous items and a row its previous cells) and the form stays dirty. Members the form did not write are not touched, and nothing your hooks or your save step did is undone: `OnBeforeSubmit`, `OnSubmit` (which runs before `save`, so its side effects stay when the save fails) and `save` itself are yours to compensate. On success the baseline is retaken.
+
+### Nested objects, multiple choice and fields outside the model
+
+`Group` lays out the fields of an object member, `MultiSelect` holds several chosen values, and `s.Field<TValue>("key", ...)` declares a field the form has and the model does not, such as the acceptance of terms:
+
+```csharp
+public sealed class Team
+{
+    public string Name { get; set; } = "";
+    public Address Office { get; set; } = new();
+    public List<Role> Roles { get; set; } = [];
+}
+
+public enum Role { Admin, Editor, Viewer }
+
+public sealed class TeamForm
+{
+    public TeamForm()
+    {
+        FormField<Team, bool> terms = null!;
+        Schema = FormSchema.For<Team>(s =>
+        {
+            s.Field(m => m.Name, f => f.Required());
+            s.Group(m => m.Office, g =>
+            {
+                g.Field(a => a.Street);
+                g.Field(a => a.City, f => f.Required());
+            }, label: "Office");
+            s.MultiSelect(m => m.Roles, [
+                new FormOption<Role>(Role.Admin, "Administrator"),
+                new FormOption<Role>(Role.Editor, "Editor"),
+                new FormOption<Role>(Role.Viewer, "Viewer"),
+            ]);
+            terms = s.Field<bool>("terms", f => f.Required());   // a field the form has and the model does not
+        });
+        Terms = terms;
+    }
+
+    public FormSchema<Team> Schema { get; }
+
+    public FormField<Team, bool> Terms { get; }
+}
+```
 
 ### Render the model in Blazor
 
-`KlyFormEngine<TModel>` renders a `FormSchema<TModel>` with the header, the stepper, the fields and the actions of the dynamic engine, and `KlyFormPage<TModel>` renders a schema with sections as a page. Give either a `Schema` and a `Model`, or a `FormController<TModel>` through `Form` when you need to read the form from code. Razor infers `TModel` from `Schema`, `Model`, `Form` or `OnSave`, so the markup names no type:
+`KlyFormEngine<TModel>` renders a `FormSchema<TModel>` with the header, the stepper, the fields and the actions, and `KlyFormPage<TModel>` renders a schema with sections as a page. Give either a `Schema` and a `Model`, or a `FormController<TModel>` through `Form` when you need to read the form from code. Razor infers `TModel` from `Schema`, `Model`, `Form` or `OnSave`, so the markup usually names no type:
 
 ```razor
-<KlyFormEngine Schema="_schema" Model="_order" OnSave="SaveAsync" OnSubmit="Saved" OnCancel="Cancelled" />
+<KlyFormEngine Schema="_schema" Model="_order" OnSave="SaveAsync" OnCancel="Cancelled" />
 ```
 
 - `Model` is the object the form edits. Its values start the form, and a submit writes the values back into it, all or nothing: if validation, the model checks, `OnBeforeSubmit` or `OnSave` fails, the members the write changed get their previous values again. Members the form does not show (an `Id`, a `CreatedAt`) are not touched. Without a `Model` every submit creates a new `TModel`. A different `Model` instance reloads the form and drops unsaved edits; the same instance does not.
 - `OnSave` is `Func<TModel, CancellationToken, Task<bool>>`, called with the model after validation and the hooks passed, while the form is still submitting. Return `false` to keep the edits and the form open after reporting the reason with `SetError` or `SetFormError`. `OnSubmit` is `EventCallback<TModel>`, raised afterwards, on success only, with the same model. `OnCancel` is an `EventCallback` and shows the Cancel button when it is bound.
 - Keep the schema in a field or a static member. A new `FormSchema<TModel>` instance makes the component start a new controller.
+- A method group given to `OnSubmit` (`OnSubmit="Saved"`) stops Razor from inferring `TModel` and fails with a conversion error: write the type, `<KlyFormEngine TModel="Order" ... OnSubmit="Saved" />`. The same happens with a lambda.
 - The `Model` parameter is nullable, so a `Model="_order"` where `_order` is declared `Order?` makes Razor infer `Order?` as the type and warn about the schema. Declare the field non-null, or write `Model="_order!"`.
-- The field components are the same as the runtime mode's, down to the markup: labels point at their control, descriptions, help and errors are tied to it with `aria-describedby`, and a failed submit moves focus to the first invalid field or to the error summary. `KlyFormErrorSummary` and `KlyFormNavigationGuard` take a `FormController<TModel>` as well as a `DynamicFormController` (their `Form` is an `IFormRuntime`).
+- A failed submit moves focus to the first invalid field or to the error summary, labels point at their control, and descriptions, help and errors are tied to it with `aria-describedby`. `KlyFormErrorSummary` and `KlyFormNavigationGuard` take a `FormController<TModel>` (their `Form` is an `IFormRuntime`).
 
-To lay out the fields yourself, place the controller with a `CascadingValue` (or pass it with `Form`) and draw each field with `KlyFormFieldView`. It takes the handle the schema gave and renders the field with its label, help and error:
+To lay the fields out yourself, see [Lay out the fields yourself](#lay-out-the-fields-yourself).
 
-```razor
-<CascadingValue Value="_controller">
-    <div class="grid grid-cols-2 gap-4">
-        <KlyFormFieldView Field="@_customer" />
-        <KlyFormFieldView Field="@_seats" />
-    </div>
-</CascadingValue>
+## Validate a field with custom rules
+
+Goal: reject a value that passes the built-in checks, and choose when the error appears.
+
+```csharp
+public sealed class Signup
+{
+    public string Username { get; set; } = "";
+    public int Age { get; set; } = 18;
+    public string Password { get; set; } = "";
+    public string ConfirmPassword { get; set; } = "";
+    public bool AcceptTerms { get; set; }
+}
+
+public static class SignupForm
+{
+    public static readonly FormSchema<Signup> Schema = FormSchema.For<Signup>(s =>
+    {
+        s.FormKey = "signup";
+        s.Field(m => m.Username, f => f
+            .Required()
+            .MaxLength(20)
+            .Trigger(FormValidationTrigger.Input)
+            .Rule(name => name.Length >= 3, "Use at least 3 characters")
+            .Rule(name => name.All(c => char.IsLetterOrDigit(c) || c == '-'), "Use letters, digits and dashes only"));
+        s.Field(m => m.Age, f => f.Range(18, 120));
+        var password = s.Field(m => m.Password, f => f
+            .Required()
+            .AsPassword(
+                new FormPasswordRequirement("length", "Use at least 12 characters", p => p.Length >= 12),
+                new FormPasswordRequirement("digit", "Use at least one digit", p => p.Any(char.IsDigit))));
+        s.Field(m => m.ConfirmPassword, f => f
+            .AsPassword()
+            .DependsOn(password)
+            .Rule((value, form) => value == form.Get(password), "Passwords differ"));
+        s.Field(m => m.AcceptTerms, f => f.Required(message: "You must accept the terms"));
+    });
+}
 ```
 
-It does not subscribe to the controller: render it from a component that re-renders on `Changed` (`KlyFormEngine` does) so changes made elsewhere show up.
+`Required`, number bounds (`Range`), `MaxLength`, password requirements and `Rule` run in that order on each validation, and the first failure becomes the error. For a field that is empty and required, only the required message is reported. A `Required` checkbox or switch must be checked, so `Required()` is enough for a consent box, and `Required(message: "...")` gives it a message of your own.
 
-### Data annotations
+Rules also run when the value is empty and the field is not required. The rule then receives the default of the type: `""` for a string, `0` for an int. Write rules that accept it, or reject it on purpose.
+
+`Trigger` decides when a field is validated while the user edits it. `Blur` (the default) starts validating when the control first loses focus and then validates on every change, `Input` validates from the first change, and `Submit` waits for `Validate()` or a submit. Errors only show for touched fields, and `Validate()` and `SubmitAsync()` touch every field they check.
+
+Rules that read another field, such as a confirmation that compares itself with the password, stay correct while the user edits the other field. After every change the controller validates again the touched fields that currently show an error, so a stale "Passwords differ" disappears when the password is changed to match. It cannot guess that an untouched-looking valid field became invalid, so name the fields your rules read with `DependsOn(handle)`, as `ConfirmPassword` does above: a change of `Password` validates `ConfirmPassword` again once the user has touched it, so the mismatch appears and clears as soon as the other field changes. A field the user has not touched yet stays quiet, and a field with `Trigger(FormValidationTrigger.Submit)` still waits for submission. `Required(condition)` follows the same rule: its error disappears when the condition stops holding, and appears on a touched field when you list the field the condition reads in `DependsOn`.
+
+## Report a server error on a field
+
+Goal: check a value against a service on submit and show the result on the field.
+
+```csharp
+// accounts is your own service
+public static readonly FormSchema<Registration> Register = FormSchema.For<Registration>(s =>
+{
+    s.FormKey = "register";
+    var email = s.Field(m => m.Email, f => f.Required());
+    s.OnBeforeSubmit(async (registration, form) =>
+    {
+        if (await accounts.IsEmailTakenAsync(registration.Email))
+        {
+            form.SetError(email, "This email is already registered");
+            return false;
+        }
+        return true;
+    });
+});
+```
+
+`OnBeforeSubmit` runs after local validation passes and before the save step. It receives the model the values were written into and the controller. Returning `false` cancels the submit, `SetError` puts the message on the field through its handle, and the next `Set` on that field clears it. `SubmitAsync()` returns `false` and the form stays dirty: the baseline is only retaken after a successful submit.
+
+`SetError` takes a `blocking` argument. A blocking error makes `Validate()` and `SubmitAsync()` fail until it is cleared, without calling your service again. Use it when you set the error outside of the submit pipeline, for example from `OnBeforeNext` in a wizard. For an error set inside `OnBeforeSubmit`, which already returns `false`, the default is enough.
+
+`SetFormError(message)` reports a failure that belongs to no field. `ClearErrors(handle)` clears the errors of one field, and `ClearErrors()` clears every error.
+
+## Check a value against a service while the user types
+
+Goal: tell the user that a username is taken as soon as they leave the field, without calling the service on every key and without letting a stale answer through.
+
+```csharp
+public static readonly FormSchema<Account> AccountForm = FormSchema.For<Account>(s =>
+{
+    s.Field(m => m.Username, f => f
+        .Required()
+        .RuleAsync(
+            async (username, form, ct) => await accounts.IsUsernameTakenAsync(username, ct) ? "This username is taken" : null,
+            debounce: TimeSpan.FromMilliseconds(400)));
+});
+```
+
+The rule returns the error message, or `null` when the value is valid. It runs after the synchronous checks pass and only for a value that is not empty. Once the field is touched (it loses focus, or `Trigger(FormValidationTrigger.Input)` and it changes), a run starts when the value has stayed unchanged for `debounce`. A newer value cancels the older run through the token and its answer is ignored: the error is only ever the answer for the value on screen. While a run is waiting or running, `form.IsValidating(username)` is `true`, and the components show a spinner and "Checking..." under the field and set `aria-busy` on it.
+
+`SubmitAsync()` and `NextStepAsync()` wait for the rules of the fields they validate, keep `IsSubmitting` set meanwhile, and fail if a rule returns a message. A run that already called the service with the current value is joined, not repeated, and an answer that is already known is reused. `await form.ValidateAsync()` does the same without submitting; the synchronous `Validate()` only uses the answers that are already known.
+
+If the service is unreachable during a background run, the exception is swallowed and the field simply stays unchecked: the user can still fix other fields, and `SubmitAsync()` runs the rule again and lets the exception reach your code, like any other hook that throws. A value that is edited while its rule runs is checked again, and a submit never succeeds with a value no rule has seen: if results keep going stale, `SubmitAsync()` returns `false`. An edit that replaces a running rule cancels it silently, never as an `OperationCanceledException` from `SubmitAsync()` or `ValidateAsync()`. Dispose the controller (`FormController<TModel>` is `IDisposable`) when you are done with it, which cancels the runs still pending; the components do it for the controller they create, and `FormService` for the form it closes. A rule does not apply to the cells of a repeatable list. In a host without a synchronization context (a console app, a test), background runs finish on a thread-pool thread, and `Changed` is raised there.
+
+## Save from the component and keep the form busy
+
+Goal: call your API when the user submits, show a saving state while it runs, keep the edits when it fails and report the failure.
+
+```razor
+@page "/profile/edit"
+@rendermode InteractiveServer
+@inject IProfiles Profiles
+@inject NavigationManager Nav
+
+<KlyFormEngine TModel="Profile" Form="_form" Model="_profile" OnSave="SaveAsync" OnSubmit="Saved" />
+
+@code {
+    private readonly Profile _profile = new() { Name = "Ada", Email = "ada@example.com" };
+
+    private readonly FormController<Profile> _form;
+
+    public ProfilePage() => _form = new(Schemas.Profile, _profile);
+
+    private async Task<bool> SaveAsync(Profile profile, CancellationToken ct)
+    {
+        var result = await Profiles.SaveAsync(profile, ct);
+        if (result.Conflict)
+        {
+            _form.SetFormError("Someone else changed this profile. Reload it and try again.");
+            return false;
+        }
+        return true;
+    }
+
+    private void Saved(Profile profile) => Nav.NavigateTo("/profile");
+}
+```
+
+`OnSave` runs inside `FormController<TModel>.SubmitAsync`, after validation and the schema hooks, while `IsSubmitting` is still `true`: the button shows its saving state, a second submit is refused, and Back, Reset and Cancel are disabled. When it returns `true` the dirty snapshot is retaken, so `IsDirty` turns `false` and `OnSubmit` is raised. When it returns `false`, or throws, the snapshot is kept: the edits stay dirty, the model gets its previous values back, and the user can fix and resubmit. The token is cancelled when the component is disposed. The page passes both `Form` and `Model`: with `Form` the controller is yours, and `Model` is the object a submit writes into.
+
+While the form submits, every field is disabled (`IsDisabled(field)` reports `true` for all of them while `IsSubmitting` is `true`), so the user cannot change values that are being validated or saved. If `OnSave`, an asynchronous rule, a hook or `OnSubmit` throws, the component logs the exception through `ILogger` and shows a form-level notice ("Something went wrong. Try again.", in the locale) instead of letting it end the Blazor Server circuit; `IsSubmitting` resets, the edits stay, and the notice goes away with the next attempt. After a successful save, the baseline is the set of values the handler received: an edit made from code while it ran stays dirty.
+
+`OnSubmit` on its own runs after the submission is already over (`IsSubmitting` is `false`, the form is clean), so it is the place to navigate, not to save. Without the component, the same lifecycle is `await form.SubmitAsync(async (model, ct) => (await api.SaveAsync(model, ct)).Ok, target, ct)`.
+
+`SetFormError` reports a failure that belongs to no field. It is a blocking error listed in the error summary at the top of the form, and it keeps `Validate()` failing until you call `ClearErrors()` (or `Reset`). After a failed submit or Next, the summary lists every field error as a button that focuses the field, a polite live region announces the count and the first error, and focus moves to the first invalid field (or to the summary when only form-level errors remain).
+
+## Show and require fields conditionally
+
+Goal: show a field only for some answers, and make another required depending on a third.
+
+```csharp
+public enum AccountType { Personal, Business }
+
+public sealed class Billing
+{
+    public AccountType AccountType { get; set; }
+    public string Company { get; set; } = "";
+    public string Country { get; set; } = "";
+    public string VatNumber { get; set; } = "";
+}
+
+public static class BillingForm
+{
+    public static readonly FormSchema<Billing> Schema = FormSchema.For<Billing>(s =>
+    {
+        s.FormKey = "billing";
+        var type = s.Field(m => m.AccountType, f => f.AsRadio());
+        s.Field(m => m.Company, f => f
+            .Required()
+            .VisibleWhen(c => c.Get(type) == AccountType.Business));
+        var country = s.Field(m => m.Country, f => f.Default("FR"));
+        s.Field(m => m.VatNumber, f => f
+            .VisibleWhen(c => c.Get(type) == AccountType.Business)
+            .Required(c => c.Get(country) != "US")
+            .DependsOn(country)
+            .TransformOutput(vat => vat.Replace(" ", "").ToUpperInvariant()));
+    });
+}
+```
+
+A field whose `VisibleWhen` returns `false` is not rendered, is skipped by validation and is not written into the model. Its value stays in the form state, so it comes back if the user changes their mind, and the member keeps the value it had. `Required(condition)` is evaluated on each validation; `DependsOn(country)` makes a touched `VatNumber` show or clear its error as soon as the country changes. Handles such as `type` and `country` are the captured locals the builder returned: the conditions are typed (`c.Get(type) == AccountType.Business`), so a renamed member or a wrong comparison does not compile.
+
+`TransformOutput` changes the value only on its way into the model, here to normalize a VAT number. The form keeps what the user typed, so the field does not change under their cursor: `controller.CreateModel().VatNumber` is `FR12345` while `controller.Get(vat)` is still `fr 12 345`.
+
+A `Card` or a `Tab` takes `visibleWhen` and hides its children too, with the same effect: they are not validated and not written, and their values stay in the form state. So `Company` and `VatNumber` can share a single condition:
+
+```csharp
+public sealed class BillingCard
+{
+    public static readonly FormSchema<Billing> Schema = FormSchema.For<Billing>(s =>
+    {
+        var type = s.Field(m => m.AccountType, f => f.AsRadio());
+        s.Card("business", "Business details", card =>
+        {
+            card.Field(m => m.Company, f => f.Required());
+            card.Field(m => m.VatNumber);
+        }, visibleWhen: c => c.Get(type) == AccountType.Business);
+    });
+}
+```
+
+## Build a multi-step wizard
+
+Goal: split a long form into steps, skip one that does not apply, and run an async check before moving on.
+
+```csharp
+public enum Tier { Free, Team }
+
+public sealed class Onboarding
+{
+    public string Slug { get; set; } = "";
+    public Tier Plan { get; set; }
+    public string VatNumber { get; set; } = "";
+    public string? Emails { get; set; }
+}
+
+public static class OnboardingForm
+{
+    public static IWorkspaceDirectory WorkspaceDirectory = new FakeDirectory();
+
+    public static readonly FormSchema<Onboarding> Schema = Create();
+
+    private static FormSchema<Onboarding> Create()
+    {
+        FormField<Onboarding, string> slug = null!;
+        FormField<Onboarding, Tier> plan = null!;
+
+        return FormSchema.For<Onboarding>(s =>
+        {
+            s.FormKey = "onboarding";
+            s.Title = "Create your workspace";
+            s.Step("workspace", "Workspace", step =>
+            {
+                slug = step.Field(m => m.Slug, f => f.Required().Label("Address"));
+                plan = step.Field(m => m.Plan, f => f.AsRadio());
+            });
+            s.Step("billing", "Billing", step =>
+            {
+                step.Field(m => m.VatNumber, f => f.Required().Label("VAT number"));
+            }, skipWhen: c => c.Get(plan) == Tier.Free);
+            s.Step("invite", "Invite", step =>
+            {
+                step.Field(m => m.Emails, f => f.AsTextarea().Label("Teammates"));
+            });
+            s.OnBeforeNext(async (form, stepIndex) =>
+            {
+                if (stepIndex != 0) return true;
+                var taken = await WorkspaceDirectory.IsTakenAsync(form.Get(slug)!);
+                if (taken) form.SetError(slug, "This address is taken", blocking: true);
+                return !taken;
+            });
+        });
+    }
+}
+```
+
+```razor
+@page "/onboarding"
+@rendermode InteractiveServer
+
+<KlyFormEngine TModel="Onboarding" Schema="OnboardingForm.Schema" SubmitLabel="Finish" OnSubmit="Finish" />
+
+@if (_created is not null)
+{
+    <p>Created @_created</p>
+}
+
+@code {
+    private string? _created;
+
+    private void Finish(Onboarding onboarding) => _created = onboarding.Slug;
+}
+```
+
+Each `s.Step(key, title, configure)` declares one step, and the fields declared inside belong to it. A step's `skipWhen` and `s.OnBeforeNext(...)` take the controller, so they read values through handles. The handles of the first steps are captured in locals declared before `FormSchema.For` (the builder runs the step lambdas as it goes, so they are assigned by the time a condition runs). The controller validates only the current step when the user presses Next, then runs `OnBeforeNext` with the index of the step being left. Returning `false` keeps the user on the step. A step whose `skipWhen` returns `true` is passed over in both directions, and the stepper does not list it. If the steps after the current one are all skipped, the current step is the last one: the engine shows the submit button there instead of Next, and `OnBeforeNext` does not run, which is why the check on the address above sits on a step that a third step follows. A form whose first step is skipped starts on the next one.
+
+`SubmitAsync()` validates the fields of the steps that are not skipped, and fields of skipped steps are not written into the model. A field in a skippable step can therefore be `Required`, as `VatNumber` is: a user on the free plan never sees the billing step and is never asked for a VAT number. In code, `NextStepAsync()`, `PreviousStepAsync()`, `CurrentStepKey`, `IsFirstStep` and `IsLastStep` drive and read the wizard.
+
+The error in `OnBeforeNext` is blocking: pressing Next again fails validation straight away, without another call to the directory, until the user edits `Slug`.
+
+## Build a settings page with sections
+
+Goal: show every group of settings on one page, with a completion status per section and a guard against leaving with unsaved changes.
+
+```razor
+@page "/settings"
+@rendermode InteractiveServer
+@inject IWorkspaces Workspaces
+
+<KlyFormNavigationGuard Form="_form" />
+<KlyFormPage Form="_form" Model="_settings" OnSave="SaveAsync" />
+
+@code {
+    private readonly Settings _settings = new() { Name = "Acme", Domain = "acme.example" };
+
+    private static readonly FormSchema<Settings> _schema = FormSchema.For<Settings>(s =>
+    {
+        s.FormKey = "settings";
+        s.Title = "Workspace settings";
+        s.Section("general", "General", section =>
+        {
+            section.Field(m => m.Name, f => f.Required().Label("Workspace name"));
+            section.Field(m => m.Domain, f => f.Required());
+        });
+        s.Section("notes", "Notes", section =>
+        {
+            section.Field(m => m.Description);
+        }, optional: true);
+    });
+
+    private readonly FormController<Settings> _form;
+
+    public SettingsPage() => _form = new(_schema, _settings);
+
+    private async Task<bool> SaveAsync(Settings settings, CancellationToken ct)
+    {
+        await Workspaces.SaveAsync(settings, ct);
+        return true;
+    }
+}
+```
+
+`KlyFormPage<TModel>` renders a schema whose fields are declared in `s.Section(key, label, configure, optional: ...)` blocks. The page passes a controller through `Form` because `KlyFormNavigationGuard` needs the same controller; with no guard, `Schema` and `Model` are enough. It lists the sections in a sidebar with a status: `Complete`, `Pending` (a required field is empty), `Invalid` (a field has an error) or `Optional` (the section is marked optional and empty). Each section has its own Reset button once one of its fields has changed, and in code `GetSectionStates()` and `ResetSection(key)` give the same information.
+
+The controller is created with the model, so the form starts clean and `IsDirty` turns `true` on the first edit. `KlyFormNavigationGuard` is a `NavigationLock` that follows the controller. It subscribes to `Changed` and re-renders itself when `IsDirty` flips, which a `NavigationLock` placed on the page cannot do: a page that renders the form through `KlyFormPage<TModel>` never re-renders when the user types, so `ConfirmExternalNavigation="@_form.IsDirty"` on the page stays at the value it had on the first render and the browser prompt never switches on. While the form is dirty the guard asks the browser to confirm leaving the site or closing the tab, and it asks `window.confirm` before in-app navigation, or calls your `ConfirmLeave` (return `true` to leave) if you prefer your own dialog. Because `OnSave` returning `true` retakes the baseline, the guard lets the page navigate after a successful save.
+
+To keep unsaved edits across a reload, store a draft and restore it on the new controller:
+
+```csharp
+public static class DraftSample
+{
+    public static async Task Store(FormController<Settings> form, IDraftStorage storage)
+    {
+        // while the user edits, for example on form.Changed
+        await storage.SetAsync("settings-draft", form.ExportDraft().ToJson());
+    }
+
+    public static async Task Load(FormController<Settings> form, IDraftStorage storage)
+    {
+        // when the page loads, with the controller built from the saved data as before
+        if (await storage.GetAsync("settings-draft") is { } json)
+        {
+            form.RestoreDraft(FormDraft.FromJson(json));
+        }
+    }
+}
+```
+
+A draft holds the values the user typed and the current step, not the model: restore it on a controller built from the same data. A restored draft is still dirty, because the baseline is the original data. Files are not part of drafts.
+
+## Open a form in a dialog from anywhere
+
+Goal: open a form in a modal dialog or a side drawer from any component, and continue with the result after the user submits.
+
+Mount one `KlyFormProvider` in the layout:
+
+```razor
+@inherits LayoutComponentBase
+
+<KlyFormProvider>
+    @Body
+</KlyFormProvider>
+```
+
+Then open a form from any component in the same scope:
+
+```razor
+@page "/projects"
+@rendermode InteractiveServer
+@inject FormService Forms
+
+<button type="button" @onclick="Create">New project</button>
+
+<ul>
+    @foreach (var name in _projects)
+    {
+        <li>@name</li>
+    }
+</ul>
+
+@code {
+    private readonly List<string> _projects = [];
+
+    private static readonly FormSchema<NewProject> Schema = FormSchema.For<NewProject>(s =>
+    {
+        s.FormKey = "new-project";
+        s.Title = "New project";
+        s.Field(m => m.Name, f => f.Required());
+    });
+
+    private async Task Create()
+    {
+        var outcome = await Forms.CreateFormAsync(Schema, mode: FormShellMode.Modal);
+        if (outcome.IsCompleted)
+        {
+            _projects.Add(outcome.Model!.Name);
+        }
+    }
+}
+```
+
+`CreateFormAsync<TModel>(schema, model, mode)` shows the form in the provider and returns a task of `FormSubmitOutcome<TModel>`. `TModel` is inferred from the schema, and the model is optional: without one the form creates a new model. The task completes with `IsCompleted` set to `true` and `Model` set to the submitted model after a successful submit (the one you passed with the values written into it, or the new one the form created), or with `IsCompleted` set to `false` and the model you passed, unchanged, if the user cancels. `FormShellMode.Modal` is the default and renders a centered dialog; `Drawer` renders a full-height panel docked to the end of the viewport, and `Fullscreen` covers the whole viewport. The overlay carries the mode in a `data-mode` attribute. It is a native modal dialog from Klyroo.UI (`KlyModal`, `KlySlideover` for `Drawer`), so focus stays inside it, Escape and a click on the backdrop close the form (the task completes with `IsCompleted = false`), and focus returns to the element that opened the form. While the form is saving it cannot be dismissed.
+
+Do the work after the `await`, as above. The schema hooks `OnBeforeSubmit` and `OnSubmit` run once per submit. Calling `CreateFormAsync` while another form is open replaces it, and the replaced form's task completes with `IsCompleted` set to `false`, as if the user had closed it. `AddKlyrooForm()` registers `FormService` and `DynamicFormService` as scoped services, and one `KlyFormProvider` hosts both.
+
+## Edit repeatable rows
+
+Goal: let the user add and remove rows, such as invoice lines, and validate each row.
+
+```csharp
+public sealed class Invoice
+{
+    public List<InvoiceLine> Lines { get; set; } = [];
+}
+
+public sealed class InvoiceLine
+{
+    public int Id { get; set; }
+    public string Sku { get; set; } = "";
+    public int Qty { get; set; } = 1;
+}
+
+public sealed class InvoiceForm
+{
+    public InvoiceForm()
+    {
+        FormField<InvoiceLine, string> sku = null!;
+        FormField<InvoiceLine, int> qty = null!;
+        FormListField<Invoice, InvoiceLine> lines = null!;
+
+        Schema = FormSchema.For<Invoice>(s =>
+        {
+            s.FormKey = "invoice";
+            lines = s.List(m => m.Lines, row =>
+            {
+                sku = row.Field(l => l.Sku, f => f.Required().MaxLength(12).Label("SKU"));
+                qty = row.Field(l => l.Qty, f => f.Range(1, 999).Label("Quantity"));
+            },
+            addLabel: "Add line",
+            configure: f => f
+                .Required()
+                .Rule(rows => rows.Select(r => r.Sku).Distinct().Count() == rows.Count, "Each SKU can appear once"));
+        });
+        Lines = lines;
+        Sku = sku;
+        Qty = qty;
+    }
+
+    public FormSchema<Invoice> Schema { get; }
+    public FormListField<Invoice, InvoiceLine> Lines { get; }
+    public FormField<InvoiceLine, string> Sku { get; }
+    public FormField<InvoiceLine, int> Qty { get; }
+}
+```
+
+`s.List(member, columns, addLabel, configure, itemFactory)` edits a collection member as repeatable rows. The columns are declared with `row.Field(...)`, which returns a handle typed on the row (`FormField<InvoiceLine, string>`), and the list itself has a handle, `FormListField<Invoice, InvoiceLine>`. `KlyFormEngine<TModel>` and `KlyFormPage<TModel>` show an add button (labelled by `addLabel`), the control of each column per cell and a remove button per row. The `configure` argument is the builder of the list field itself, so a rule that spans rows, like the one on `Sku` above, goes there and receives the whole list. `Required()` on the list requires at least one row.
+
+In code, the rows are read and changed through the controller:
+
+```csharp
+var invoice = new InvoiceForm();
+var form = new FormController<Invoice>(invoice.Schema);
+
+form.AddRow(invoice.Lines);
+var row = form.Rows(invoice.Lines)[0];
+row.Set(invoice.Sku, "A-1", markTouched: true);
+row.Set(invoice.Qty, 2);
+var quantity = row.Get(invoice.Qty);                      // int
+var skuError = row.GetError(invoice.Sku);                 // null
+
+form.AddRow(invoice.Lines, new InvoiceLine { Sku = "A-1" });  // a row seeded from an item
+var saved = await form.SubmitAsync((model, ct) => Task.FromResult(true));
+var listError = form.GetError(invoice.Lines);             // Each SKU can appear once
+
+form.RemoveRow(invoice.Lines, 1);
+```
+
+Each cell is validated with the rules of its column (`Required`, `Range`, `MaxLength` and the others) when you validate or submit, and a cell the user edited is checked as it changes, following the column's `Trigger`. The error shows under the cell, and `row.GetError(column)` reads it. A row remembers the item it was loaded from, so `ApplyTo(model)` and a submit write the edited columns into that same item and keep the members that are not columns (the `Id` above). The [things to know](#things-to-know-when-binding-a-model) describe the supported collection shapes.
+
+## Prefill and reset a form
+
+Goal: load existing data into a form, and restore it on demand.
+
+```razor
+@page "/controlled"
+@rendermode InteractiveServer
+
+<KlyFormEngine Form="_form" ShowReset="false" />
+
+<button type="button" @onclick="Prefill" disabled="@_form.IsSubmitting">Use my profile</button>
+
+@code {
+    private readonly FormController<Profile> _form = new(Schemas.Profile);
+
+    private void Prefill() => _form.Reset(new Profile { Name = "Alice", Email = "alice@example.com" });
+}
+```
+
+Pass a `FormController<TModel>` to `KlyFormEngine<TModel>` through `Form` when you need to read or change the form from code. `Reset(model)` clears errors and touched state, returns to the first step, loads the values of the model and makes them the new baseline, so the form is not dirty afterwards. `Reset()` without a model returns to the baseline the controller has now (the values it was built with, or those of the last `Reset(model)` or successful submit). To restore a single field use `ResetField(handle)`, and for a section `ResetSection(key)`; both go back to the baseline too.
+
+## Lay out the fields yourself
+
+Goal: arrange the fields in your own markup, instead of the stacked layout of the form component.
+
+```razor
+<CascadingValue Value="_form">
+    <div class="grid grid-cols-2 gap-4">
+        <KlyFormFieldView Field="@_name" />
+        <KlyFormFieldView Field="@_email" />
+    </div>
+</CascadingValue>
+
+@code {
+    private readonly FormController<Profile> _form = new(Schemas.Profile);
+    private readonly FormField<Profile, string> _name = Schemas.Profile.Field(m => m.Name);
+    private readonly FormField<Profile, string> _email = Schemas.Profile.Field(m => m.Email);
+}
+```
+
+`KlyFormFieldView` takes the handle the schema gave and draws the field with its label, help and error. Place the controller with a `CascadingValue` (or pass it with `Form`), and Razor infers `TModel` and `TValue` from the handle. It does not subscribe to the controller: render it from a component that re-renders on `Changed` (`KlyFormEngine<TModel>` does) so changes made elsewhere show up.
+
+## Add your own control
+
+Goal: use a control the library does not have, such as a star picker or a map, as a field that is validated, dirty-tracked and written into the model like any other.
+
+In a typed form the control gets the type of the member. Write the control as a component that edits one field through a `FormControlContext<TValue>`, where `TValue` is the type of the member:
+
+```razor
+@* StarPicker.razor: a Razor component that edits one int field through its FormControlContext *@
+<div id="@Control.Id" role="radiogroup" aria-labelledby="@Control.LabelledBy" aria-describedby="@Control.DescribedBy"
+     aria-invalid="@(Control.Error is null ? null : "true")">
+    @for (var star = 1; star <= 5; star++)
+    {
+        var value = star;
+        <button type="button" disabled="@Control.Disabled" aria-pressed="@(Control.Current() >= value ? "true" : "false")"
+                @onclick="@(() => Control.Commit(value))" @onblur="Control.Blur">★</button>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public FormControlContext<int> Control { get; set; } = default!;
+}
+```
+
+`FormControlContext<TValue>` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy`, `LabelledBy` and `ErrorId` for the ARIA attributes. `Value` is typed as the member (`0` for an `int` that is empty or holds text that is not a number yet). For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Control.LabelledBy`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control.
+
+To use it in one form, put a `KlyFieldTemplate` inside the form component and name the field with its handle. Its content draws the control from the context, and it replaces the control of any field, a built-in kind as well as a field declared with `AsCustom()`:
+
+```razor
+<KlyFormEngine Schema="_schema" Model="_review" OnSave="SaveAsync">
+    <KlyFieldTemplate Field="@_rating" Context="rating">
+        <StarPicker Control="rating" />
+    </KlyFieldTemplate>
+    <KlyFieldTemplate Field="@_volume" Context="c">
+        <input type="range" min="0" max="11" id="@c.Id" value="@c.Value" aria-describedby="@c.DescribedBy"
+               @oninput="@(e => c.Set(int.Parse(e.Value!.ToString()!)))" @onblur="c.Blur" />
+    </KlyFieldTemplate>
+</KlyFormEngine>
+
+@code {
+    private readonly Review _review = new();
+
+    private static readonly FormSchema<Review> _schema = FormSchema.For<Review>(s =>
+    {
+        s.Field(m => m.Rating, f => f.Range(1, 5).Required().Label("How was it?"));
+        s.Field(m => m.Volume, f => f.Range(0, 11));
+        s.Field(m => m.Comment);
+    });
+
+    private readonly FormField<Review, int> _rating = _schema.Field(m => m.Rating);
+    private readonly FormField<Review, int> _volume = _schema.Field(m => m.Volume);
+
+    private Task<bool> SaveAsync(Review review, CancellationToken ct) => Task.FromResult(true);
+}
+```
+
+The base `FormControlContext` also has the string boundary for a raw HTML input: `Text` is what the input should show (the text the user typed when it is not a value yet) and `SetText(text)` parses it, keeping text that is not a value so the field reports it instead of a zero. A `KlyFieldTemplate` must sit inside `KlyFormEngine<TModel>` or `KlyFormPage<TModel>` (or have its `Form` set), and it does not apply to the columns of a repeatable list.
+
+To register a control for the whole app, declare the field with `AsCustom(key)` and register the renderer by value type:
+
+```csharp
+public static readonly FormSchema<Rated> Schema = FormSchema.For<Rated>(s =>
+    s.Field(m => m.Rating, f => f.AsCustom("stars").Label("How was it?").Range(1, 5)));
+```
+
+```csharp
+services.AddKlyrooForm(f => f.CustomField<int>("stars", ctx => builder =>
+{
+    builder.OpenComponent<StarPicker>(0);
+    builder.AddComponentParameter(1, nameof(StarPicker.Control), ctx);
+    builder.CloseComponent();
+}));
+```
+
+A renderer is used only by fields of its value type: a field of another type that names the key shows the "no renderer" notice instead of a control that would read the wrong type. Renderers are kept by key and value type, so typed renderers of several value types, and a runtime-mode renderer, can share one key. A `KlyFieldTemplate` of the field wins over the registered renderer. A column of a repeatable list declared with `AsCustom(key)` uses the registered renderer. Because `FormControlContext<TValue>` is created by the form, you test a control by rendering the form that holds it, as in [Test your forms](#test-your-forms).
+
+## Upload files
+
+Goal: let the user attach files, reject the wrong ones before they reach your server, and read the content when saving.
+
+```csharp
+public sealed class Report
+{
+    public string Title { get; set; } = "";
+    public List<FormFileValue> Attachments { get; set; } = [];
+}
+
+public static class ReportForm
+{
+    public static readonly FormSchema<Report> Schema = FormSchema.For<Report>(s =>
+    {
+        s.Field(m => m.Title, f => f.Required());
+        s.Field(m => m.Attachments, f => f
+            .Label("Attachments")
+            .Accept(".pdf,image/*")
+            .MaxFileSize(5 * 1024 * 1024));
+    });
+}
+```
+
+A member of type `FormFileValue?` holds one file, and a `List<FormFileValue>` holds several. A chosen file is read into memory when it is chosen, so the value holds its bytes and does not depend on the browser input, which a step change, a hidden field or a removal unmounts. That makes `MaxFileSize` also the most memory one file can take: it defaults to 10 MiB (`FormFileValue.DefaultMaxSize`) when you leave it unset, each file of a multiple field counts, and the bytes stay for as long as the form holds the value. A file above the limit is not read: it stays in the list so validation can name it, and opening it throws. Set a larger `MaxFileSize` on purpose if you accept larger files, and prefer to upload very large files by another route.
+
+The control is a Blazor `InputFile` behind a button, with the chosen files listed under it and a remove button on each. A `FormFileValue` has the name, size and content type the browser reported, and `OpenReadAsync()` to open the content. It has no UI type in it, so the same field works in a unit test (`FormFileValue.FromBytes("a.pdf", bytes, "application/pdf")`) and in the model you hand to your service:
+
+```csharp
+var saved = await form.SubmitAsync(async (report, ct) =>
+{
+    foreach (var file in report.Attachments)
+    {
+        await using var stream = await file.OpenReadAsync(ct);
+        await storage.UploadAsync(file.Name, stream, ct);
+    }
+    return true;
+});
+```
+
+`Accept` is the `accept` attribute of the input, which only filters the picker, so the controller checks it again on validation (`.png` matches the extension, `image/png` the content type, `image/*` a family, ignoring case), together with `MaxFileSize` for each file and the number of files for a field that takes one. The messages name the file and the limit (`report.pdf is larger than 5 MB`) and follow the locale. A rejected file stays in the list so the user sees which one it was, and the form cannot be submitted until it is removed. The size and type come from the browser: they are for the user's benefit, so check them again on the server. Files are not part of drafts, since their content cannot be restored, and `RestoreDraft()` never fills a file field from stored text.
+
+In Blazor Server the content streams over the circuit when you read it, and `InputFile` reads from the browser only then, so opening a file you do not need costs nothing. `OpenReadAsync` can be called several times, and each call returns a new stream.
+
+## Read the rules from data annotations
+
+Goal: reuse the attributes you already put on a model as the rules of the form, and keep the model checks you wrote with `IValidatableObject`.
 
 Install the extra package. It brings `Klyroo.Form.Core`:
 
@@ -585,7 +792,7 @@ dotnet add package Klyroo.Form.DataAnnotations --prerelease
 ```
 
 ```csharp
-public sealed class Signup : IValidatableObject
+public sealed class AnnotatedSignup : IValidatableObject
 {
     [Required, StringLength(80), Display(Name = "Full name", Prompt = "Ada Lovelace", Order = 1)]
     public string Name { get; set; } = "";
@@ -619,16 +826,27 @@ public sealed class Signup : IValidatableObject
     }
 }
 
-var schema = FormSchema.For<Signup>(s =>
+public sealed class Address
 {
-    s.Title = "Create your account";
-    s.Group(m => m.Address, g =>
+    public string Street { get; set; } = "";
+    public string City { get; set; } = "";
+}
+
+public enum Plan { Free, Team, Business }
+
+public static class AnnotatedForm
+{
+    public static readonly FormSchema<AnnotatedSignup> Schema = FormSchema.For<AnnotatedSignup>(s =>
     {
-        g.Field(a => a.Street);
-        g.Field(a => a.City);
+        s.Title = "Create your account";
+        s.Group(m => m.Address, g =>
+        {
+            g.Field(a => a.Street);
+            g.Field(a => a.City);
+        });
+        s.FromDataAnnotations();
     });
-    s.FromDataAnnotations();
-});
+}
 ```
 
 `FromDataAnnotations()` declares a field for every other member that has a default control and reads the attributes of all of them; `UseDataAnnotations()` only reads the attributes of the fields you declared. The attributes of a field are read by a convention, which runs after the defaults of the member type and before the settings you write in the `Field` call.
@@ -650,7 +868,113 @@ Your own `ValidationAttribute`, attributes on the class and `IValidatableObject`
 
 The message of an attribute is English unless you give it an `ErrorMessage` or a resource (`ErrorMessageResourceType` and `ErrorMessageResourceName`). The messages of validator rules, and the `[Display]` name they put in them, are worked out when the rule fails, so a form built once and shared by several cultures shows the message of the culture of the validation (`CultureInfo.CurrentUICulture`). What is fixed when `FormSchema.For` runs is the label, description and placeholder from `[Display]` and the `[Required]` message: build the schema once per culture, or set them yourself, when those must change with the culture. The messages the engine produces follow the `Messages` of the controller, not the thread culture.
 
-### Things to know
+
+## Test your forms
+
+Goal: test form logic without a browser, and the rendering with bUnit.
+
+Because `FormController<TModel>` has no UI dependency, most tests are plain xUnit tests. Keep each schema in a factory method that takes its dependencies as arguments, so a page and its tests build the same form:
+
+```csharp
+public static class RegisterForm
+{
+    public static FormSchema<Registration> Create(Func<string, Task<bool>> isEmailTaken) => FormSchema.For<Registration>(s =>
+    {
+        s.FormKey = "register";
+        var email = s.Field(m => m.Email, f => f.Required());
+        s.OnBeforeSubmit(async (registration, form) =>
+        {
+            if (await isEmailTaken(registration.Email))
+            {
+                form.SetError(email, "This email is already registered");
+                return false;
+            }
+            return true;
+        });
+    });
+}
+```
+
+Then drive the controller directly:
+
+```csharp
+public sealed class RegisterFormTests
+{
+    [Fact]
+    public async Task A_taken_email_cancels_the_submit_and_shows_an_error()
+    {
+        var schema = RegisterForm.Create(_ => Task.FromResult(true));
+        var form = new FormController<Registration>(schema);
+        form.Set(schema.Field(m => m.Email), "alice@example.com");
+
+        Assert.False(await form.SubmitAsync());
+        Assert.Equal("This email is already registered", form.GetError(schema.Field(m => m.Email)));
+        Assert.True(form.IsDirty);
+    }
+
+    [Fact]
+    public async Task A_free_email_submits_and_leaves_the_form_clean()
+    {
+        var schema = RegisterForm.Create(_ => Task.FromResult(false));
+        var form = new FormController<Registration>(schema);
+        form.Set(schema.Field(m => m.Email), "alice@example.com");
+
+        Registration? saved = null;
+        Assert.True(await form.SubmitAsync((registration, ct) =>
+        {
+            saved = registration;
+            return Task.FromResult(true);
+        }));
+        Assert.False(form.IsDirty);
+        Assert.Equal("alice@example.com", saved?.Email);
+    }
+}
+```
+
+To test rendering, add `xunit.v3` and `bunit` (version 2 or later, which uses `BunitContext`) to a test project that references `Klyroo.Form`. Register the services in the constructor, render the components and query the `data-slot` attributes they expose, such as `form-field-error` and `form-title`, instead of CSS classes:
+
+```csharp
+public sealed class RegisterFormRenderingTests : BunitContext
+{
+    public RegisterFormRenderingTests()
+    {
+        Services.AddKlyrooForm();
+    }
+
+    [Fact]
+    public void Submitting_an_empty_form_shows_the_required_error()
+    {
+        var cut = Render<KlyFormEngine<Registration>>(parameters => parameters
+            .Add(p => p.Schema, RegisterForm.Create(_ => Task.FromResult(false))));
+
+        cut.Find("form").Submit();
+
+        Assert.Equal("This field is required", cut.Find("[data-slot=form-field-error]").TextContent);
+    }
+
+    [Fact]
+    public async Task The_overlay_task_completes_with_the_submitted_model()
+    {
+        var provider = Render<KlyFormProvider>();
+        var forms = Services.GetRequiredService<FormService>();
+
+        var pending = forms.CreateFormAsync(
+            RegisterForm.Create(_ => Task.FromResult(false)),
+            new Registration { Email = "alice@example.com" });
+        provider.Render();
+
+        provider.Find("form").Submit();
+        var outcome = await pending;
+
+        Assert.True(outcome.IsCompleted);
+        Assert.Equal("alice@example.com", outcome.Model?.Email);
+    }
+}
+```
+
+Submitting the `form` element runs the same path as the submit button. The overlay test completes because submitting the form in the provider resolves the task returned by `CreateFormAsync`. To test a field the way a user edits it, find its wrapper with `[data-form-field=Email]` and call `Input(...)` and `Blur()` on the control inside.
+
+## Things to know when binding a model
 
 - **How the key and the kind are chosen.** The key of a field is the member name, and the names of the members down to it joined with dots for a nested one (`Address.City`). The kind comes from the member type: text for a string, `Number` for numbers (an integer must be whole and inside the range of its type, and a `decimal` or `float` inside its own), `Checkbox` for a `bool`, `Select` with the members as options for an enum, `Date`, `DateTime` and `Time` for the date and time types, text for a `Guid`, `Tag` for a list of strings, `DateRange` for a `FormDateRange` and `File` for a `FormFileValue` or a list of them. `[DataType]` can pick `Password`, `Textarea`, `PhoneNumber`, `Date` or `DateTime` instead.
 - **Settings written in code win.** Defaults come first, conventions such as data annotations second and the `Field(...)` call last, so `s.Field(o => o.Plan, f => f.AsRadio().Label("Your plan"))` overrides both.
@@ -668,220 +992,3 @@ The message of an attribute is English unless you give it an `ErrorMessage` or a
 
 The schema does not compile expressions: `o => o.Address.City` is only read to find the members. Values are read and written through delegates created from the property accessors, and by reflection for a chain, an interface member or a collection. The model type is annotated so its public properties and constructor are kept when an app is trimmed. `Klyroo.Form.Core` is trim and AOT analyzer clean; `Klyroo.Form.DataAnnotations` is trim-correct and not declared AOT compatible, see [Platforms](platforms.md#nativeaot-and-trimming).
 
-## Add your own control
-
-Goal: use a control the library does not have, such as a star picker or a map, as a field that is validated, dirty-tracked and part of the output like any other.
-
-```razor
-@* StarPicker.razor: a Razor component that edits one field through its DynamicControlContext *@
-@using Klyroo.Form
-@using Klyroo.Form.Dynamic
-
-<div id="@Context.Id" role="radiogroup" aria-labelledby="@Context.LabelledBy" aria-describedby="@Context.DescribedBy"
-     aria-invalid="@(Context.Error is null ? null : "true")">
-    @for (var star = 1; star <= 5; star++)
-    {
-        var value = star;
-        <button type="button" disabled="@Context.Disabled" aria-pressed="@(Context.Current<int>() >= value)"
-                @onclick="@(() => Context.Commit(value))" @onblur="Context.Blur">★</button>
-    }
-</div>
-
-@code {
-    [Parameter, EditorRequired] public DynamicControlContext Context { get; set; } = default!;
-}
-```
-
-```csharp
-// Program.cs, once for the app: the key is the one the schema names
-builder.Services.AddKlyrooForm(f => f.CustomField("stars", ctx => builder =>
-{
-    builder.OpenComponent<StarPicker>(0);
-    builder.AddComponentParameter(1, nameof(StarPicker.Context), ctx);
-    builder.CloseComponent();
-}));
-
-// the schema
-new DynamicFieldSchema { Key = "rating", Kind = FormFieldKind.Custom, CustomKey = "stars", Label = "How was it?", Required = true }
-```
-
-A custom field is a normal stateful field: it holds whatever value you store (a string, a number, a list), is checked by `Required` and `Validators`, and is in `BuildOutput()`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control. `DynamicControlContext` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy` and `LabelledBy` for the ARIA attributes. For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Context.LabelledBy`, or at the label id yourself.
-
-To register the renderer for one form instead of the whole app, pass it in the `FieldTemplates` parameter of `KlyDynamicFormEngine`, `KlyDynamicFormPage` or `KlyDynamicFieldView`: a `Dictionary<string, RenderFragment<DynamicControlContext>>` that wins over the registry and reaches fields inside containers, tabs and the cells of repeatable lists. A custom field whose key has no renderer shows a notice instead of a control. Because `DynamicControlContext` has a public constructor, you can also build one in a unit test: `new DynamicControlContext(form, field, "id")` then call `Set`, `Commit` and `Blur` and read the controller.
-
-### Your own control in a typed form
-
-In a typed form the control gets the type of the member. Put a `KlyFieldTemplate` inside the form component and name the field with its handle; its content draws the control from a `FormControlContext<TValue>`, where `TValue` is the type of the member:
-
-```razor
-<KlyFormEngine Schema="_schema" Model="_review" OnSave="SaveAsync">
-    <KlyFieldTemplate Field="@_rating" Context="c">
-        <input type="range" min="1" max="5" id="@c.Id" value="@c.Value" aria-describedby="@c.DescribedBy"
-               @oninput="@(e => c.Set(int.Parse(e.Value!.ToString()!)))" @onblur="c.Blur" />
-    </KlyFieldTemplate>
-</KlyFormEngine>
-```
-
-`Value` is the value typed as the member (`0` for an `int` that is empty or holds text that is not a number yet), `Current()` is the live one, `Set(value)` changes it while the user edits, and `Commit(value)` marks the field touched so its error shows at once. The base `FormControlContext` has `Id`, `Error`, `Disabled`, `Required`, `Validating`, `LabelledBy`, `DescribedBy`, `ErrorId` and `Blur()`, and the string boundary for a raw HTML input: `Text` is what the input should show (the text the user typed when it is not a value yet) and `SetText(text)` parses it, keeping text that is not a value so the field reports it instead of a zero. The component draws the label, description, help and error around your control. A template replaces the control of any field, so you can swap a built-in kind as well as draw a field declared with `AsCustom()`.
-
-To register a control for the whole app, declare the field with `AsCustom("stars")` and register the renderer by value type:
-
-```csharp
-s.Field(m => m.Rating, f => f.AsCustom("stars"));
-
-builder.Services.AddKlyrooForm(f => f.CustomField<int>("stars", ctx => builder =>
-{
-    builder.OpenComponent<StarPicker>(0);
-    builder.AddComponentParameter(1, nameof(StarPicker.Context), ctx);
-    builder.CloseComponent();
-}));
-```
-
-A renderer is used only by fields of its value type: a field of another type that names the key, and a dynamic field that names the key of a typed renderer (or the other way round), shows the "no renderer" notice instead of a control that would read the wrong type. Renderers are kept by key and value type, so a dynamic renderer and typed renderers of several value types can share one key. A `KlyFieldTemplate` of the field wins over the registered renderer. Templates apply to fields of the form, not to the columns of a repeatable list; a column declared with `AsCustom(key)` uses the registered renderer.
-
-## Upload files
-
-Goal: let the user attach files, reject the wrong ones before they reach your server, and read the content when saving.
-
-```csharp
-new DynamicFieldSchema
-{
-    Key = "attachments",
-    Kind = FormFieldKind.File,
-    Label = "Attachments",
-    Multiple = true,
-    Accept = ".pdf,image/*",
-    MaxFileSize = 5 * 1024 * 1024,
-}
-```
-
-A chosen file is read into memory when it is chosen, so the value holds its bytes and does not depend on the browser input, which a step change, a hidden field or a removal unmounts. That makes `MaxFileSize` also the most memory one file can take: it defaults to 10 MiB (`FormFileValue.DefaultMaxSize`) when you leave it unset, each file of a `Multiple` field counts, and the bytes stay for as long as the form holds the value. A file above the limit is not read: it stays in the list so validation can name it, and opening it throws. Set a larger `MaxFileSize` on purpose if you accept larger files, and prefer to upload very large files by another route.
-
-The control is a Blazor `InputFile` behind a button, with the chosen files listed under it and a remove button on each. The value is a `FormFileValue` (or `null`) for a single file, or a `List<FormFileValue>` with `Multiple`: the name, size and content type the browser reported, and `OpenReadAsync()` to open the content. A `FormFileValue` has no UI type in it, so the same field works in a unit test (`FormFileValue.FromBytes("a.pdf", bytes, "application/pdf")`) and in the output you hand to your service:
-
-```csharp
-OnSave = async (data, ct) =>
-{
-    foreach (var file in (List<FormFileValue>?)data["attachments"] ?? [])
-    {
-        await using var stream = await file.OpenReadAsync(ct);
-        await storage.UploadAsync(file.Name, stream, ct);
-    }
-    return true;
-}
-```
-
-`Accept` is the `accept` attribute of the input, which only filters the picker, so the controller checks it again on validation (`.png` matches the extension, `image/png` the content type, `image/*` a family, ignoring case), together with `MaxFileSize` for each file and the number of files for a field without `Multiple`. The messages name the file and the limit (`report.pdf is larger than 5 MB`) and follow the locale. A rejected file stays in the list so the user sees which one it was, and the form cannot be submitted until it is removed. The size and type come from the browser: they are for the user's benefit, so check them again on the server. Files are not part of `ExportState()` drafts, since their content cannot be restored, and `RestoreDraft()` never fills a `File` or `Custom` field (or such a column of a list) from stored text.
-
-In Blazor Server the content streams over the circuit when you read it, and `InputFile` reads from the browser only then, so opening a file you do not need costs nothing. `OpenReadAsync` can be called several times, and each call returns a new stream.
-
-## Test your forms
-
-Goal: test form logic without a browser, and the rendering with bUnit.
-
-Because `DynamicFormController` has no UI dependency, most tests are plain xUnit tests. Keep each schema in a factory method that takes its dependencies as arguments, so a page and its tests build the same form:
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-
-public static class SignupForm
-{
-    public static DynamicFormSchema Create(Func<string, Task<bool>> isEmailTaken) => new()
-    {
-        FormKey = "signup",
-        Fields = [new DynamicFieldSchema { Key = "email", Label = "Email", Required = true }],
-        OnBeforeSubmit = async form =>
-        {
-            if (await isEmailTaken(form.GetValue<string>("email")!))
-            {
-                form.SetError("email", "This email is already registered");
-                return false;
-            }
-            return true;
-        },
-    };
-}
-```
-
-Then drive the controller directly:
-
-```csharp
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-using Xunit;
-
-public sealed class SignupFormTests
-{
-    [Fact]
-    public async Task A_taken_email_cancels_the_submit_and_shows_an_error()
-    {
-        var form = new DynamicFormController(SignupForm.Create(_ => Task.FromResult(true)));
-        form.SetValue("email", "alice@example.com");
-
-        Assert.False(await form.SubmitAsync());
-        Assert.Equal("This email is already registered", form.GetError("email"));
-        Assert.True(form.IsDirty);
-    }
-
-    [Fact]
-    public async Task A_free_email_submits_and_leaves_the_form_clean()
-    {
-        var form = new DynamicFormController(SignupForm.Create(_ => Task.FromResult(false)));
-        form.SetValue("email", "alice@example.com");
-
-        Assert.True(await form.SubmitAsync());
-        Assert.False(form.IsDirty);
-        Assert.Equal("alice@example.com", form.BuildOutput()["email"]);
-    }
-}
-```
-
-To test rendering, add `xunit.v3` and `bunit` (version 2 or later, which uses `BunitContext`) to a test project that references `Klyroo.Form`. Register the services in the constructor, render the components and query the `data-slot` attributes they expose, such as `form-field-error` and `form-title`, instead of CSS classes:
-
-```csharp
-using Bunit;
-using Klyroo.Form;
-using Klyroo.Form.Dynamic;
-using Microsoft.Extensions.DependencyInjection;
-using Xunit;
-
-public sealed class SignupFormRenderingTests : BunitContext
-{
-    public SignupFormRenderingTests()
-    {
-        Services.AddKlyrooForm();
-    }
-
-    [Fact]
-    public void Submitting_an_empty_form_shows_the_required_error()
-    {
-        var cut = Render<KlyDynamicFormEngine>(parameters => parameters
-            .Add(p => p.Schema, SignupForm.Create(_ => Task.FromResult(false))));
-
-        cut.Find("form").Submit();
-
-        Assert.Equal("This field is required", cut.Find("[data-slot=form-field-error]").TextContent);
-    }
-
-    [Fact]
-    public async Task The_overlay_task_completes_with_the_output()
-    {
-        var provider = Render<KlyFormProvider>();
-        var forms = Services.GetRequiredService<DynamicFormService>();
-
-        var pending = forms.CreateFormAsync(
-            SignupForm.Create(_ => Task.FromResult(false)),
-            new Dictionary<string, object?> { ["email"] = "alice@example.com" });
-        provider.Render();
-
-        provider.Find("form").Submit();
-        var outcome = await pending;
-
-        Assert.True(outcome.IsCompleted);
-        Assert.Equal("alice@example.com", outcome.FormData["email"]);
-    }
-}
-```
-
-Submitting the `form` element runs the same path as the submit button. The overlay test completes because submitting the form in the provider resolves the task returned by `CreateFormAsync`.

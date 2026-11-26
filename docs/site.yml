@@ -29,6 +29,7 @@ nav:
   - group: How-to guides
     pages:
       - guides
+      - runtime-forms
   - group: Reference
     pages:
       - page: api-reference
@@ -42,4 +43,7 @@ nav:
       - concepts
   - group: Internals
     pages:
-      - internal-contract
+      - page: internal-contract
+        title: Internal contract (for contributors)
+        navTitle: Internal contract
+        description: How the engine, the node tree and the codec work inside Klyroo.Form.Core. For contributors and for code that builds on the internals, not needed to use the library.

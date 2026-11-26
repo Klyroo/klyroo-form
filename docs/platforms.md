@@ -14,9 +14,9 @@ What runs where, what you must set up, and the limits that are known today. Ever
 | Blazor Interactive Auto | Not applicable | Yes |
 | Blazor Static SSR | Not applicable | Renders, not interactive |
 | .NET MAUI Blazor Hybrid | Not applicable | Supported platforms declared, not run on a device |
+| .NET MAUI without a `BlazorWebView` | Yes, from view models | Not applicable |
 
 `Klyroo.Form.DataAnnotations` references only `Klyroo.Form.Core`, so it runs wherever the core runs. It is marked trimmable and is not declared NativeAOT compatible.
-| .NET MAUI without a `BlazorWebView` | Yes, from view models | Not applicable |
 
 Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dependencies. `Klyroo.Form` depends on Klyroo.UI and on `Klyroo.Form.Core`.
 
@@ -24,15 +24,15 @@ Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dep
 
 `KlyFormEngine<TModel>`, `KlyFormPage<TModel>`, `KlyFormFieldView<TModel>`, `KlyFieldTemplate`, `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyDynamicFieldView` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls except one best-effort focus helper (`klyroo-form.js`, loaded on demand; the form works without it). `KlyFormProvider` hosts its overlay in `KlyModal` and `KlySlideover` of Klyroo.UI, so it needs the Klyroo.UI script like those components do. They need an interactive render mode to respond to input.
 
-**Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `FormService` and `DynamicFormService` are registered as scoped services, so it lives as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
+**Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `FormService` and `DynamicFormService` are registered as scoped services, so they live as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
 
 **Interactive WebAssembly and Auto.** Work. Components run in the browser, and in Auto also on the server for the first render, so call `AddKlyrooForm()` in both the server project and the `.Client` project. A scoped service in WebAssembly lives as long as the app.
 
 **Static SSR.** The components render their markup, but without a circuit or WebAssembly nothing handles the events, so typing, validation, steps and submit do nothing. There is no form-post fallback: the engine does not set a form name or post to the server. Render the form interactively.
 
-**Prerendering.** Interactive pages are prerendered by default. The prerender produces the initial markup; when the page becomes interactive, the component starts again and `KlyDynamicFormEngine` creates its own controller from `Schema` and `Input`. Values typed before that moment are not carried over, and neither is state in a controller you created yourself unless you persist it with your own means.
+**Prerendering.** Interactive pages are prerendered by default. The prerender produces the initial markup; when the page becomes interactive, the component starts again and `KlyFormEngine<TModel>` creates its own controller from `Schema` and `Model` (`KlyDynamicFormEngine` does the same from `Schema` and `Input`). Values typed before that moment are not carried over, and neither is state in a controller you created yourself unless you persist it with your own means, for example with a draft (`ExportDraft()` and `RestoreDraft()`).
 
-**Controller lifetime.** A controller passed through `Form` belongs to you: create it once, for example in a field of the page, and the component subscribes to it and unsubscribes on dispose. A schema passed through `Schema` belongs to the component, which creates a new controller whenever the instance changes.
+**Controller lifetime.** A controller passed through `Form` belongs to you: create it once, for example in a field of the page, and the component subscribes to it and unsubscribes on dispose. Dispose it yourself when the page goes away, which cancels the asynchronous rules still pending. A schema passed through `Schema` belongs to the component, which creates a new controller whenever the instance changes, and disposes it.
 
 ## Stylesheets
 
@@ -54,7 +54,6 @@ Register the services in `MauiProgram.cs`, after `AddMauiBlazorWebView()`:
 
 ```csharp
 using Klyroo.Form;
-using Klyroo.Form.Dynamic;
 
 builder.Services.AddMauiBlazorWebView();
 builder.Services.AddKlyrooForm();
@@ -72,11 +71,11 @@ Klyroo.UI itself declares only `browser` as a supported platform. That is a prop
 
 ## .NET MAUI with XAML or C# views
 
-If your pages do not use a `BlazorWebView`, reference only `Klyroo.Form.Core`. A view model owns a `FormController<TModel>` (or a `DynamicFormController`), binds its properties to the controls, and subscribes to `Changed` to refresh them. `Changed` is raised synchronously on the thread that changed the form, so marshal to the UI thread if you update the controller from another one.
+If your pages do not use a `BlazorWebView`, reference only `Klyroo.Form.Core`. A view model owns a `FormController<TModel>`, binds its properties to the controls, and subscribes to `Changed` to refresh them. `Changed` is raised synchronously on the thread that changed the form, so marshal to the UI thread if you update the controller from another one.
 
 ## NativeAOT and trimming
 
-`Klyroo.Form.Core` sets `IsAotCompatible` and `IsTrimmable` to `true`, and the solution builds with warnings as errors, so the AOT and trimming analyzers are part of every build. An earlier version was also checked end to end: a console app that references the project and sets `PublishAot` published and ran on `linux-x64`; the engine has not changed in how it converts values, but the typed schema added since was checked with the analyzers only, not published and run. The engine uses no reflection over your types and no serialization: control values are `object?` and conversions compare types and go through `Convert.ChangeType`. The typed schema (`FormSchema.For`) reads expressions only to find the member, never compiles them, and reads and writes a direct member through delegates created from its accessors. `TModel` and the type argument of `Group` and `List` carry `DynamicallyAccessedMembers(PublicProperties | PublicParameterlessConstructor)`, so the trimmer keeps what the schema touches and the analyzers raise no warning. A member chain such as `m => m.Address.City`, a member declared on an interface and a collection member are read and written through `PropertyInfo`: the trimmer keeps the accessors of `Address` but not necessarily the setter of `City`, which is why `Group` is the form to use in an app that is trimmed in full mode.
+`Klyroo.Form.Core` sets `IsAotCompatible` and `IsTrimmable` to `true`, and the solution builds with warnings as errors, so the AOT and trimming analyzers are part of every build. An earlier version was also checked end to end: a console app that references the project and sets `PublishAot` published and ran on `linux-x64`; the engine has not changed in how it converts values, but the typed schema added since was checked with the analyzers only, not published and run. The engine itself uses no reflection over your types and no serialization: control values are `object?` and conversions compare types and go through `Convert.ChangeType`. The typed schema (`FormSchema.For`) reads expressions only to find the member, never compiles them, and reads and writes a direct member through delegates created from its accessors. `TModel` and the type argument of `Group` and `List` carry `DynamicallyAccessedMembers(PublicProperties | PublicParameterlessConstructor)`, so the trimmer keeps what the schema touches and the analyzers raise no warning. A member chain such as `m => m.Address.City`, a member declared on an interface and a collection member are read and written through `PropertyInfo`: the trimmer keeps the accessors of `Address` but not necessarily the setter of `City`, which is why `Group` is the form to use in an app that is trimmed in full mode.
 
 `Klyroo.Form.DataAnnotations` sets `IsTrimmable` and is not declared AOT compatible. It never calls `Validator`, whose methods require unreferenced code, and builds its `ValidationContext` with a display name for the same reason, so the trim analyzer reports nothing. Attributes are read from the properties of the model, which the annotation on `TModel` keeps, and a `[Display]` with a `ResourceType` needs that resource type to be kept by your app.
 
@@ -84,4 +83,4 @@ If your pages do not use a `BlazorWebView`, reference only `Klyroo.Form.Core`. A
 
 ## Known limitations
 
-- The built-in labels and messages are English, and only some of them can be changed. See the [FAQ](faq.md#can-i-translate-the-built-in-texts).
+- The built-in texts and messages come in twelve languages, but only English and French are reviewed by a native speaker. See the [FAQ](faq.md#can-i-translate-the-built-in-texts).

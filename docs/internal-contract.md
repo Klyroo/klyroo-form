@@ -1,4 +1,4 @@
-# Internal contract of the engine
+# Internal contract of the engine (for contributors)
 
 This note is for the people who build on the internals of `Klyroo.Form.Core`: the typed components (`KlyFormEngine<TModel>`, `KlyFormPage<TModel>`, `KlyFieldTemplate`, `FormService`) and the agent bridge. Nothing here is public API. `Klyroo.Form`, `Klyroo.Form.DataAnnotations` and `Klyroo.Form.Tests` see these types through `InternalsVisibleTo`; other packages go through `IFormRuntime`.
 

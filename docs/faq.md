@@ -1,6 +1,6 @@
 # FAQ
 
-Troubleshooting, known limitations and common questions. Each entry is something you can reproduce from the code. If you hit a problem that is not here, open an issue with a minimal schema.
+Troubleshooting, known limitations and common questions. Each entry is something you can reproduce from the code. If you hit a problem that is not here, open an issue with a minimal schema. The entries use the typed API; where the runtime mode behaves differently, the entry says so and [Forms defined at runtime](runtime-forms.md) has the details.
 
 ## Troubleshooting
 
@@ -16,50 +16,60 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 **Fix:** add `@rendermode InteractiveServer` (or WebAssembly, or Auto) to the page, or enable interactivity globally. See [Platforms](platforms.md#render-modes).
 
-### What the user typed disappears when the parent re-renders
-
-**Cause:** the schema is built inline in the markup, for example `Schema="new DynamicFormSchema { ... }"`. `KlyDynamicFormEngine` creates a new controller whenever it receives a different `DynamicFormSchema` instance, and a new controller starts from the defaults.
-
-**Fix:** keep the schema in a field or a static member, or create a `DynamicFormController` yourself and pass it through `Form`.
-
 ### `KlyFormEngine<TModel>` restarts from the defaults on every render, or the model type is `Order?`
 
-**Cause:** the schema is built inline in the markup (`Schema="FormSchema.For<Order>(...)"`), so each render gives the component a new `FormSchema<TModel>` instance and it creates a new controller. The second symptom has another cause: a `Model` field declared `Order?` makes Razor infer `Order?` for `TModel` and warn that the schema is `FormSchema<Order>`.
+**Cause:** the schema is built inline in the markup (`Schema="FormSchema.For<Order>(...)"`), so each render gives the component a new `FormSchema<TModel>` instance and it creates a new controller, which starts from the defaults and drops what the user typed. The second symptom has another cause: a `Model` field declared `Order?` makes Razor infer `Order?` for `TModel` and warn that the schema is `FormSchema<Order>`.
 
-**Fix:** keep the schema in a field or a static member, and declare the model non-null (`Model="_order!"` if it is loaded later).
+**Fix:** keep the schema in a field or a static member, and declare the model non-null (`Model="_order!"` if it is loaded later). If you create a `FormController<TModel>` yourself and pass it through `Form`, the component never replaces it. The runtime-mode component behaves the same way with a `DynamicFormSchema` instance.
+
+### Razor reports a conversion error on `OnSubmit` of `KlyFormEngine<TModel>`
+
+**Cause:** `OnSubmit` is an `EventCallback<TModel>`, and Razor cannot infer `TModel` from a method group or a lambda given to it. It picks the non-generic `EventCallback` and reports "cannot convert from 'method group' to 'EventCallback'" (or from `EventCallback` to `EventCallback<Order>` for a lambda).
+
+**Fix:** write the type, `<KlyFormEngine TModel="Order" Schema="_schema" Model="_order" OnSubmit="Saved" />`, or drop `OnSubmit` and do the work in `OnSave`.
 
 ### A `KlyFieldTemplate` draws nothing
 
-**Cause:** it must sit inside `KlyFormEngine` or `KlyFormPage` (or have its `Form` set), and its `Field` must be the handle of a field of that form. It is not used for the columns of a repeatable list, and a renderer registered with `CustomField<TValue>` is not used by a field of another value type.
+**Cause:** it must sit inside `KlyFormEngine<TModel>` or `KlyFormPage<TModel>` (or have its `Form` set), and its `Field` must be the handle of a field of that form. It is not used for the columns of a repeatable list, and a renderer registered with `CustomField<TValue>` is not used by a field of another value type.
 
 **Fix:** put it in the body of the form component, and check the type of the handle against the field.
 
-### `FormService.CreateFormAsync` or `DynamicFormService.CreateFormAsync` shows nothing and never returns
+### `FormService.CreateFormAsync` shows nothing and never returns
 
-**Cause:** no `KlyFormProvider` is mounted in the current scope, or `AddKlyrooForm()` was not called in this project. The service stores the form and raises an event, and only the provider renders it. The returned task completes only after a submit or a close.
+**Cause:** no `KlyFormProvider` is mounted in the current scope, or `AddKlyrooForm()` was not called in this project. The service stores the form and raises an event, and only the provider renders it. The returned task completes only after a submit or a close. The same holds for `DynamicFormService.CreateFormAsync`.
 
 **Fix:** wrap the body of your layout in `<KlyFormProvider>`. With Auto render mode, register `AddKlyrooForm()` in the server and in the client project.
 
 ### A validation error does not show
 
-**Cause:** errors are shown only for touched fields. A field becomes touched when `SetValue` is called with `markTouched: true`, when it loses focus in `KlyDynamicFormEngine` or `KlyDynamicFormPage`, when it has `Trigger = Input` and changes, or when `Validate()` or `SubmitAsync()` runs. Before that, `GetError` returns `null` even though a validation error may exist.
+**Cause:** errors are shown only for touched fields. A field becomes touched when `Set` is called with `markTouched: true`, when it loses focus in the components, when it has `Trigger(FormValidationTrigger.Input)` and changes, or when `Validate()` or `SubmitAsync()` runs. Before that, `GetError` returns `null` even though a validation error may exist.
 
-**Fix:** call `Validate()` to touch and check every field, call `MarkTouched(key)` for one field, or pass `markTouched: true` when you set a value from code. A field with `Trigger = FormValidationTrigger.Submit` is only validated by `Validate()` or a submit, and editing it clears its error until the next one. A cell of a repeatable list follows the same rules: `MarkArrayItemTouched` touches one cell, and its error is in `GetArrayItemError` or under its path (`lines[0].sku`) in `Errors`.
+**Fix:** call `Validate()` to touch and check every field, call `Touch(field)` for one field, or pass `markTouched: true` when you set a value from code. A field with `Trigger(FormValidationTrigger.Submit)` is only validated by `Validate()` or a submit, and editing it clears its error until the next one. A cell of a repeatable list follows the same rules: `row.GetError(column)` reads its error, and so does its path (`lines[0].sku`) in `Errors`.
+
+### `Get` returns `0` or an empty string while the field shows an error
+
+**Cause:** the field holds text that is not a value of the member type yet, such as `abc` in an `int` field. `Get` returns the default of the type for it, and validation reports the error.
+
+**Fix:** call `TryGet(field, out var value)`, which returns `false` while the text does not parse, or read `GetError(field)`.
 
 ## Known limitations
 
 - The controller is not thread safe.
 - A bound model only reaches fields that are in effect and have a public setter, and the messages of the attribute rules (`[MinLength]`, `[EmailAddress]`, `[RegularExpression]` and others) are not localized: see the questions below.
-- `Validators` are synchronous. Use `AsyncValidators` for a per-field check that needs I/O (they do not apply to the cells of a repeatable list), and `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks on the whole submission.
-- A `Condition` on a child of a repeatable list hides that column in every row, and the column is left out of the output rows: it receives the controller, not the row, so it cannot hide a single cell.
+- `Rule` is synchronous. Use `RuleAsync` for a per-field check that needs I/O (it does not apply to the cells of a repeatable list), and `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks on the whole submission.
+- A `VisibleWhen` on a column of a repeatable list hides that column in every row, and the column is left out of the output rows: it receives the controller, not the row, so it cannot hide a single cell.
 - Tabs have no arrow-key navigation: each tab button is reached with Tab.
-- Async validators do not apply to the cells of a repeatable list, files are not part of drafts, and the file size and type shown by the browser come from the client, so check them again on the server.
+- Async rules do not apply to the cells of a repeatable list, files are not part of drafts, and the file size and type shown by the browser come from the client, so check them again on the server.
 
 ## Questions
 
+### Should I use the typed or the runtime mode?
+
+Use the typed mode (`FormSchema.For<TModel>`) whenever a C# class describes the data: the compiler checks member names and value types, the form writes into your model, and everything in the [guides](guides.md) applies. Use the runtime mode (`Klyroo.Form.Dynamic`) only when the shape of the form is not known at compile time, for example a form stored as JSON or in a database, or built by a user. It has the same engine and components, with a dictionary of values keyed by name. See [Forms defined at runtime](runtime-forms.md).
+
 ### Can I translate the built-in texts?
 
-Yes, the components follow the locale of Klyroo.UI. Every text the components and the controller produce (buttons, `Saving...`, accessible names, the error summary, the section badges of `KlyDynamicFormPage`, the unsaved-changes question and the built-in validation messages) comes in the twelve languages of Klyroo.UI, as a `FormTexts` set per locale in `FormLocales`: a user who switches language with `KlyLocaleSelect` gets the form in that language too. English and French are reviewed by a native speaker; the other ten sets are drafts waiting for review. Change the texts of a locale at startup:
+Yes, the components follow the locale of Klyroo.UI. Every text the components and the controller produce (buttons, `Saving...`, accessible names, the error summary, the section badges of `KlyFormPage<TModel>`, the unsaved-changes question and the built-in validation messages) comes in the twelve languages of Klyroo.UI, as a `FormTexts` set per locale in `FormLocales`: a user who switches language with `KlyLocaleSelect` gets the form in that language too. English and French are reviewed by a native speaker; the other ten sets are drafts waiting for review. Change the texts of a locale at startup:
 
 ```csharp
 builder.Services.AddKlyrooForm(f => f.Texts("fr", t => t with
@@ -69,15 +79,11 @@ builder.Services.AddKlyrooForm(f => f.Texts("fr", t => t with
 }));
 ```
 
-Text you write yourself is never translated: `Label`, `Hint`, `Help`, `Placeholder`, `RequiredMessage`, the labels of password requirements, option labels and the messages of your own validators. `SubmitLabel` on `KlyDynamicFormEngine` still overrides the submit text. Without Blazor, `new DynamicFormController(schema) { Messages = FormMessageLocales.Fr }` (or `DynamicFormSchema.Messages`) gives the controller the French validation messages; the components give it the messages of their locale unless the schema or your code chose one.
-
-### Can I bind a form to a model class?
-
-Yes. `FormSchema.For<TModel>(...)` in `Klyroo.Form.Core` declares a field per member with `s.Field(m => m.Name, f => ...)` and returns a handle for it, derives the key and the kind from the member, and a `FormController<TModel>` reads and writes the values as the member types (`Get`, `Set`), builds or fills a model (`CreateModel`, `ApplyTo`) and submits it with `SubmitAsync(save, target)`. See [Bind a C# model](guides.md#bind-a-c-model). The runtime mode (`Klyroo.Form.Dynamic`) keeps the dictionary API for forms built from data; the two modes share one engine but not their schemas.
+Text you write yourself is never translated: `Label`, `Hint`, `Help`, `Placeholder`, the message of `Required(message: ...)`, the labels of password requirements, option labels and the messages of your own rules. `SubmitLabel` on `KlyFormEngine<TModel>` still overrides the submit text. Without Blazor, `new FormController<TModel>(schema) { Messages = FormMessageLocales.Fr }` (or `s.Messages` in the schema) gives the controller the French validation messages; the components give it the messages of their locale unless the schema or your code chose one.
 
 ### Does it integrate with DataAnnotations or FluentValidation?
 
-DataAnnotations, yes, through the `Klyroo.Form.DataAnnotations` package: `FormSchema.For<TModel>(s => s.FromDataAnnotations())` reads `[Required]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[Range]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[Compare]`, `[Display]`, `[Editable]`, `[ReadOnly]` and `[DataType]`, and runs your own attributes and `IValidatableObject` at submit. FluentValidation, no: a `Rule` or `OnBeforeSubmit` (or, in the runtime mode, a `DynamicValidatorRule`) can call any validator you already have, and `SetError` puts its errors on the fields.
+DataAnnotations, yes, through the `Klyroo.Form.DataAnnotations` package: `FormSchema.For<TModel>(s => s.FromDataAnnotations())` reads `[Required]`, `[StringLength]`, `[MaxLength]`, `[MinLength]`, `[Range]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[Compare]`, `[Display]`, `[Editable]`, `[ReadOnly]` and `[DataType]`, and runs your own attributes and `IValidatableObject` at submit. FluentValidation, no: a `Rule` or `OnBeforeSubmit` can call any validator you already have, and `SetError` puts its errors on the fields.
 
 ### Why do some attribute messages look different from the other ones?
 
@@ -89,8 +95,8 @@ Properties of a class or record: strings, numbers, `bool`, enums (not `[Flags]`)
 
 ### What types do the values have?
 
-In a typed form, the values you read and write are the types of the members: `Get` returns an `int` for an `int` member. Underneath, the engine stores what the controls produce, which is what the rest of this answer describes, and converts at the boundary. In the runtime mode you see the stored values directly. The built-in controls store strings for text-like kinds (including dates, times, colors and phone numbers), `double` for `Number` and `Slider` (a `decimal` instead when the digits typed or loaded do not fit a double, such as `long.MaxValue`), `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` (start and end) and a `Select` or `AutoComplete` with `Multiple`. Cells of repeatable lists use the same controls, so a `Number` cell holds a `double`. From code you can store anything, but dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content. `GetValue<T>` converts with the invariant culture (see [Concepts](concepts.md)) and returns `default` when it cannot; `TryGetValue<T>` reports whether it could.
+In a typed form, the values you read and write are the types of the members: `Get` returns an `int` for an `int` member, and `TryGet` tells a value from text that is not one yet. Underneath, the engine stores what the controls produce and converts at the boundary with the invariant culture, so you never see the stored form unless you use the runtime mode, where values are `object?` keyed by name: see [Values and keys](runtime-forms.md#values-and-keys) for what each control stores. Dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content.
 
 ### How do labels and errors reach assistive technology?
 
-In `KlyDynamicFormEngine`, `KlyDynamicFormPage` and `KlyDynamicFieldView` the label of a single control is tied to it with `for` and `id`, and controls made of several inputs (radio and checkbox lists, ratings, date ranges) are a `radiogroup` or `group` with an `id` and `aria-labelledby` pointing at the visible label. A control with an error gets `aria-invalid="true"`, and `aria-describedby` lists the ids of its description, help and error; per-field errors are not alerts: each form has one polite live region and an error summary that announce them once, and after a failed submit or Next focus moves to the first invalid field. The overlay of `KlyFormProvider` is a native modal dialog from Klyroo.UI (`KlyModal`, or `KlySlideover` for the drawer): focus stays inside it, Escape and a click on the backdrop close it (not while the form is saving), and focus returns to the element that opened it. Required controls carry `aria-required`, a `Switch` has `role="switch"`, password requirements are a list the password input points to, the stepper marks the current step with `aria-current`, and the icon-only buttons have an `aria-label`. This describes the markup; the library has no automated accessibility audit of the form components in this repository.
+In `KlyFormEngine<TModel>`, `KlyFormPage<TModel>` and `KlyFormFieldView` (and the dynamic components, which share the renderer) the label of a single control is tied to it with `for` and `id`, and controls made of several inputs (radio and checkbox lists, ratings, date ranges) are a `radiogroup` or `group` with an `id` and `aria-labelledby` pointing at the visible label. A control with an error gets `aria-invalid="true"`, and `aria-describedby` lists the ids of its description, help and error; per-field errors are not alerts: each form has one polite live region and an error summary that announce them once, and after a failed submit or Next focus moves to the first invalid field. The overlay of `KlyFormProvider` is a native modal dialog from Klyroo.UI (`KlyModal`, or `KlySlideover` for the drawer): focus stays inside it, Escape and a click on the backdrop close it (not while the form is saving), and focus returns to the element that opened it. Required controls carry `aria-required`, a `Switch` has `role="switch"`, password requirements are a list the password input points to, the stepper marks the current step with `aria-current`, and the icon-only buttons have an `aria-label`. This describes the markup; the library has no automated accessibility audit of the form components in this repository.

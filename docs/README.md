@@ -2,11 +2,12 @@
 
 ## Tutorial
 
-- [Getting started](getting-started.md): install, register, build a contact form headless and then in Blazor.
+- [Getting started](getting-started.md): install, register, build a contact form headless and then in Blazor, with the typed API.
 
 ## How-to guides
 
-- [Guides](guides.md): custom validation, server errors, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, binding a C# model (typed schema and data annotations), testing.
+- [Guides](guides.md): declare a form from a C# model, custom validation, server errors, async checks, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, custom controls, uploads, data annotations, testing. All with the typed API.
+- [Forms defined at runtime](runtime-forms.md): the runtime mode (`Klyroo.Form.Dynamic`) for forms stored as data, with the same recipes on dictionaries and keys.
 
 ## Reference
 
@@ -16,8 +17,8 @@
 
 ## Explanation
 
-- [Concepts](concepts.md): the typed and runtime modes, the engine under both, validation, steps, submission and the split between the two packages.
+- [Concepts](concepts.md): the typed schema and controller, the engine under both modes, validation, steps, submission and the split between the two packages.
 
 ## Internals
 
-- [Internal contract](internal-contract.md): the engine, the node tree, the codec and `IFormRuntime`, for the components and the agent bridge that build on them.
+- [Internal contract (for contributors)](internal-contract.md): the engine, the node tree, the codec and `IFormRuntime`, for the components and the agent bridge that build on them. Not needed to use the library.
