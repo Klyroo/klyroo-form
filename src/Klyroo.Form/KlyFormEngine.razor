@@ -1,10 +1,12 @@
 @namespace Klyroo.Form
 @inherits KlyComponentBase
-@implements IDisposable
+@implements IAsyncDisposable
+@inject IJSRuntime Js
 
 @if (EffectiveController is { } form)
 {
     <form novalidate class="@RootClass" @onsubmit="OnFormSubmitAsync" @onsubmit:preventDefault
+          aria-busy="@(form.IsSubmitting ? "true" : null)"
           data-slot="form-engine" data-key="@form.Schema.FormKey" data-shell="@Shell.ToString().ToLowerInvariant()"
           @attributes="AdditionalAttributes">
         @* Header + Stepper *@
@@ -31,6 +33,7 @@
                         <button type="button"
                                 class="inline-flex size-7 items-center justify-center rounded-(--klyroo-radius) text-(--klyroo-text-muted) hover:bg-(--klyroo-bg-muted)"
                                 aria-label="Close form"
+                                disabled="@form.IsSubmitting"
                                 data-slot="form-close"
                                 @onclick="OnCancelAsync">✕</button>
                     }
@@ -64,6 +67,8 @@
             <p class="m-0 text-xs text-(--klyroo-text-muted)" data-slot="form-step-description">@stepDescription</p>
         }
 
+        <KlyFormErrorSummary Form="form" />
+
         @* Fields Grid *@
         <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(form.Schema)))" data-slot="form-fields">
             @foreach (var field in form.CurrentVisibleTopFields)
@@ -81,7 +86,7 @@
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3.5 text-xs font-semibold text-(--klyroo-text) hover:bg-(--klyroo-bg-muted)"
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-prev"
-                            @onclick="@(() => form.PreviousStepAsync())">
+                            @onclick="OnPreviousAsync">
                         Back
                     </button>
                 }
@@ -89,6 +94,7 @@
                 {
                     <button type="button"
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3 text-xs font-medium text-(--klyroo-text-muted) hover:bg-(--klyroo-bg-muted)"
+                            disabled="@form.IsSubmitting"
                             data-slot="form-action-reset"
                             @onclick="@(() => form.Reset())">
                         Reset
@@ -101,6 +107,7 @@
                 {
                     <button type="button"
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) border border-(--klyroo-border) bg-(--klyroo-bg) px-3.5 text-xs font-medium text-(--klyroo-text) hover:bg-(--klyroo-bg-muted)"
+                            disabled="@form.IsSubmitting"
                             data-slot="form-action-cancel"
                             @onclick="OnCancelAsync">
                         Cancel
@@ -112,7 +119,7 @@
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90"
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-next"
-                            @onclick="@(() => form.NextStepAsync())">
+                            @onclick="OnNextAsync">
                         Next
                     </button>
                 }
@@ -133,6 +140,9 @@
 @code {
     private FormController? _internalController;
     private FormController? _subscribed;
+    private readonly CancellationTokenSource _disposed = new();
+    private FormJs _js = default!;
+    private string? _focusTarget;
 
     /// <summary>The controller to render. Use it when you need to read or change the form from code. Takes precedence over <see cref="Schema"/>.</summary>
     [Parameter] public FormController? Form { get; set; }
@@ -152,7 +162,10 @@
     /// <summary>Shows a reset button in the footer while the form is dirty. The default is <c>true</c>.</summary>
     [Parameter] public bool ShowReset { get; set; } = true;
 
-    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully, that is after validation and the schema hooks passed.</summary>
+    /// <summary>Your save step: called with <see cref="FormController.BuildOutput"/> after validation and the schema hooks passed, while the form is still submitting (the button shows its saving state, a second submit is refused, Cancel is disabled). Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the user's edits dirty and the form open, after reporting the reason with <see cref="FormController.SetError"/> or <see cref="FormController.SetFormError"/>. The token is cancelled when the component is disposed. It runs through <see cref="FormController.SubmitAsync(Func{FormController, CancellationToken, Task{bool}}, CancellationToken)"/>.</summary>
+    [Parameter] public Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>? OnSave { get; set; }
+
+    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. At that point the submission is over: <see cref="FormController.IsSubmitting"/> is <c>false</c> and the form is clean. Do the save itself in <see cref="OnSave"/>.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
 
     /// <summary>Called with the current output when the user presses Cancel or the close button. When bound, the Cancel button is shown.</summary>
@@ -164,6 +177,8 @@
 
     private string RootClass =>
         $"flex w-full flex-col gap-4 text-sm text-(--klyroo-text) {Class}".Trim();
+
+    protected override void OnInitialized() => _js = new FormJs(Js);
 
     protected override void OnParametersSet()
     {
@@ -185,17 +200,49 @@
 
     private async Task OnFormSubmitAsync()
     {
-        if (EffectiveController is null) return;
+        var form = EffectiveController;
+        if (form is null || form.IsSubmitting) return;
         // Enter in a field submits the form element; before the last step it means Next, not a submit of the whole wizard.
-        if (EffectiveController.IsStepped && !EffectiveController.IsLastStep)
+        if (form.IsStepped && !form.IsLastStep)
         {
-            await EffectiveController.NextStepAsync();
+            await OnNextAsync();
             return;
         }
-        var ok = await EffectiveController.SubmitAsync();
-        if (ok && OnSubmit.HasDelegate)
+        var ok = OnSave is { } save
+            ? await form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
+            : await form.SubmitAsync();
+        if (ok)
         {
-            await OnSubmit.InvokeAsync(EffectiveController.BuildOutput());
+            if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(form.BuildOutput());
+        }
+        else
+        {
+            RequestFocus(form);
+        }
+    }
+
+    private async Task OnNextAsync()
+    {
+        var form = EffectiveController;
+        if (form is null) return;
+        if (!await form.NextStepAsync()) RequestFocus(form);
+    }
+
+    private Task OnPreviousAsync() => EffectiveController?.PreviousStepAsync() ?? Task.CompletedTask;
+
+    // Focus moves once the errors are on screen, in the render that follows.
+    private void RequestFocus(FormController form)
+    {
+        _focusTarget = FormLayout.FirstErrorTargetId(form);
+        if (_focusTarget is not null) StateHasChanged();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget is { } target)
+        {
+            _focusTarget = null;
+            await _js.FocusAsync(target);
         }
     }
 
@@ -208,11 +255,14 @@
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         if (_subscribed is not null)
         {
             _subscribed.Changed -= OnFormChanged;
         }
+        await _disposed.CancelAsync();
+        _disposed.Dispose();
+        await _js.DisposeAsync();
     }
 }

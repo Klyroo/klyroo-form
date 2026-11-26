@@ -350,7 +350,7 @@ public sealed class FormSchema
 
     /// <summary>Runs after validation succeeds and before <see cref="OnSubmit"/>. Return <c>false</c> to cancel the submission, for example after a failed server check.</summary>
     public Func<FormController, Task<bool>>? OnBeforeSubmit { get; init; }
-    /// <summary>Runs when the form is submitted and validation (and <see cref="OnBeforeSubmit"/>) succeeded. An exception it throws propagates to the caller of <see cref="FormController.SubmitAsync"/>.</summary>
+    /// <summary>Runs when the form is submitted and validation (and <see cref="OnBeforeSubmit"/>) succeeded. An exception it throws propagates to the caller of <see cref="FormController.SubmitAsync()"/>.</summary>
     public Func<FormController, Task>? OnSubmit { get; init; }
     /// <summary>Runs after the current step validates and before moving forward, with the index of the current step. Return <c>false</c> to stay on the step.</summary>
     public Func<FormController, int, Task<bool>>? OnBeforeNext { get; init; }
@@ -366,7 +366,7 @@ public sealed record FormSubmitOutcome(
     IReadOnlyDictionary<string, object?> FormData);
 
 /// <summary>Runtime state of a <see cref="FormSchema"/>: field values, an initial snapshot for dirty tracking, touched fields, validation errors, step navigation, repeatable rows and submission. It has no UI dependency and is not thread safe: use it from one thread or one synchronization context at a time.</summary>
-public sealed class FormController
+public sealed partial class FormController
 {
     private readonly Dictionary<string, object?> _state = new(StringComparer.Ordinal);
     private readonly Dictionary<string, object?> _initialSnapshot = new(StringComparer.Ordinal);
@@ -376,6 +376,7 @@ public sealed class FormController
     private readonly Dictionary<CellKey, string> _cellErrors = [];
     private readonly HashSet<CellKey> _touchedCells = [];
     private readonly Dictionary<string, List<FormOptionItem>> _createdOptions = new(StringComparer.Ordinal);
+    private bool _navigating;
 
     private readonly record struct CellKey(string Array, int Row, string Child)
     {
@@ -401,7 +402,7 @@ public sealed class FormController
     public FormSchema Schema { get; }
     /// <summary>Zero-based index of the current step. It stays 0 for a form without steps.</summary>
     public int CurrentStepIndex { get; private set; }
-    /// <summary><c>true</c> while <see cref="SubmitAsync"/> is running.</summary>
+    /// <summary><c>true</c> while <see cref="SubmitAsync()"/> is running.</summary>
     public bool IsSubmitting { get; private set; }
     /// <summary><c>true</c> when the schema declares steps.</summary>
     public bool IsStepped => Schema.Steps.Count > 0;
@@ -669,7 +670,7 @@ public sealed class FormController
     /// <summary>Sets an error on a field, for example one returned by the server, and marks the field touched. The error is removed by the next <see cref="SetValue"/> on that key, by <see cref="ClearError"/> or by <see cref="Reset"/>.</summary>
     /// <param name="path">Key of the field.</param>
     /// <param name="message">The message to show.</param>
-    /// <param name="blocking"><c>true</c> to make <see cref="Validate"/> and <see cref="SubmitAsync"/> fail until the error is cleared.</param>
+    /// <param name="blocking"><c>true</c> to make <see cref="Validate"/> and <see cref="SubmitAsync()"/> fail until the error is cleared.</param>
     public void SetError(string path, string message, bool blocking = false)
     {
         _customErrors[path] = (message, blocking);
@@ -906,7 +907,7 @@ public sealed class FormController
 
     /// <summary>Validates the fields in effect (see <see cref="ActiveFields"/>) according to <see cref="FormSchema.ValidateMode"/>, including each cell of their repeatable lists, and marks them touched so their errors show. Validation errors of fields that are not in effect, such as hidden ones, are removed.</summary>
     /// <param name="currentStepOnly"><c>true</c> to validate only the fields of the current step.</param>
-    /// <returns><c>true</c> if none of the validated fields and cells has an error.</returns>
+    /// <returns><c>true</c> if none of the validated fields and cells has an error and no blocking error set with <see cref="SetError"/> applies. A blocking error applies when it is on a validated field or cell, or when it is a form-level error (its key matches no field, see <see cref="SetFormError"/>), whichever step is validated.</returns>
     public bool Validate(bool currentStepOnly = false)
     {
         if (Schema.ValidateMode == FormValidationMode.None)
@@ -947,11 +948,12 @@ public sealed class FormController
         }
 
         Changed?.Invoke();
-        var hasStepErrors = fieldsToValidate.Any(f =>
+        var scopeKeys = fieldsToValidate.Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
+        var hasErrors = fieldsToValidate.Any(f =>
             _validationErrors.ContainsKey(f.Key)
-            || _cellErrors.Keys.Any(c => c.Array == f.Key)
-            || (_customErrors.TryGetValue(f.Key, out var ce) && ce.Blocking));
-        return !hasStepErrors;
+            || _cellErrors.Keys.Any(c => c.Array == f.Key))
+            || _customErrors.Any(e => e.Value.Blocking && (IsFormLevelKey(e.Key) || scopeKeys.Contains(BaseKey(e.Key))));
+        return !hasErrors;
     }
 
     private void ValidateField(FormFieldSchema field)
@@ -1161,64 +1163,111 @@ public sealed class FormController
     }
 
     /// <summary>Moves to the next step that is not skipped. It validates the current step, then runs <see cref="FormSchema.OnBeforeNext"/>, and clears the touched state and validation errors of the new step.</summary>
-    /// <returns><c>true</c> if the step changed. <c>false</c> when the form has no steps, is on its last step, is submitting, fails validation or a hook returns <c>false</c>.</returns>
+    /// <returns><c>true</c> if the step changed. <c>false</c> when the form has no steps, is on its last step, is submitting or already changing step, fails validation or a hook returns <c>false</c>.</returns>
     public async Task<bool> NextStepAsync()
     {
-        if (!IsStepped || IsLastStep || IsSubmitting) return false;
-        if (!Validate(currentStepOnly: true)) return false;
-
-        if (Schema.OnBeforeNext is not null)
+        if (!IsStepped || IsLastStep || IsSubmitting || _navigating) return false;
+        _navigating = true;
+        try
         {
-            var ok = await Schema.OnBeforeNext(this, CurrentStepIndex);
-            if (!ok) return false;
-        }
+            if (!Validate(currentStepOnly: true))
+            {
+                SubmitFailed = true;
+                Changed?.Invoke();
+                return false;
+            }
 
-        var nextIdx = CurrentStepIndex + 1;
-        while (nextIdx < Schema.Steps.Count && IsStepSkipped(nextIdx))
+            if (Schema.OnBeforeNext is not null)
+            {
+                var ok = await Schema.OnBeforeNext(this, CurrentStepIndex);
+                if (!ok) return false;
+            }
+
+            var nextIdx = CurrentStepIndex + 1;
+            while (nextIdx < Schema.Steps.Count && IsStepSkipped(nextIdx))
+            {
+                nextIdx++;
+            }
+            if (nextIdx >= Schema.Steps.Count) return false;
+
+            CurrentStepIndex = nextIdx;
+            ClearValidationState();
+            SubmitFailed = false;
+            Changed?.Invoke();
+            return true;
+        }
+        finally
         {
-            nextIdx++;
+            _navigating = false;
         }
-        if (nextIdx >= Schema.Steps.Count) return false;
-
-        CurrentStepIndex = nextIdx;
-        ClearValidationState();
-        Changed?.Invoke();
-        return true;
     }
 
     /// <summary>Moves to the previous step that is not skipped, after <see cref="FormSchema.OnBeforePrevious"/>. Values are kept and the touched state and validation errors are cleared.</summary>
-    /// <returns><c>true</c> if the step changed.</returns>
+    /// <returns><c>true</c> if the step changed. <c>false</c> when the form has no steps, is on its first step, is submitting or already changing step, or a hook returns <c>false</c>.</returns>
     public async Task<bool> PreviousStepAsync()
     {
-        if (!IsStepped || IsFirstStep || IsSubmitting) return false;
-        if (Schema.OnBeforePrevious is not null)
+        if (!IsStepped || IsFirstStep || IsSubmitting || _navigating) return false;
+        _navigating = true;
+        try
         {
-            var ok = await Schema.OnBeforePrevious(this, CurrentStepIndex);
-            if (!ok) return false;
-        }
+            if (Schema.OnBeforePrevious is not null)
+            {
+                var ok = await Schema.OnBeforePrevious(this, CurrentStepIndex);
+                if (!ok) return false;
+            }
 
-        var prevIdx = CurrentStepIndex - 1;
-        while (prevIdx >= 0 && IsStepSkipped(prevIdx))
+            var prevIdx = CurrentStepIndex - 1;
+            while (prevIdx >= 0 && IsStepSkipped(prevIdx))
+            {
+                prevIdx--;
+            }
+            if (prevIdx < 0) return false;
+
+            CurrentStepIndex = prevIdx;
+            ClearValidationState();
+            SubmitFailed = false;
+            Changed?.Invoke();
+            return true;
+        }
+        finally
         {
-            prevIdx--;
+            _navigating = false;
         }
-        if (prevIdx < 0) return false;
-
-        CurrentStepIndex = prevIdx;
-        ClearValidationState();
-        Changed?.Invoke();
-        return true;
     }
 
-    /// <summary>Validates every field in effect, runs <see cref="FormSchema.OnBeforeSubmit"/> then <see cref="FormSchema.OnSubmit"/>, and on success takes a new initial snapshot so the form is no longer dirty. <see cref="IsSubmitting"/> is true meanwhile.</summary>
+    /// <summary>Validates every field in effect, runs <see cref="FormSchema.OnBeforeSubmit"/> then <see cref="FormSchema.OnSubmit"/>, and on success takes a new initial snapshot so the form is no longer dirty. <see cref="IsSubmitting"/> is true meanwhile. Use <see cref="SubmitAsync(Func{FormController, CancellationToken, Task{bool}}, CancellationToken)"/> to run your own save step inside the same lifecycle.</summary>
     /// <returns><c>true</c> if the form was submitted. <c>false</c> if a submission is already running, validation fails or <see cref="FormSchema.OnBeforeSubmit"/> returns <c>false</c>.</returns>
-    public async Task<bool> SubmitAsync()
+    public Task<bool> SubmitAsync() => SubmitCoreAsync(null, CancellationToken.None);
+
+    /// <summary>
+    /// Submits like <see cref="SubmitAsync()"/> and runs <paramref name="handler"/>, your save step, after <see cref="FormSchema.OnSubmit"/>, while <see cref="IsSubmitting"/> is still <c>true</c>.
+    /// The dirty snapshot is retaken, and the form stops being dirty, only when every step succeeded, so a handler that returns <c>false</c> or throws leaves the user's edits
+    /// dirty and the form editable again. <see cref="IsSubmitting"/> goes back to <c>false</c> in every case, and a second call while one runs returns <c>false</c> at once.
+    /// </summary>
+    /// <param name="handler">Receives this controller (read <see cref="BuildOutput"/> from it) and <paramref name="cancellationToken"/>, and returns <c>true</c> when the save succeeded. To report a failure, return <c>false</c> after calling <see cref="SetError"/> or <see cref="SetFormError"/>. An exception it throws propagates to the caller.</param>
+    /// <param name="cancellationToken">Passed to <paramref name="handler"/> and to the asynchronous validators.</param>
+    /// <returns><c>true</c> if the form was submitted and saved. <c>false</c> if a submission is already running, validation fails, <see cref="FormSchema.OnBeforeSubmit"/> or <paramref name="handler"/> returns <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="handler"/> is <c>null</c>.</exception>
+    /// <example><c>var saved = await form.SubmitAsync(async (f, ct) => (await api.SaveAsync(f.BuildOutput(), ct)).Ok);</c></example>
+    public Task<bool> SubmitAsync(Func<FormController, CancellationToken, Task<bool>> handler, CancellationToken cancellationToken = default)
     {
-        if (IsSubmitting) return false;
-        if (!Validate(currentStepOnly: false)) return false;
+        ArgumentNullException.ThrowIfNull(handler);
+        return SubmitCoreAsync(handler, cancellationToken);
+    }
+
+    private async Task<bool> SubmitCoreAsync(Func<FormController, CancellationToken, Task<bool>>? handler, CancellationToken cancellationToken)
+    {
+        if (IsSubmitting || _navigating) return false;
+        if (!Validate(currentStepOnly: false))
+        {
+            SubmitFailed = true;
+            Changed?.Invoke();
+            return false;
+        }
 
         IsSubmitting = true;
         Changed?.Invoke();
+        var succeeded = false;
         try
         {
             if (Schema.OnBeforeSubmit is not null)
@@ -1232,18 +1281,30 @@ public sealed class FormController
                 await Schema.OnSubmit(this);
             }
 
-            // Rebaseline dirty snapshot on success
-            _initialSnapshot.Clear();
-            foreach (var (k, v) in _state)
+            if (handler is not null && !await handler(this, cancellationToken))
             {
-                _initialSnapshot[k] = CloneValue(v);
+                return false;
             }
+
+            // Rebaseline dirty snapshot on success
+            RetakeSnapshot();
+            succeeded = true;
             return true;
         }
         finally
         {
             IsSubmitting = false;
+            SubmitFailed = !succeeded;
             Changed?.Invoke();
+        }
+    }
+
+    private void RetakeSnapshot()
+    {
+        _initialSnapshot.Clear();
+        foreach (var (k, v) in _state)
+        {
+            _initialSnapshot[k] = CloneValue(v);
         }
     }
 
@@ -1253,6 +1314,7 @@ public sealed class FormController
     {
         ClearValidationState();
         _customErrors.Clear();
+        SubmitFailed = false;
         CurrentStepIndex = 0;
         InitializeState(newInput);
         CurrentStepIndex = FirstReachableStepIndex();
@@ -1557,7 +1619,7 @@ public sealed class FormService
         return _tcs.Task;
     }
 
-    /// <summary>Submits the open form with <see cref="FormController.SubmitAsync"/>. On success it closes the form and completes the task of <see cref="CreateFormAsync"/>.</summary>
+    /// <summary>Submits the open form with <see cref="FormController.SubmitAsync()"/>. On success it closes the form and completes the task of <see cref="CreateFormAsync"/>.</summary>
     /// <returns><c>true</c> if the form was submitted; <c>false</c> if no form is open or submission failed.</returns>
     public async Task<bool> SubmitActiveFormAsync()
     {

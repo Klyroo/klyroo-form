@@ -209,7 +209,7 @@
 
             @if (errorId is not null)
             {
-                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-field-error">@error</p>
+                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" data-slot="form-field-error">@error</p>
             }
         </div>;
     }
@@ -451,7 +451,7 @@
                                         @RenderControl(form, child, cellBinding)
                                         @if (cellError is not null)
                                         {
-                                            <p id="@($"{cellId}-error")" class="m-0 text-[11px] font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-array-cell-error">@cellError</p>
+                                            <p id="@($"{cellId}-error")" class="m-0 text-[11px] font-medium text-(--klyroo-error-text)" data-slot="form-array-cell-error">@cellError</p>
                                         }
                                     </div>
                                 }
@@ -481,7 +481,7 @@
 
             @if (errorId is not null)
             {
-                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" role="alert" data-slot="form-field-error">@error</p>
+                <p id="@errorId" class="m-0 text-xs font-medium text-(--klyroo-error-text)" data-slot="form-field-error">@error</p>
             }
         </div>;
     }

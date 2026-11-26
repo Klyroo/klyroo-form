@@ -4,6 +4,7 @@ Task-oriented recipes. Each one states a goal, shows complete code and explains 
 
 - [Validate a field with custom rules](#validate-a-field-with-custom-rules)
 - [Report a server error on a field](#report-a-server-error-on-a-field)
+- [Save from the component and keep the form busy](#save-from-the-component-and-keep-the-form-busy)
 - [Show and require fields conditionally](#show-and-require-fields-conditionally)
 - [Build a multi-step wizard](#build-a-multi-step-wizard)
 - [Build a settings page with sections](#build-a-settings-page-with-sections)
@@ -96,6 +97,37 @@ var schema = new FormSchema
 `OnBeforeSubmit` runs after local validation passes and before `OnSubmit`. Returning `false` cancels the submit, `SetError` puts the message on the field, and the next `SetValue` on that field clears it. `SubmitAsync()` returns `false` and the form stays dirty.
 
 `SetError` takes a `blocking` argument. A blocking error makes `Validate()` and `SubmitAsync()` fail until it is cleared, without calling your service again. Use it when you set the error outside of the submit pipeline, for example from `OnBeforeNext` in a wizard. For an error set inside `OnBeforeSubmit`, which already returns `false`, the default is enough.
+
+## Save from the component and keep the form busy
+
+Goal: call your API when the user submits, show a saving state while it runs, keep the edits when it fails and report the failure.
+
+```razor
+<KlyFormEngine Form="_form" OnSave="SaveAsync" OnSubmit="Saved" />
+
+@code {
+    private readonly FormController _form = new(Schemas.Profile);
+
+    private async Task<bool> SaveAsync(IReadOnlyDictionary<string, object?> data, CancellationToken ct)
+    {
+        var result = await profiles.SaveAsync(data, ct);
+        if (result.Conflict)
+        {
+            _form.SetFormError("Someone else changed this profile. Reload it and try again.");
+            return false;
+        }
+        return true;
+    }
+
+    private void Saved(IReadOnlyDictionary<string, object?> data) => nav.NavigateTo("/profile");
+}
+```
+
+`OnSave` runs inside `FormController.SubmitAsync`, after validation and the schema hooks, while `IsSubmitting` is still `true`: the button shows its saving state, a second submit is refused, and Back, Reset and Cancel are disabled. When it returns `true` the dirty snapshot is retaken, so `IsDirty` turns `false` and `OnSubmit` is raised. When it returns `false`, or throws, the snapshot is kept: the edits stay dirty and the user can fix and resubmit. The token is cancelled when the component is disposed.
+
+`OnSubmit` on its own runs after the submission is already over (`IsSubmitting` is `false`, the form is clean), so it is the place to navigate, not to save. Without the component, the same lifecycle is `await form.SubmitAsync(async (f, ct) => (await api.SaveAsync(f.BuildOutput(), ct)).Ok, ct)`.
+
+`SetFormError` reports a failure that belongs to no field. It is a blocking error on the key `FormController.FormErrorKey`, listed in the error summary at the top of the form, and it keeps `Validate()` failing until you call `ClearError()` (or `Reset`). Any `SetError` on a key that matches no field behaves the same way. After a failed submit or Next, the summary lists every field error as a button that focuses the field, a polite live region announces the count and the first error, and focus moves to the first invalid field (or to the summary when only form-level errors remain).
 
 ## Show and require fields conditionally
 

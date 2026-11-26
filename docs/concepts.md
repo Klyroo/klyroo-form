@@ -120,17 +120,21 @@ A page form has no navigation. `GetSectionStates` computes a status for each vis
 ## Submission
 
 ```text
-SubmitAsync()
-   already submitting?          -> false
-   Validate() on every field    -> false on any error
+SubmitAsync() / SubmitAsync(handler, ct)
+   already submitting or changing step? -> false
+   Validate() on every field            -> false on any error, or on a blocking
+                                           form-level error (SubmitFailed = true)
    IsSubmitting = true
-   OnBeforeSubmit(controller)   -> false cancels
+   OnBeforeSubmit(controller)           -> false cancels
    OnSubmit(controller)
-   new initial snapshot         -> IsDirty = false
-   IsSubmitting = false         (also when a hook throws)
+   handler(controller, ct)              -> false cancels (your save step)
+   new initial snapshot                 -> IsDirty = false
+   IsSubmitting = false                 (also when a hook or the handler throws)
 ```
 
-The components then call their `OnSubmit` callback with `BuildOutput()`: the stateful fields in effect, after `TransformOutput`, as a flat dictionary. If `OnBeforeSubmit` returns `false` or a hook throws, the snapshot is not replaced and the form stays dirty.
+`SubmitAsync(handler)` exists so that the save step runs inside the lifecycle: `IsSubmitting` stays `true` while it works, and the snapshot is retaken only when it returns `true`. The components expose it as `OnSave` (`Func<output, CancellationToken, Task<bool>>`). Their `OnSubmit` callback is raised afterwards, with `BuildOutput()`, and only on success: the stateful fields in effect, after `TransformOutput`, as a flat dictionary. If `OnBeforeSubmit` or the handler returns `false`, or a hook throws, the snapshot is not replaced and the form stays dirty.
+
+An error set with `SetError` on a key that matches no field is a form-level error (`SetFormError` uses the key `FormErrorKey`). A blocking one makes `Validate()` fail whatever step is validated, and `GetErrorEntries()` lists it after the field errors, which is what the error summary renders.
 
 `FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 

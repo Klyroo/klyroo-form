@@ -1,6 +1,7 @@
 @namespace Klyroo.Form
 @inherits KlyComponentBase
-@implements IDisposable
+@implements IAsyncDisposable
+@inject IJSRuntime Js
 
 @if (Form is not null)
 {
@@ -8,6 +9,7 @@
     var blockingCount = sectionStates.Count(s => s.Status is FormPageSectionStatus.Invalid or FormPageSectionStatus.Pending);
 
     <form novalidate class="@RootClass" data-slot="form-page" data-key="@Form.Schema.FormKey"
+          aria-busy="@(Form.IsSubmitting ? "true" : null)"
           @onsubmit="OnSubmitAsync" @onsubmit:preventDefault @attributes="AdditionalAttributes">
         @if (!string.IsNullOrEmpty(Form.Schema.Title) || !string.IsNullOrEmpty(Form.Schema.Description))
         {
@@ -28,6 +30,8 @@
                 </div>
             </header>
         }
+
+        <KlyFormErrorSummary Form="Form" />
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
             @* Sidebar navigation *@
@@ -84,6 +88,7 @@
                             {
                                 <button type="button"
                                         class="rounded-(--klyroo-radius) px-2 py-1 text-xs font-medium text-(--klyroo-primary-text) hover:bg-(--klyroo-bg-muted)"
+                                        disabled="@Form.IsSubmitting"
                                         data-slot="form-section-reset"
                                         @onclick="@(() => Form.ResetSection(sectionSchema.Key))">
                                     Reset
@@ -116,16 +121,24 @@
 
 @code {
     private FormController? _subscribed;
+    private readonly CancellationTokenSource _disposed = new();
+    private FormJs _js = default!;
+    private string? _focusTarget;
 
     /// <summary>The controller to render. Its schema must declare <see cref="FormSchema.Sections"/>.</summary>
     [Parameter] public required FormController Form { get; set; }
 
-    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully.</summary>
+    /// <summary>Your save step: called with <see cref="FormController.BuildOutput"/> after validation and the schema hooks passed, while the form is still submitting. Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty, after reporting the reason with <see cref="FormController.SetError"/> or <see cref="FormController.SetFormError"/>. The token is cancelled when the component is disposed.</summary>
+    [Parameter] public Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>? OnSave { get; set; }
+
+    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. The submission is over at that point and the form is clean.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
 
 
     private string RootClass =>
         $"flex w-full flex-col gap-6 text-sm text-(--klyroo-text) {Class}".Trim();
+
+    protected override void OnInitialized() => _js = new FormJs(Js);
 
     protected override void OnParametersSet()
     {
@@ -141,18 +154,38 @@
 
     private async Task OnSubmitAsync()
     {
-        var ok = await Form.SubmitAsync();
-        if (ok && OnSubmit.HasDelegate)
+        if (Form.IsSubmitting) return;
+        var ok = OnSave is { } save
+            ? await Form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
+            : await Form.SubmitAsync();
+        if (ok)
         {
-            await OnSubmit.InvokeAsync(Form.BuildOutput());
+            if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Form.BuildOutput());
+        }
+        else
+        {
+            _focusTarget = FormLayout.FirstErrorTargetId(Form);
+            if (_focusTarget is not null) StateHasChanged();
         }
     }
 
-    public void Dispose()
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_focusTarget is { } target)
+        {
+            _focusTarget = null;
+            await _js.FocusAsync(target);
+        }
+    }
+
+    public async ValueTask DisposeAsync()
     {
         if (_subscribed is not null)
         {
             _subscribed.Changed -= OnChanged;
         }
+        await _disposed.CancelAsync();
+        _disposed.Dispose();
+        await _js.DisposeAsync();
     }
 }

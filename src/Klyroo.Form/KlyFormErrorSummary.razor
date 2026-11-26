@@ -1,0 +1,73 @@
+@namespace Klyroo.Form
+@inherits KlyComponentBase
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+@if (Form is not null)
+{
+    var entries = Form.GetErrorEntries().Where(e => e.IsFormLevel || Form.SubmitFailed).ToList();
+    var summaryId = FormLayout.SummaryId(Form.Schema.FormKey);
+    var titleId = $"{summaryId}-title";
+
+    @* One polite live region per form, always in the DOM so that assistive technology announces its text when it changes. *@
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-slot="form-live-region">@LiveText(entries)</div>
+
+    @if (entries.Count > 0)
+    {
+        <div id="@summaryId" tabindex="-1" role="group" aria-labelledby="@titleId"
+             class="@($"flex flex-col gap-1.5 rounded-(--klyroo-radius) border border-(--klyroo-error)/40 bg-(--klyroo-error)/10 p-3 text-xs focus:outline-none focus-visible:outline-2 focus-visible:outline-(--klyroo-error) {Class}".Trim())"
+             data-slot="form-error-summary" @attributes="AdditionalAttributes">
+            <p id="@titleId" class="m-0 font-semibold text-(--klyroo-error-text)" data-slot="form-error-summary-title">@Title(entries)</p>
+            <ul class="m-0 flex list-none flex-col gap-0.5 p-0" data-slot="form-error-summary-list">
+                @foreach (var entry in entries)
+                {
+                    var target = FormLayout.TargetId(Form, entry);
+                    <li data-slot="form-error-summary-item" data-path="@entry.Path">
+                        @if (entry.IsFormLevel)
+                        {
+                            <span class="text-(--klyroo-error-text)">@entry.Message</span>
+                        }
+                        else
+                        {
+                            <button type="button" class="cursor-pointer border-0 bg-transparent p-0 text-start text-(--klyroo-error-text) underline"
+                                    data-slot="form-error-summary-link"
+                                    @onclick="@(() => _js.FocusAsync(target))">@Describe(entry)</button>
+                        }
+                    </li>
+                }
+            </ul>
+        </div>
+    }
+}
+
+@code {
+    private FormJs _js = default!;
+
+    /// <summary>The controller whose errors to list.</summary>
+    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+
+    protected override void OnInitialized() => _js = new FormJs(Js);
+
+    private static string Title(IReadOnlyList<FormErrorEntry> entries) =>
+        entries.Count == 1 ? "There is 1 error to fix" : $"There are {entries.Count} errors to fix";
+
+    private string LiveText(IReadOnlyList<FormErrorEntry> entries) =>
+        entries.Count == 0 ? "" : $"{Title(entries)}. {Describe(entries[0])}";
+
+    // "Email: This field is required", or "Quantity (Lines 2): ..." for a cell of a repeatable list.
+    private string Describe(FormErrorEntry entry)
+    {
+        if (entry.IsFormLevel) return entry.Message;
+        var fields = Form.AllFields;
+        var owner = fields.FirstOrDefault(f => f.Key == entry.FieldKey);
+        var label = owner?.Label ?? entry.FieldKey;
+        if (entry.RowIndex is { } row && entry.ChildKey is { } childKey)
+        {
+            var child = owner?.Fields?.FirstOrDefault(f => f.Key == childKey);
+            return $"{child?.Label ?? childKey} ({label}, {row + 1}): {entry.Message}";
+        }
+        return $"{label}: {entry.Message}";
+    }
+
+    public ValueTask DisposeAsync() => _js.DisposeAsync();
+}

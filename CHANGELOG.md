@@ -8,6 +8,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `FormController.SubmitAsync(handler, cancellationToken)` runs your save step inside the submission: `IsSubmitting` stays `true` while it works and the dirty snapshot is retaken only when it returns `true`. `KlyFormEngine` and `KlyFormPage` expose it as `OnSave` (`Func<output, CancellationToken, Task<bool>>`) and refuse a second submit while one runs.
+- Form-level errors: `SetFormError`, `FormErrorKey`, `FormErrors`, `GetErrorEntries` (with `FormErrorEntry`) and `SubmitFailed`. An error set with `SetError` on a key that matches no field is form-level, and `KlyFormErrorSummary` renders them at the top of `KlyFormEngine` and `KlyFormPage`, followed by the field errors after a failed submit or Next, each as a button that focuses the field.
+- One polite live region per form announces the error count and the first error, and focus moves to the first invalid field after a failed submit or Next (best effort, through a small `klyroo-form.js` module).
 - Dedicated controls for every field kind that fell back to a text input: `CheckboxGroup` (checkbox list, `List<string>`), `DateTime` (`datetime-local`), `DateRange` (start and end dates, a two-item `List<string>`, with a required check on both dates and an order check), `PhoneNumber` (`type="tel"`), `Rating` (radio-based stars from 1 to `Max`, default 5, stored as `int`), `ColorPicker` (`type="color"`), `OneTimeCode` (`autocomplete="one-time-code"`, numeric keyboard, `maxlength`) and `Tag` (Enter or comma adds a tag, each tag has a remove button, `List<string>`).
 - `FormFieldKind.Button` renders a button that never submits and runs the new `FormFieldSchema.OnClick`.
 - `FormFieldSchema.Multiple` on `Select` and `AutoComplete` renders a checkbox list that writes a `List<string>`.
@@ -26,6 +29,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- Per-field error messages no longer carry `role="alert"`: they stay linked to the control with `aria-describedby`, and the live region and the error summary announce errors once for the whole form.
+- `NextStepAsync` and `PreviousStepAsync` refuse a call while another step change is running, and `SubmitAsync` refuses one during a step change.
 - `AutoComplete` is a text input with `datalist` suggestions instead of a select list. It stores the value of the option whose label matches the text (ignoring case) or whose value equals it, or the text itself.
 - `Watch` now also runs after `ResetField` changes a value, after a row of a repeatable list is added or removed, and, for a child of a list, after its cell changes. `Reset` still does not call it.
 - `Validate` removes the validation errors of fields that are no longer in effect, and `HasBlockingErrors` ignores them.
@@ -36,6 +41,9 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- `Validate` ignored a blocking error set with `SetError` on a key that matches no field, so a form-level failure did not stop `SubmitAsync`. It now fails on any blocking error that is form-level or on a validated field.
+- Two quick clicks on Next ran `OnBeforeNext` twice and skipped a step.
+- `OnSubmit` of the components ran after the submission was over (`IsSubmitting` already reset, snapshot already retaken), so an API failure there could not keep the form dirty. Use the new `OnSave`.
 - Hidden and omitted columns of a repeatable list are left out of the rows of `BuildOutput`, like hidden and omitted fields.
 - `KlyFormPage` rendered only the top-level fields of a section, each as an unlabelled text input: the children of containers and tabs never showed although they were validated, and repeatable lists were text inputs. It now renders fields like `KlyFormEngine`, and it is a `form` element, so Enter submits it.
 - The children of a hidden `Group`, `Card` or `Object`, the fields of a hidden tab or section, and the fields of a step skipped by `SkipWhen` were still validated and output. They are now left out of validation and `BuildOutput`, and keep their values in the state.
