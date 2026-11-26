@@ -130,7 +130,7 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
 
     /// <summary>Declares a field for a collection member as a multiple choice: the user ticks several options and the member holds their values.</summary>
     /// <typeparam name="TElement">The type of one choice.</typeparam>
-    /// <param name="member">The collection member: a <c>List</c>, an array, or <c>IList</c>, <c>ICollection</c>, <c>IReadOnlyList</c>, <c>IReadOnlyCollection</c> or <c>IEnumerable</c> of the element type.</param>
+    /// <param name="member">The collection member: a <c>List</c>, an array, or <c>IList</c>, <c>ICollection</c>, <c>IReadOnlyList</c>, <c>IReadOnlyCollection</c> or <c>IEnumerable</c> of the element type. It must be a direct member of the model or of a <see cref="Group{TNested}"/>, and a member with no setter must be a <c>List</c>, <c>IList</c> or <c>ICollection</c>, which is changed in place.</param>
     /// <param name="options">The choices.</param>
     /// <param name="configure">Sets the label, rules and conditions of the field.</param>
     /// <returns>The handle of the field, whose value is the list of the chosen values.</returns>
@@ -162,12 +162,13 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
 
     /// <summary>Declares a repeatable list of rows for a collection member. Each row is an item of the collection; its columns are declared in <paramref name="columns"/>.</summary>
     /// <typeparam name="TItem">The type of a row: a class or a record with a parameterless constructor, unless <paramref name="itemFactory"/> says how to create one.</typeparam>
-    /// <param name="member">The collection member: a <c>List</c>, an array, or <c>IList</c>, <c>ICollection</c>, <c>IReadOnlyList</c>, <c>IReadOnlyCollection</c> or <c>IEnumerable</c> of the item type.</param>
+    /// <param name="member">The collection member: a <c>List</c>, an array, or <c>IList</c>, <c>ICollection</c>, <c>IReadOnlyList</c>, <c>IReadOnlyCollection</c> or <c>IEnumerable</c> of the item type. It must be a direct member of the model or of a <see cref="Group{TNested}"/>, never a chain such as <c>m =&gt; m.Inner.Lines</c>, and a member with no setter must be a <c>List</c>, <c>IList</c> or <c>ICollection</c>, which is changed in place.</param>
     /// <param name="columns">Declares the columns of a row.</param>
     /// <param name="addLabel">The text of the add button. The default is <c>Add item</c>.</param>
     /// <param name="configure">Sets the label and conditions of the list itself.</param>
     /// <param name="itemFactory">Creates a new item when the model is written. The default is the parameterless constructor.</param>
     /// <returns>The handle of the list, whose value is the list of its items.</returns>
+    /// <exception cref="ArgumentException">The member is reached through a chain, or has no setter and cannot be changed in place; the message says what to declare instead.</exception>
     public FormListField<TModel, TItem> List<[DynamicallyAccessedMembers(FormModelTrim.Members)] TItem>(
         Expression<Func<THolder, IEnumerable<TItem>>> member,
         Action<FormRowBuilder<TModel, TItem>> columns,
