@@ -81,7 +81,7 @@ public static class FormFieldBuilderExtensions
         return field.Add(s => s.MaxLength = maxLength);
     }
 
-    /// <summary>Bounds a number. The bounds are checked on validation, and are the <c>min</c> and <c>max</c> of the input. The control compares them as <see cref="double"/>, and the type of the member adds its own exact limits.</summary>
+    /// <summary>Bounds a number. The bounds are checked on validation and when a value is written (an agent, <c>Set</c>), and are the <c>min</c> and <c>max</c> of the input. They are stored as <see cref="double"/>, but a value is compared with them digit for digit (a <see cref="decimal"/> of 100.0000000000000001 is above a maximum of 100, a <see cref="long"/> of 2^53 + 1 is above a maximum of 2^53), and the type of the member adds its own exact limits.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
     /// <typeparam name="TValue">The number type.</typeparam>
     /// <param name="field">The field builder.</param>

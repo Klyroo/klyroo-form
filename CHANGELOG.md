@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- The `Min` and `Max` of a number field are checked on the exact number, not on its `double` approximation. `FormJsonCoercion` (the check behind `IFormFieldAccess.TrySet`, so an agent) checked the double, and then the codec swapped in the exact decimal without checking again, so a `decimal` field with `Range(0m, 100m)` accepted `100.0000000000000001` and a `long` field accepted `9007199254740993` over a maximum of `2^53`. The validation of typed and dynamic number fields (`Validate`, `SubmitAsync`) had the same flaw for a decimal or a long control value. Both compare the value with the number its bound reads as (the whole number a whole double holds, else the shortest text of the double), so a bound of `0.1m` still accepts `0.1m`. A value written outside the bounds is now refused with the "must be at least/at most" reason.
 - `KlyrooFormOptions.CustomField` (dynamic) and `CustomField<TValue>` (typed) no longer overwrite each other when they use the same key: renderers are kept by key and value type, so a dynamic renderer, and typed renderers of different value types, coexist under one key.
 - A typed overlay opened in `Fullscreen` mode gets the same centered width wrapper as the runtime overlay.
 - A `KlyFormEngine<TModel>` or `KlyFormPage<TModel>` whose `Model` goes from an instance to `null` resets the form to the state of a new model, so what the form shows is what a submit then creates.

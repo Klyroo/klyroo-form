@@ -189,12 +189,14 @@ internal static class FormJsonCoercion
         }
         else
         {
-            if (field.Min is { } min && number < min)
+            // The bounds are doubles, the number is not: compare the exact number the JSON had, so 100.0000000000000001 is above a Max of 100.
+            var exact = arg switch { RawNumber raw => raw.Text, string text => text.Trim(), _ => arg };
+            if (field.Min is { } min && (FormValueConverter.TryCompareToBound(exact, min, out var belowMin) ? belowMin < 0 : number < min))
             {
                 error = $"\"{field.Key}\" must be at least {min.ToString(CultureInfo.InvariantCulture)}, got {Describe(arg)}.";
                 return false;
             }
-            if (field.Max is { } max && number > max)
+            if (field.Max is { } max && (FormValueConverter.TryCompareToBound(exact, max, out var aboveMax) ? aboveMax > 0 : number > max))
             {
                 error = $"\"{field.Key}\" must be at most {max.ToString(CultureInfo.InvariantCulture)}, got {Describe(arg)}.";
                 return false;

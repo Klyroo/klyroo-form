@@ -1,4 +1,4 @@
-# Klyroo.Form API reference
+# Klyroo.Form API reference API reference
 
 > Generated from the compiled assemblies and their XML documentation. Do not edit by hand.
 
@@ -39,7 +39,7 @@ The settings of a typed field that only fit some kinds of value. Each method is 
 | `static Options<TModel, TValue>(FormFieldBuilder<TModel, TValue?> field, IEnumerable<FormOption<TValue>> options)` | `FormFieldBuilder<TModel, TValue?>` | Gives an optional field its options. See `FormFieldBuilderExtensions.Options``. |
 | `static Options<TModel, TValue>(FormFieldBuilder<TModel, TValue> field, Func<FormController<TModel>, IReadOnlyList<FormOption<TValue>>> options)` | `FormFieldBuilder<TModel, TValue>` | Computes the options from the controller, for example to depend on another field. The options are computed again on every render. |
 | `static Options<TModel, TValue>(FormFieldBuilder<TModel, TValue?> field, Func<FormController<TModel>, IReadOnlyList<FormOption<TValue>>> options)` | `FormFieldBuilder<TModel, TValue?>` | Computes the options of an optional field from the controller. See `FormFieldBuilderExtensions.Options``. |
-| `static Range<TModel, TValue>(FormFieldBuilder<TModel, TValue> field, TValue min, TValue max)` | `FormFieldBuilder<TModel, TValue>` | Bounds a number. The bounds are checked on validation, and are the `min` and `max` of the input. The control compares them as `Double`, and the type of the member adds its own exact limits. |
+| `static Range<TModel, TValue>(FormFieldBuilder<TModel, TValue> field, TValue min, TValue max)` | `FormFieldBuilder<TModel, TValue>` | Bounds a number. The bounds are checked on validation and when a value is written (an agent, `Set`), and are the `min` and `max` of the input. They are stored as `Double`, but a value is compared with them digit for digit (a `Decimal` of 100.0000000000000001 is above a maximum of 100, a `Int64` of 2^53 + 1 is above a maximum of 2^53), and the type of the member adds its own exact limits. |
 | `static Range<TModel, TValue>(FormFieldBuilder<TModel, TValue?> field, TValue min, TValue max)` | `FormFieldBuilder<TModel, TValue?>` | Bounds an optional number. See `FormFieldBuilderExtensions.Range``. |
 | `static StepBy<TModel, TValue>(FormFieldBuilder<TModel, TValue> field, TValue step)` | `FormFieldBuilder<TModel, TValue>` | Sets the `step` of a number input. |
 | `static StepBy<TModel, TValue>(FormFieldBuilder<TModel, TValue?> field, TValue step)` | `FormFieldBuilder<TModel, TValue?>` | Sets the `step` of an optional number input. |

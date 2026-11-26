@@ -702,13 +702,14 @@ internal sealed partial class FormEngine : IDisposable
         if (Schema.ValidateMode == FormValidationMode.RequiredOnly) return null;
 
         // Number bounds
-        if (field.Kind == FormFieldKind.Number && !isEmpty && TryConvertDouble(val, out var num))
+        // The bounds are doubles and the value may be a decimal or a long: they are compared exactly, and as doubles only for a value that is no exact number.
+        if (field.Kind == FormFieldKind.Number && !isEmpty)
         {
-            if (field.Min is { } min && num < min)
+            if (field.Min is { } min && CompareToBound(val, min) is < 0)
             {
                 return Messages.MinValue(min);
             }
-            if (field.Max is { } max && num > max)
+            if (field.Max is { } max && CompareToBound(val, max) is > 0)
             {
                 return Messages.MaxValue(max);
             }
@@ -1188,6 +1189,13 @@ internal sealed partial class FormEngine : IDisposable
         IsEmptyValue(value)
         || (field.Kind is FormFieldKind.Checkbox or FormFieldKind.Switch && value is not true)
         || (field.Kind == FormFieldKind.DateRange && (value is not IReadOnlyList<string> { Count: 2 } range || range.Any(string.IsNullOrWhiteSpace)));
+
+    // The sign of (value - bound) with every digit of the value, or null when the value is no number.
+    private static int? CompareToBound(object? val, double bound)
+    {
+        if (FormValueConverter.TryCompareToBound(val, bound, out var sign)) return sign;
+        return TryConvertDouble(val, out var d) && !double.IsNaN(d) ? d.CompareTo(bound) : null;
+    }
 
     private static bool TryConvertDouble(object? val, out double d)
     {

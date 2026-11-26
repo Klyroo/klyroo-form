@@ -193,6 +193,51 @@ internal static class FormValueConverter
         return raw is not null && TryDecimal(raw, out value);
     }
 
+    // The sign of (value - bound): negative below the bound, zero on it, positive above it. A Min or a Max is a double, but the value is not: a decimal or a long
+    // is compared with every digit it has, against the number its bound reads as (the shortest text of the double, or the whole number it holds), so 100.0000000000000001
+    // is above a Max of 100 and 9007199254740993 is above a Max of 2^53. A value a decimal cannot hold (a double beyond 7.9e28) is compared as a double.
+    // False when the value is no number.
+    internal static bool TryCompareToBound(object? value, double bound, out int sign)
+    {
+        sign = 0;
+        if (value is null || double.IsNaN(bound)) return false;
+        if (double.IsInfinity(bound))
+        {
+            if (!TryDecimal(value, out _) && !(value is double or float)) return false;
+            sign = bound > 0 ? -1 : 1;
+            return true;
+        }
+        if (TryDecimal(value, out var exact))
+        {
+            if (BoundToDecimal(bound, out var exactBound))
+            {
+                sign = exact.CompareTo(exactBound);
+                return true;
+            }
+            // The bound is beyond what a decimal holds, and the value is within it.
+            sign = bound > 0 ? -1 : 1;
+            return true;
+        }
+        if (value is double d && double.IsFinite(d))
+        {
+            sign = d.CompareTo(bound);
+            return true;
+        }
+        return false;
+    }
+
+    private static bool BoundToDecimal(double bound, out decimal value)
+    {
+        value = 0;
+        // A whole bound is that number exactly, even beyond 2^53 where the shortest text of a double no longer says which number it is.
+        if (bound == Math.Floor(bound) && Math.Abs(bound) < 7.9e28)
+        {
+            value = (decimal)new System.Numerics.BigInteger(bound);
+            return true;
+        }
+        return TryDecimal(bound, out value);
+    }
+
     // The value of a number the way a control of kind Number stores it: a double when the text of the number is the same for a double and for a decimal
     // (up to 15 digits, which is what a user types and what an input shows), and the decimal otherwise, so no digit of a long, an ulong or a decimal is lost.
     // A number that does not fit a decimal stays a double. NaN is no number.
