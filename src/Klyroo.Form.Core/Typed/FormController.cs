@@ -246,7 +246,7 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
     /// <summary>Gets the rows of a repeatable list.</summary>
     /// <typeparam name="TItem">The type of a row.</typeparam>
     /// <param name="list">The list, as the schema declared it.</param>
-    /// <returns>The rows, in order. Read a column of a row with <see cref="FormRow{TItem}.Get{TValue}"/>.</returns>
+    /// <returns>The rows, in order. Read a column of a row with <see cref="FormRow{TItem}.Get{TValue}"/>. A row loaded from a model stands for that item: <see cref="ApplyTo"/> writes its columns into it.</returns>
     public IReadOnlyList<FormRow<TItem>> Rows<TItem>(FormListField<TModel, TItem> list)
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -277,12 +277,12 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
         _engine.RemoveArrayItem(list.Key, index);
     }
 
-    /// <summary>Builds a new model from the values of the fields in effect. Fields that are hidden, or in a skipped step, keep the default of their member.</summary>
+    /// <summary>Builds a new model from the values of the fields in effect. Fields that are hidden, or in a skipped step, keep the default of their member. The items of a repeatable list are new items: they are never the items of a model the form was loaded from, which this method does not change. Use <see cref="ApplyTo"/> to keep them.</summary>
     /// <returns>The new model.</returns>
     /// <exception cref="InvalidOperationException">The model has no parameterless constructor and the schema has no <c>Factory</c>, or a value cannot be converted to its member.</exception>
     public TModel CreateModel() => Schema.Create(_engine.BuildOutput());
 
-    /// <summary>Writes the values of the fields in effect into <paramref name="target"/>. It is all or nothing: every value is converted and every object on the way is checked before the first member is set, and a setter that throws puts back the members already set. A member that nothing in the form changed keeps its value, with the precision and the kind the text of a control cannot hold.</summary>
+    /// <summary>Writes the values of the fields in effect into <paramref name="target"/>. It is all or nothing: every value is converted and every object on the way is checked before the first member is set, and a setter that throws puts back the members already set. A member that nothing in the form changed keeps its value, with the precision and the kind the text of a control cannot hold. A repeatable list is written into the items its rows were loaded from (see <see cref="Rows{TItem}"/>), so members that are not columns survive; a new item is created only for an added row, and the collection is left alone when no row was added or removed.</summary>
     /// <param name="target">The model to change.</param>
     /// <returns>The target.</returns>
     /// <exception cref="InvalidOperationException">A value cannot be converted to its member, or an object on the way to a member is null and cannot be created.</exception>
@@ -365,13 +365,27 @@ public sealed class FormController<[DynamicallyAccessedMembers(FormModelTrim.Mem
                 if (state.BeforeSubmit is { } before && !await before(model, this).ConfigureAwait(false)) return Rollback(plan);
                 if (state.OnSubmit is { } submit) await submit(model, this).ConfigureAwait(false);
             }
-            if (save is null) return true;
-            return await save(model!, cancellationToken).ConfigureAwait(false) || Rollback(plan);
+            if (save is not null && !await save(model!, cancellationToken).ConfigureAwait(false)) return Rollback(plan);
+            AdoptRows(plan);
+            return true;
         }
         catch
         {
             plan?.Rollback();
             throw;
+        }
+    }
+
+    // After a write into a target, each row of a list stands for the item the target now holds at its position, so the next write goes into the same items (and
+    // keeps what a save step set on them, such as an identifier).
+    private void AdoptRows(FormWritePlan? plan)
+    {
+        if (plan is null) return;
+        foreach (var (key, items) in plan.Lists)
+        {
+            var rows = _engine.GetArrayItems(key);
+            if (rows.Count != items.Count) continue;
+            for (var i = 0; i < rows.Count; i++) RowOrigin.Set(rows[i], items[i]);
         }
     }
 

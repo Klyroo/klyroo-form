@@ -16,6 +16,9 @@ internal sealed class FormWritePlan
     // The nested objects this write creates, by key prefix: a second member of the same object finds the one the first member planned.
     internal Dictionary<string, object> Created { get; } = new(StringComparer.Ordinal);
 
+    // The lists of rows this write sets, with the items each row stands for, in order: a form that stays open after a save adopts them as the origin of its rows.
+    internal List<(string Key, IReadOnlyList<object> Items)> Lists { get; } = [];
+
     public void Add<THolder, TValue>(THolder holder, Action<THolder, TValue> set, TValue value, TValue old) =>
         _steps.Add(new Step(() => set(holder, value), () => set(holder, old)));
 

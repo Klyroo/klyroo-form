@@ -1212,7 +1212,7 @@ internal sealed partial class FormEngine : IDisposable
     {
         if (value is List<Dictionary<string, object?>> dictList)
         {
-            return dictList.Select(d => new Dictionary<string, object?>(d, StringComparer.Ordinal)).ToList();
+            return dictList.Select(d => RowOrigin.Carry(d, new Dictionary<string, object?>(d, StringComparer.Ordinal))).ToList();
         }
         if (value is IReadOnlyList<string> strList)
         {

@@ -143,6 +143,7 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
         ArgumentNullException.ThrowIfNull(options);
         var path = FormModelPath.Resolve(member, null);
         var info = MemberOf(path);
+        CheckCollectionMember<TElement>(info, path, "multiple choice");
         State.Claim(info.Key);
         var handle = new FormField<TModel, IReadOnlyList<TElement>>(info.Key);
         var builder = new FormFieldBuilder<TModel, IReadOnlyList<TElement>>(handle);
@@ -155,7 +156,7 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
             s.Options = list.Select(o => FormFieldBuilderExtensions.Item(element.Format(o.Value), o)).ToList();
         });
         var make = CollectionShape.Maker<TElement>(info.Type, info.Key);
-        Items.Add(new PendingField<TModel, TModel, IReadOnlyList<TElement>>(handle, info, builder, codec => ListBinding(info, path, codec, make), _ => new MultiCodec<TElement>(FormCodec<TElement>.For(FormFieldKind.Select, nullableReference: false))));
+        Items.Add(new PendingField<TModel, TModel, IReadOnlyList<TElement>>(handle, info, builder, codec => new MultiBinding<TModel, THolder, TElement>(_holder, info, codec, make), _ => new MultiCodec<TElement>(FormCodec<TElement>.For(FormFieldKind.Select, nullableReference: false))));
         return handle;
     }
 
@@ -179,6 +180,7 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
         ArgumentNullException.ThrowIfNull(columns);
         var path = FormModelPath.Resolve(member, null);
         var info = MemberOf(path);
+        CheckCollectionMember<TItem>(info, path, "list");
         State.Claim(info.Key);
         var handle = new FormListField<TModel, TItem>(info.Key);
         var rows = new ListRows<TItem> { Factory = itemFactory ?? DefaultFactory<TItem>() };
@@ -193,7 +195,7 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
         columns(rowBuilder);
         var make = CollectionShape.Maker<TItem>(info.Type, info.Key);
         var codec = new ListCodec<TItem>(rows);
-        Items.Add(new PendingList<TModel, TItem>(handle, info, builder, rows, rowBuilder.Items, codec, c => ListBinding(info, path, c, make)));
+        Items.Add(new PendingList<TModel, TItem>(handle, info, builder, rows, rowBuilder.Items, codec, _ => new RowsBinding<TModel, THolder, TItem>(_holder, info, rows, codec, make)));
         return handle;
     }
 
@@ -358,20 +360,25 @@ public abstract class FormScopeBuilder<[DynamicallyAccessedMembers(FormModelTrim
         return new FormMemberInfo(string.Join('.', properties.Select(p => p.Name)), properties, typeof(TModel));
     }
 
-    private IFieldBinding<TModel> ListBinding<TItem>(FormMemberInfo info, FormModelPath path, FormCodec<IReadOnlyList<TItem>> codec, Func<IReadOnlyList<TItem>, object> make)
+    // A collection member is bound through the property of the object that holds it, so a chain written without Group cannot be: the reflected binding of a chain
+    // reads and writes single values. A member with no setter is written in place, which only a collection that can be changed allows.
+    private static void CheckCollectionMember<TElement>(FormMemberInfo info, FormModelPath path, string what)
     {
-        // A collection is read and written through the property, as the shape of the member decides: the typed delegates only fit the member type itself.
-        var property = info.Property;
-        if (path.Properties.Count == 1)
+        if (path.Properties.Count != 1)
         {
-            return new TypedBinding<TModel, THolder, IReadOnlyList<TItem>>(
-                _holder,
-                info,
-                holder => property.GetValue(holder) is IEnumerable<TItem> items ? items.ToList() : [],
-                property.SetMethod is { IsPublic: true } ? (holder, items) => property.SetValue(holder, make(items)) : null,
-                codec);
+            var holder = string.Join('.', path.Properties.Take(path.Properties.Count - 1).Select(p => p.Name));
+            throw new ArgumentException(
+                $"'{info.Key}' is reached through '{holder}': a {what} takes a direct member. Declare it inside the object with Group(m => m.{holder}, g => g.{(what == "list" ? "List" : "MultiSelect")}(x => x.{path.Properties[^1].Name}, ...)).",
+                "member");
         }
-        return new ReflectedBinding<TModel>(info, FormFieldKind.ArrayList, nullableReference: false);
+        var property = info.Property;
+        if (property.SetMethod is { IsPublic: true }) return;
+        if (property.PropertyType.IsArray || !typeof(ICollection<TElement>).IsAssignableFrom(property.PropertyType))
+        {
+            throw new ArgumentException(
+                $"'{info.Key}' has no public setter and is a {property.PropertyType.Name}, which cannot be changed in place: give it a setter, or declare it as List<{typeof(TElement).Name}>, IList<{typeof(TElement).Name}> or ICollection<{typeof(TElement).Name}>.",
+                "member");
+        }
     }
 
     private static Func<TItem>? DefaultFactory<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] TItem>()

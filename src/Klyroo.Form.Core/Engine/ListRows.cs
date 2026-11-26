@@ -1,7 +1,7 @@
 namespace Klyroo.Form;
 
-// The rows of a repeatable list of a typed form: the engine keeps them as dictionaries of control values by column key, and this turns them into items of the
-// model and back with the bindings of the columns.
+// The rows of a repeatable list of a typed form: the engine keeps them as dictionaries of control values by column key, and this turns items into rows (a row
+// remembers its item, see RowOrigin) and a row into an item with the bindings of the columns.
 internal sealed class ListRows<TItem>
 {
     private static readonly IReadOnlyDictionary<string, Func<object>> NoCreators = new Dictionary<string, Func<object>>();
@@ -14,6 +14,7 @@ internal sealed class ListRows<TItem>
     {
         var row = new Dictionary<string, object?>(StringComparer.Ordinal);
         foreach (var column in Columns) row[column.Key] = column.ReadControl(item);
+        if (item is not null) RowOrigin.Set(row, item);
         return row;
     }
 
