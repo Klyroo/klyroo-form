@@ -38,7 +38,7 @@ internal abstract class FormCodec<TValue>
         if (!FormJsonCoercion.TryCoerce(field, options, element, out var control, out reason)) return false;
         if (TryFromControl(control, out value) == ControlValue.Invalid)
         {
-            reason = $"\"{field.Key}\" does not accept this value as a {typeof(TValue).Name}.";
+            reason = $"\"{field.Key}\" expects {FormValueMap.Expectation(typeof(TValue))}.";
             return false;
         }
         return true;

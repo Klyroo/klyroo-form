@@ -7,9 +7,11 @@ public static class FormFieldBuilderExtensions
 {
     /// <summary>Renders a text field as a multi-line text area.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> AsTextarea<TModel>(this FormFieldBuilder<TModel, string> field)
+    public static FormFieldBuilder<TModel, TString> AsTextarea<TModel, TString>(this FormFieldBuilder<TModel, TString> field)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.SetKind(FormFieldKind.Textarea);
@@ -17,10 +19,12 @@ public static class FormFieldBuilderExtensions
 
     /// <summary>Renders a text field as a masked password input with a show/hide toggle.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <param name="requirements">Rules the password must satisfy, checked in order on validation and shown as a checklist under the field. The first failing rule becomes the error.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> AsPassword<TModel>(this FormFieldBuilder<TModel, string> field, params FormPasswordRequirement[] requirements)
+    public static FormFieldBuilder<TModel, TString> AsPassword<TModel, TString>(this FormFieldBuilder<TModel, TString> field, params FormPasswordRequirement[] requirements)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         ArgumentNullException.ThrowIfNull(requirements);
@@ -29,9 +33,11 @@ public static class FormFieldBuilderExtensions
 
     /// <summary>Renders a text field as a phone number input. The format is not validated.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> AsPhone<TModel>(this FormFieldBuilder<TModel, string> field)
+    public static FormFieldBuilder<TModel, TString> AsPhone<TModel, TString>(this FormFieldBuilder<TModel, TString> field)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.SetKind(FormFieldKind.PhoneNumber);
@@ -39,9 +45,11 @@ public static class FormFieldBuilderExtensions
 
     /// <summary>Renders a text field as a color input. The value is <c>#rrggbb</c>.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> AsColor<TModel>(this FormFieldBuilder<TModel, string> field)
+    public static FormFieldBuilder<TModel, TString> AsColor<TModel, TString>(this FormFieldBuilder<TModel, TString> field)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.SetKind(FormFieldKind.ColorPicker);
@@ -49,10 +57,12 @@ public static class FormFieldBuilderExtensions
 
     /// <summary>Renders a text field as a one-time code input.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <param name="length">The number of characters of the code, which is the <c>maxlength</c> of the input.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> AsOneTimeCode<TModel>(this FormFieldBuilder<TModel, string> field, int length = 6)
+    public static FormFieldBuilder<TModel, TString> AsOneTimeCode<TModel, TString>(this FormFieldBuilder<TModel, TString> field, int length = 6)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.SetKind(FormFieldKind.OneTimeCode, s => s.MaxLength = length);
@@ -60,10 +70,12 @@ public static class FormFieldBuilderExtensions
 
     /// <summary>Limits the number of characters of a text value. It is checked on validation and is the <c>maxlength</c> of the input.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TString">The type of the value of the field: a <see cref="string"/>, nullable or not.</typeparam>
     /// <param name="field">The field builder.</param>
     /// <param name="maxLength">The largest accepted number of characters.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, string> MaxLength<TModel>(this FormFieldBuilder<TModel, string> field, int maxLength)
+    public static FormFieldBuilder<TModel, TString> MaxLength<TModel, TString>(this FormFieldBuilder<TModel, TString> field, int maxLength)
+        where TString : class?, IComparable<string>?, IEquatable<string>?
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.Add(s => s.MaxLength = maxLength);
@@ -112,6 +124,19 @@ public static class FormFieldBuilderExtensions
     /// <param name="step">The step. It is not validated.</param>
     /// <returns>The builder.</returns>
     public static FormFieldBuilder<TModel, TValue> StepBy<TModel, TValue>(this FormFieldBuilder<TModel, TValue> field, TValue step)
+        where TValue : struct, INumber<TValue>
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        return field.Add(s => s.Step = double.CreateSaturating(step));
+    }
+
+    /// <summary>Sets the <c>step</c> of an optional number input.</summary>
+    /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TValue">The number type.</typeparam>
+    /// <param name="field">The field builder.</param>
+    /// <param name="step">The step. It is not validated.</param>
+    /// <returns>The builder.</returns>
+    public static FormFieldBuilder<TModel, TValue?> StepBy<TModel, TValue>(this FormFieldBuilder<TModel, TValue?> field, TValue step)
         where TValue : struct, INumber<TValue>
     {
         ArgumentNullException.ThrowIfNull(field);
@@ -238,6 +263,24 @@ public static class FormFieldBuilderExtensions
         });
     }
 
+    /// <summary>Computes the options of an optional field from the controller. See <see cref="Options{TModel, TValue}(FormFieldBuilder{TModel, TValue}, Func{FormController{TModel}, IReadOnlyList{FormOption{TValue}}})"/>.</summary>
+    /// <typeparam name="TModel">The model the form is declared for.</typeparam>
+    /// <typeparam name="TValue">The type of the value of the field, without <see cref="Nullable{T}"/>.</typeparam>
+    /// <param name="field">The field builder.</param>
+    /// <param name="options">Computes the choices from the controller of the form.</param>
+    /// <returns>The builder.</returns>
+    public static FormFieldBuilder<TModel, TValue?> Options<TModel, TValue>(this FormFieldBuilder<TModel, TValue?> field, Func<FormController<TModel>, IReadOnlyList<FormOption<TValue>>> options)
+        where TValue : struct
+    {
+        ArgumentNullException.ThrowIfNull(field);
+        ArgumentNullException.ThrowIfNull(options);
+        return field.ChoiceKind().Add(s =>
+        {
+            var codec = (FormCodec<TValue?>)s.Codec!;
+            s.OptionsFactory = e => options(FormFieldBuilder<TModel, TValue?>.Controller(e)).Select(o => Item(codec.Format(o.Value), o)).ToList();
+        });
+    }
+
     /// <summary>Renders a choice field as a radio group.</summary>
     /// <typeparam name="TModel">The model the form is declared for.</typeparam>
     /// <typeparam name="TValue">The type of the value of the field.</typeparam>
@@ -282,7 +325,7 @@ public static class FormFieldBuilderExtensions
     /// <param name="field">The field builder.</param>
     /// <param name="accept">The accepted files.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, FormFileValue> Accept<TModel>(this FormFieldBuilder<TModel, FormFileValue> field, string accept)
+    public static FormFieldBuilder<TModel, FormFileValue?> Accept<TModel>(this FormFieldBuilder<TModel, FormFileValue?> field, string accept)
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.Add(s => s.Accept = accept);
@@ -306,7 +349,7 @@ public static class FormFieldBuilderExtensions
     /// <param name="field">The field builder.</param>
     /// <param name="bytes">The largest size in bytes.</param>
     /// <returns>The builder.</returns>
-    public static FormFieldBuilder<TModel, FormFileValue> MaxFileSize<TModel>(this FormFieldBuilder<TModel, FormFileValue> field, long bytes)
+    public static FormFieldBuilder<TModel, FormFileValue?> MaxFileSize<TModel>(this FormFieldBuilder<TModel, FormFileValue?> field, long bytes)
     {
         ArgumentNullException.ThrowIfNull(field);
         return field.Add(s => s.MaxFileSize = bytes);

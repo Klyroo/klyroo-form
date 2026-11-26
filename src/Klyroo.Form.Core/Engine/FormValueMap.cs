@@ -31,6 +31,18 @@ internal static class FormValueMap
         return null;
     }
 
+    // What a refused value was expected to be, for the message a write gives.
+    public static string Expectation(Type member)
+    {
+        var type = Nullable.GetUnderlyingType(member) ?? member;
+        if (IsInteger(type)) return "a whole number that fits " + type.Name;
+        if (IsNumber(type)) return "a number that fits " + type.Name;
+        if (type.IsEnum) return "one of the values of " + type.Name;
+        if (type == typeof(bool)) return "a boolean";
+        if (type == typeof(Guid)) return "a valid identifier";
+        return "a " + type.Name;
+    }
+
     public static bool IsFileList(Type type) =>
         type == typeof(FormFileValue[]) || type == typeof(List<FormFileValue>) || type == typeof(IList<FormFileValue>) || type == typeof(ICollection<FormFileValue>)
         || type == typeof(IEnumerable<FormFileValue>) || type == typeof(IReadOnlyList<FormFileValue>) || type == typeof(IReadOnlyCollection<FormFileValue>);

@@ -60,7 +60,7 @@ internal sealed class PendingField<TOwner, TRoot, TValue>(
         settings.Codec = codec;
         foreach (var step in builder.Steps) step(settings);
         codec.NullableReference = member.Type == typeof(string) && FormNullability.IsNullableReference(member.Property, settings.NullWhenEmpty);
-        settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{member.Key}\" does not accept this value as a {member.UnderlyingType.Name}." : null;
+        settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{member.Key}\" expects {FormValueMap.Expectation(member.Type)}." : null;
         var node = settings.ToNode();
         handle.Node = node;
         handle.Codec = codec;
@@ -188,7 +188,7 @@ internal sealed class PendingUnbound<TModel, TValue>(
         settings.Codec = codec;
         foreach (var step in builder.Steps) step(settings);
         codec = FormCodec<TValue>.For(settings.Kind, nullableReference: false);
-        settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{handle.Key}\" does not accept this value as a {typeof(TValue).Name}." : null;
+        settings.ControlCheck = raw => codec.TryFromControl(raw, out _) == ControlValue.Invalid ? $"\"{handle.Key}\" expects {FormValueMap.Expectation(typeof(TValue))}." : null;
         var node = settings.ToNode();
         handle.Node = node;
         handle.Codec = codec;

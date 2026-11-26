@@ -4,9 +4,9 @@
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 
-@if (Form is not null && Field is not null && Form.ShouldRenderField(Field))
+@if (Form is not null && Target is { } target && Form.ShouldRenderField(target))
 {
-    @RenderField(Form, Field)
+    @RenderField(Form, target)
 }
 
 @code {
@@ -24,7 +24,12 @@
     [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
 
     /// <summary>The field to render, usually one of <see cref="DynamicFormController.CurrentVisibleTopFields"/>. Containers render their children with nested <see cref="KlyDynamicFieldView"/> components.</summary>
-    [Parameter, EditorRequired] public DynamicFieldSchema Field { get; set; } = default!;
+    [Parameter] public DynamicFieldSchema? Field { get; set; }
+
+    /// <summary>The key of the field to render, as an alternative to <see cref="Field"/>: the field of <see cref="Form"/> with this key. <see cref="Field"/> wins when both are set. Nothing renders when the form has no field with this key.</summary>
+    [Parameter] public string? Key { get; set; }
+
+    private DynamicFieldSchema? Target => Field ?? (Key is null ? null : Form?.AllFields.FirstOrDefault(f => f.Key == Key));
 
     protected override void OnParametersSet() => Form?.UseLocaleMessages(Texts.Messages);
 
