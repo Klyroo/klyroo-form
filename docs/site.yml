@@ -19,10 +19,10 @@ packages:
 
 # The home page. headline is two lines, the second in the accent color; lead is the paragraph under it. Without them: the title and the tagline.
 headline: |
-  Typed forms for .NET,
-  declared from your model.
+  Forms typed from
+  your C# model.
 lead: >-
-  Declare a form from a C# model with FormSchema.For<TModel>: fields, rules, conditions and steps written with expressions the compiler checks, on a controller with no UI dependency.
+  Declare a form from a C# model with FormSchema.For<TModel>: typed fields, rules, conditions and steps, on a controller with no UI dependency.
 
 # The accent of the site (#rrggbb): buttons, links, marks and the second line of the headline. The text variants that pass the contrast rules in light and
 # dark mode are computed from it. Without it: the color of the library in klyroo-stack/docs-site/Klyroo.Docs.Site/libraries.yml.
