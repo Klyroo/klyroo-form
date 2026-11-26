@@ -1,14 +1,15 @@
+using Klyroo.Form.Dynamic;
 namespace Klyroo.Form;
 
 /// <summary>
-/// The built-in texts of <see cref="KlyFormEngine"/>, <see cref="KlyFormPage"/>, <see cref="KlyFormProvider"/>, <see cref="KlySchemaField"/>, <see cref="KlyFormErrorSummary"/> and
+/// The built-in texts of <see cref="KlyDynamicFormEngine"/>, <see cref="KlyDynamicFormPage"/>, <see cref="KlyFormProvider"/>, <see cref="KlyDynamicFieldView"/>, <see cref="KlyFormErrorSummary"/> and
 /// <see cref="KlyFormNavigationGuard"/>: button labels, accessible names, empty states, counters and the built-in validation messages. There is one set per locale of Klyroo.UI
 /// (<see cref="FormLocales"/>), and a component shows the set of its current locale, the one its <c>Messages</c> come from. Change a set with <see cref="KlyrooFormOptions.Texts"/>
 /// in <c>AddKlyrooForm(f =&gt; ...)</c>.
 /// </summary>
 /// <remarks>
 /// A text that contains a number or a name is a function, so a language can choose its own plural forms and word order. Build a variant with a <c>with</c> expression. A new instance
-/// holds the English texts. Text you put in the schema (labels, help, placeholders, <see cref="FormFieldSchema.RequiredMessage"/>) and the messages of your own validators are never translated.
+/// holds the English texts. Text you put in the schema (labels, help, placeholders, <see cref="DynamicFieldSchema.RequiredMessage"/>) and the messages of your own validators are never translated.
 /// </remarks>
 /// <example>
 /// <code>
@@ -26,7 +27,7 @@ public sealed record FormTexts
     {
     }
 
-    /// <summary>The built-in validation messages the components give to the controller they render (see <see cref="FormController.Messages"/>), unless the schema or the code chose its own.</summary>
+    /// <summary>The built-in validation messages the components give to the controller they render (see <see cref="DynamicFormController.Messages"/>), unless the schema or the code chose its own.</summary>
     public FormMessages Messages { get; init; } = FormMessages.Default;
 
     /// <summary>The accessible name of the close button of an overlay form (<c>"Close form"</c>).</summary>
@@ -50,13 +51,13 @@ public sealed record FormTexts
     /// <summary>The submit button while the form is submitting (<c>"Saving…"</c>).</summary>
     public string Saving { get; init; } = "Saving…";
 
-    /// <summary>The heading and the accessible name of the section list of <c>KlyFormPage</c> (<c>"Form sections"</c>).</summary>
+    /// <summary>The heading and the accessible name of the section list of <c>KlyDynamicFormPage</c> (<c>"Form sections"</c>).</summary>
     public string FormSections { get; init; } = "Form sections";
 
-    /// <summary>The summary of <c>KlyFormPage</c> when no section is pending or invalid (<c>"Everything is ready."</c>).</summary>
+    /// <summary>The summary of <c>KlyDynamicFormPage</c> when no section is pending or invalid (<c>"Everything is ready."</c>).</summary>
     public string AllReady { get; init; } = "Everything is ready.";
 
-    /// <summary>The summary of <c>KlyFormPage</c>, given the number of sections left (<c>"2 left to complete."</c>).</summary>
+    /// <summary>The summary of <c>KlyDynamicFormPage</c>, given the number of sections left (<c>"2 left to complete."</c>).</summary>
     public Func<int, string> LeftToComplete { get; init; } = n => $"{n} left to complete.";
 
     /// <summary>The badge of a complete section (<c>"Completed"</c>).</summary>

@@ -1,8 +1,8 @@
-@namespace Klyroo.Form
+@namespace Klyroo.Form.Dynamic
 @inherits KlyComponentBase
 @implements IAsyncDisposable
 @inject IJSRuntime Js
-@inject ILogger<KlyFormPage> Logger
+@inject ILogger<KlyDynamicFormPage> Logger
 
 @if (Form is not null)
 {
@@ -100,7 +100,7 @@
                         <div class="grid gap-4" style="@(FormLayout.GridStyle(FormLayout.Columns(Form.Schema)))" data-slot="form-page-fields">
                             @foreach (var field in sectionSchema.Fields)
                             {
-                                <KlySchemaField Form="Form" Field="field" FieldTemplates="FieldTemplates" />
+                                <KlyDynamicFieldView Form="Form" Field="field" FieldTemplates="FieldTemplates" />
                             }
                         </div>
                     </section>
@@ -123,21 +123,21 @@
 @code {
     private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
 
-    private FormController? _subscribed;
+    private DynamicFormController? _subscribed;
     private readonly CancellationTokenSource _disposed = new();
     private FormJs _js = default!;
     private string? _focusTarget;
 
-    /// <summary>The controller to render. Its schema must declare <see cref="FormSchema.Sections"/>.</summary>
-    [Parameter] public required FormController Form { get; set; }
+    /// <summary>The controller to render. Its schema must declare <see cref="DynamicFormSchema.Sections"/>.</summary>
+    [Parameter] public required DynamicFormController Form { get; set; }
 
-    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;FormControlContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
-    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormControlContext>>? FieldTemplates { get; set; }
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="DynamicFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;DynamicControlContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<DynamicControlContext>>? FieldTemplates { get; set; }
 
-    /// <summary>Your save step: called with <see cref="FormController.BuildOutput"/> after validation and the schema hooks passed, while the form is still submitting. Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty, after reporting the reason with <see cref="FormController.SetError"/> or <see cref="FormController.SetFormError"/>. The token is cancelled when the component is disposed.</summary>
+    /// <summary>Your save step: called with <see cref="DynamicFormController.BuildOutput"/> after validation and the schema hooks passed, while the form is still submitting. Return <c>true</c> when the save succeeded; the form is then clean and <see cref="OnSubmit"/> is raised. Return <c>false</c> to keep the edits dirty, after reporting the reason with <see cref="DynamicFormController.SetError"/> or <see cref="DynamicFormController.SetFormError"/>. The token is cancelled when the component is disposed.</summary>
     [Parameter] public Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>? OnSave { get; set; }
 
-    /// <summary>Called with <see cref="FormController.BuildOutput"/> after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. The submission is over at that point and the form is clean.</summary>
+    /// <summary>Called with <see cref="DynamicFormController.BuildOutput"/> after the form is submitted successfully, that is after validation, the schema hooks and <see cref="OnSave"/> passed. The submission is over at that point and the form is clean.</summary>
     [Parameter] public EventCallback<IReadOnlyDictionary<string, object?>> OnSubmit { get; set; }
 
 

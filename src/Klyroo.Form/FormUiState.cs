@@ -1,3 +1,4 @@
+using Klyroo.Form.Dynamic;
 using System.Runtime.CompilerServices;
 
 namespace Klyroo.Form;
@@ -7,12 +8,12 @@ namespace Klyroo.Form;
 // collected with the controller.
 internal sealed class FormUiState
 {
-    private static readonly ConditionalWeakTable<FormController, FormUiState> States = new();
+    private static readonly ConditionalWeakTable<DynamicFormController, FormUiState> States = new();
 
     public Dictionary<string, string> ActiveTabs { get; } = new(StringComparer.Ordinal);
     public HashSet<string> RevealedPasswords { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, string> Drafts { get; } = new(StringComparer.Ordinal);
     public Dictionary<string, int> FileInputVersions { get; } = new(StringComparer.Ordinal);
 
-    public static FormUiState For(FormController form) => States.GetValue(form, _ => new FormUiState());
+    public static FormUiState For(DynamicFormController form) => States.GetValue(form, _ => new FormUiState());
 }

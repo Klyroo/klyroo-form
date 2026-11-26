@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Rendering;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -17,10 +18,10 @@ public sealed class ExtensibilityTests : BunitContext
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
-    private static FormController Form(params FormFieldSchema[] fields) => new(new FormSchema { FormKey = "ext", Fields = fields });
+    private static DynamicFormController Form(params DynamicFieldSchema[] fields) => new(new DynamicFormSchema { FormKey = "ext", Fields = fields });
 
     // A custom control: an input wired to the field through its context.
-    private static RenderFragment<FormControlContext> TextBox(string marker = "custom") => ctx => builder =>
+    private static RenderFragment<DynamicControlContext> TextBox(string marker = "custom") => ctx => builder =>
     {
         builder.OpenElement(0, "input");
         builder.AddAttribute(1, "id", ctx.Id);
@@ -34,14 +35,14 @@ public sealed class ExtensibilityTests : BunitContext
         builder.CloseElement();
     };
 
-    // FormControlContext
+    // DynamicControlContext
 
     [Fact]
     public void FormControlContext_edits_the_field_through_the_controller_and_describes_its_ids()
     {
-        var field = new FormFieldSchema { Key = "name", Label = "Name", Description = "d", Help = "h", Required = true };
+        var field = new DynamicFieldSchema { Key = "name", Label = "Name", Description = "d", Help = "h", Required = true };
         var form = Form(field);
-        var ctx = new FormControlContext(form, field, "kly-name");
+        var ctx = new DynamicControlContext(form, field, "kly-name");
 
         Assert.Same(form, ctx.Form);
         Assert.Same(field, ctx.Field);
@@ -62,7 +63,7 @@ public sealed class ExtensibilityTests : BunitContext
 
         ctx.Commit("");
         Assert.Equal("This field is required", form.GetError("name"));
-        var withError = new FormControlContext(form, field, "kly-name");
+        var withError = new DynamicControlContext(form, field, "kly-name");
         Assert.Equal("This field is required", withError.Error);
         Assert.Equal("kly-name-description kly-name-help kly-name-error", withError.DescribedBy);
 
@@ -75,23 +76,23 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void FormControlContext_reports_disabled_and_validating_and_converts_the_value()
     {
-        var field = new FormFieldSchema
+        var field = new DynamicFieldSchema
         {
             Key = "n",
             Kind = FormFieldKind.Number,
             DisabledWhen = f => f.GetValue<bool>("off"),
-            AsyncValidators = [new FormAsyncValidatorRule("slow", async (_, _, ct) => { await Task.Delay(Timeout.Infinite, ct); return null; }) { Debounce = TimeSpan.Zero }],
+            AsyncValidators = [new DynamicAsyncValidatorRule("slow", async (_, _, ct) => { await Task.Delay(Timeout.Infinite, ct); return null; }) { Debounce = TimeSpan.Zero }],
         };
-        var form = Form(field, new FormFieldSchema { Key = "off", Kind = FormFieldKind.Switch });
+        var form = Form(field, new DynamicFieldSchema { Key = "off", Kind = FormFieldKind.Switch });
         form.SetValue("off", true);
         form.SetValue("n", 4.0, markTouched: true);
 
-        var ctx = new FormControlContext(form, field, "id");
+        var ctx = new DynamicControlContext(form, field, "id");
 
         Assert.True(ctx.Disabled);
         Assert.True(ctx.Validating);
         Assert.Equal(4, ctx.Current<int>());
-        Assert.Throws<ArgumentNullException>(() => new FormControlContext(null!, field, "id"));
+        Assert.Throws<ArgumentNullException>(() => new DynamicControlContext(null!, field, "id"));
     }
 
     // Custom
@@ -99,13 +100,13 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void Custom_fields_are_stateful_validated_and_part_of_the_output()
     {
-        var form = Form(new FormFieldSchema
+        var form = Form(new DynamicFieldSchema
         {
             Key = "pick",
             Kind = FormFieldKind.Custom,
             CustomKey = "x",
             Required = true,
-            Validators = [new FormValidatorRule("no-bad", "Bad pick", (v, _) => !Equals(v, "bad"))],
+            Validators = [new DynamicValidatorRule("no-bad", "Bad pick", (v, _) => !Equals(v, "bad"))],
         });
 
         Assert.False(form.Validate());
@@ -124,8 +125,8 @@ public sealed class ExtensibilityTests : BunitContext
         using var ctx = new BunitContext();
         ctx.Services.AddKlyrooForm(f => f.CustomField("textbox", TextBox("registered")));
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        var form = Form(new FormFieldSchema { Key = "nick", Kind = FormFieldKind.Custom, CustomKey = "textbox", Label = "Nickname", Help = "Shown to others", Required = true });
-        var cut = ctx.Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "nick", Kind = FormFieldKind.Custom, CustomKey = "textbox", Label = "Nickname", Help = "Shown to others", Required = true });
+        var cut = ctx.Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         var input = cut.Find("[data-custom=registered]");
         Assert.Equal("kly-ff-nick", input.Id);
@@ -151,16 +152,16 @@ public sealed class ExtensibilityTests : BunitContext
         ctx.Services.AddKlyrooForm(f => f.CustomField("textbox", TextBox("registered")));
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
         var form = Form(
-            new FormFieldSchema { Key = "top", Kind = FormFieldKind.Custom, CustomKey = "textbox" },
-            new FormFieldSchema
+            new DynamicFieldSchema { Key = "top", Kind = FormFieldKind.Custom, CustomKey = "textbox" },
+            new DynamicFieldSchema
             {
                 Key = "box",
                 Kind = FormFieldKind.Card,
-                Fields = [new FormFieldSchema { Key = "nested", Kind = FormFieldKind.Custom, CustomKey = "textbox" }],
+                Fields = [new DynamicFieldSchema { Key = "nested", Kind = FormFieldKind.Custom, CustomKey = "textbox" }],
             });
-        var templates = new Dictionary<string, RenderFragment<FormControlContext>> { ["textbox"] = TextBox("param") };
+        var templates = new Dictionary<string, RenderFragment<DynamicControlContext>> { ["textbox"] = TextBox("param") };
 
-        var cut = ctx.Render<KlyFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.FieldTemplates, templates));
+        var cut = ctx.Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.FieldTemplates, templates));
 
         Assert.Equal(2, cut.FindAll("[data-custom=param]").Count);
         Assert.Empty(cut.FindAll("[data-custom=registered]"));
@@ -169,39 +170,39 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void Custom_fields_render_in_tabs_pages_and_cells_of_lists()
     {
-        var templates = new Dictionary<string, RenderFragment<FormControlContext>> { ["textbox"] = TextBox("param") };
-        var lines = new FormFieldSchema
+        var templates = new Dictionary<string, RenderFragment<DynamicControlContext>> { ["textbox"] = TextBox("param") };
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
-            Fields = [new FormFieldSchema { Key = "note", Kind = FormFieldKind.Custom, CustomKey = "textbox" }],
+            Fields = [new DynamicFieldSchema { Key = "note", Kind = FormFieldKind.Custom, CustomKey = "textbox" }],
         };
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "p",
             Sections =
             [
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "s",
                     Label = "S",
                     Fields =
                     [
-                        new FormFieldSchema
+                        new DynamicFieldSchema
                         {
                             Key = "tabs",
                             Kind = FormFieldKind.Tabs,
-                            Tabs = [new FormTabItemSchema { Key = "t", Label = "T", Fields = [new FormFieldSchema { Key = "intab", Kind = FormFieldKind.Custom, CustomKey = "textbox" }] }],
+                            Tabs = [new DynamicTabSchema { Key = "t", Label = "T", Fields = [new DynamicFieldSchema { Key = "intab", Kind = FormFieldKind.Custom, CustomKey = "textbox" }] }],
                         },
                         lines,
                     ],
                 },
             ],
         };
-        var form = new FormController(schema);
+        var form = new DynamicFormController(schema);
         form.AddArrayItem(lines);
 
-        var cut = Render<KlyFormPage>(p => p.Add(c => c.Form, form).Add(c => c.FieldTemplates, templates));
+        var cut = Render<KlyDynamicFormPage>(p => p.Add(c => c.Form, form).Add(c => c.FieldTemplates, templates));
 
         Assert.Equal(2, cut.FindAll("[data-custom=param]").Count);
         var cell = cut.Find("[data-slot=form-array-cell] [data-custom=param]");
@@ -213,10 +214,10 @@ public sealed class ExtensibilityTests : BunitContext
     public void A_custom_field_without_a_renderer_shows_a_notice_instead_of_failing()
     {
         var form = Form(
-            new FormFieldSchema { Key = "a", Kind = FormFieldKind.Custom, CustomKey = "nope" },
-            new FormFieldSchema { Key = "b", Kind = FormFieldKind.Custom });
+            new DynamicFieldSchema { Key = "a", Kind = FormFieldKind.Custom, CustomKey = "nope" },
+            new DynamicFieldSchema { Key = "b", Kind = FormFieldKind.Custom });
 
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         var notices = cut.FindAll("[data-slot=form-custom-missing]");
         Assert.Equal(2, notices.Count);
@@ -236,11 +237,11 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void A_custom_value_is_not_restored_from_a_draft()
     {
-        var form = Form(new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
+        var form = Form(new DynamicFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
         form.SetValue("pick", new List<string> { "a", "b" });
 
         var draft = FormDraft.FromJson(form.ExportState().ToJson());
-        var other = Form(new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
+        var other = Form(new DynamicFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
         other.RestoreDraft(draft);
 
         // A draft is stored text: it never fills a field whose value only your code can build.
@@ -317,7 +318,7 @@ public sealed class ExtensibilityTests : BunitContext
 
     // File validation
 
-    private static FormFieldSchema FileField(Action<FormFieldSchema>? _ = null, bool multiple = false, string? accept = null, long? max = null, bool required = false) => new()
+    private static DynamicFieldSchema FileField(Action<DynamicFieldSchema>? _ = null, bool multiple = false, string? accept = null, long? max = null, bool required = false) => new()
     {
         Key = "doc",
         Kind = FormFieldKind.File,
@@ -393,11 +394,11 @@ public sealed class ExtensibilityTests : BunitContext
         Assert.False(form.Validate());
         Assert.Equal("gros.bin dépasse 10 o", form.GetError("doc"));
 
-        var withRule = new FormFieldSchema
+        var withRule = new DynamicFieldSchema
         {
             Key = "doc",
             Kind = FormFieldKind.File,
-            Validators = [new FormValidatorRule("named", "Name it report", (v, _) => v is FormFileValue { Name: "report.pdf" })],
+            Validators = [new DynamicValidatorRule("named", "Name it report", (v, _) => v is FormFileValue { Name: "report.pdf" })],
         };
         var form2 = Form(withRule);
         form2.SetValue("doc", FormFileValue.FromBytes("other.pdf", [1]));
@@ -408,7 +409,7 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void Files_are_tracked_for_dirtiness_copied_into_the_output_and_never_exported_in_a_draft()
     {
-        var form = Form(FileField(multiple: true), new FormFieldSchema { Key = "name", DefaultValue = "n" });
+        var form = Form(FileField(multiple: true), new DynamicFieldSchema { Key = "name", DefaultValue = "n" });
         var a = FormFileValue.FromBytes("a.txt", [1, 2]);
         form.SetValue("doc", new List<FormFileValue> { a });
         Assert.Contains("doc", form.DirtyPaths);
@@ -444,10 +445,10 @@ public sealed class ExtensibilityTests : BunitContext
     public void The_file_control_is_an_InputFile_with_accept_and_multiple_and_the_localized_button()
     {
         var form = Form(
-            new FormFieldSchema { Key = "one", Kind = FormFieldKind.File, Label = "CV", Accept = ".pdf", Required = true, Help = "PDF only" },
-            new FormFieldSchema { Key = "many", Kind = FormFieldKind.File, Label = "Photos", Multiple = true, Accept = "image/*" });
+            new DynamicFieldSchema { Key = "one", Kind = FormFieldKind.File, Label = "CV", Accept = ".pdf", Required = true, Help = "PDF only" },
+            new DynamicFieldSchema { Key = "many", Kind = FormFieldKind.File, Label = "Photos", Multiple = true, Accept = "image/*" });
 
-        var cut = Render<KlyFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
 
         var one = cut.Find("input#kly-ff-one");
         Assert.Equal("file", one.GetAttribute("type"));
@@ -467,8 +468,8 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public async Task Choosing_a_file_stores_a_FormFileValue_that_can_be_read_and_removing_it_clears_the_field()
     {
-        var form = Form(new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", Accept = ".txt", MaxFileSize = 1024 });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", Accept = ".txt", MaxFileSize = 1024 });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("hello", "note.txt", contentType: "text/plain"));
 
@@ -494,8 +495,8 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void A_file_that_breaks_a_rule_shows_the_error_at_once()
     {
-        var form = Form(new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", Accept = ".png", MaxFileSize = 3 });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", Accept = ".png", MaxFileSize = 3 });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("hello", "note.txt", contentType: "text/plain"));
         Assert.Contains("note.txt is not an accepted type (.png)", cut.Find("[data-slot=form-field-error]").TextContent, StringComparison.Ordinal);
@@ -508,8 +509,8 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public async Task A_multiple_file_field_keeps_a_list_and_removes_one_file_at_a_time()
     {
-        var form = Form(new FormFieldSchema { Key = "docs", Kind = FormFieldKind.File, Label = "Docs", Multiple = true });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "docs", Kind = FormFieldKind.File, Label = "Docs", Multiple = true });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(
             InputFileContent.CreateFromText("a", "a.txt"),
@@ -529,15 +530,15 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void A_file_cell_in_a_repeatable_list_works_like_a_field()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
-            Fields = [new FormFieldSchema { Key = "attachment", Kind = FormFieldKind.File, Label = "Attachment" }],
+            Fields = [new DynamicFieldSchema { Key = "attachment", Kind = FormFieldKind.File, Label = "Attachment" }],
         };
         var form = Form(lines);
         form.AddArrayItem(lines);
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("x", "x.txt"));
 

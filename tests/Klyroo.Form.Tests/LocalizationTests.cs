@@ -3,6 +3,7 @@ using Bunit;
 using Klyroo.UI;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -16,15 +17,15 @@ public sealed class LocalizationTests : BunitContext
 
     private static readonly string[] AllCodes = ["en", "fr", "de", "es", "it", "pt", "pt-BR", "nl", "ja", "zh-Hans", "ar", "ru"];
 
-    private static FormSchema Schema() => new()
+    private static DynamicFormSchema Schema() => new()
     {
         FormKey = "loc",
         Fields =
         [
-            new FormFieldSchema { Key = "name", Label = "Nom", Required = true },
-            new FormFieldSchema { Key = "age", Kind = FormFieldKind.Number, Min = 18, Max = 99 },
-            new FormFieldSchema { Key = "bio", Kind = FormFieldKind.Textarea, MaxLength = 5 },
-            new FormFieldSchema { Key = "span", Kind = FormFieldKind.DateRange },
+            new DynamicFieldSchema { Key = "name", Label = "Nom", Required = true },
+            new DynamicFieldSchema { Key = "age", Kind = FormFieldKind.Number, Min = 18, Max = 99 },
+            new DynamicFieldSchema { Key = "bio", Kind = FormFieldKind.Textarea, MaxLength = 5 },
+            new DynamicFieldSchema { Key = "span", Kind = FormFieldKind.DateRange },
         ],
     };
 
@@ -33,7 +34,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void Controller_defaults_to_english_messages()
     {
-        var form = new FormController(Schema());
+        var form = new DynamicFormController(Schema());
         form.SetValue("age", 3.0);
         form.SetValue("bio", "toolong");
         form.SetValue("span", new List<string> { "2026-02-01", "2026-01-01" });
@@ -51,7 +52,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void Messages_can_be_set_on_the_controller_without_any_UI()
     {
-        var form = new FormController(Schema()) { Messages = FormMessageLocales.Fr };
+        var form = new DynamicFormController(Schema()) { Messages = FormMessageLocales.Fr };
         form.SetValue("age", 3.0);
         form.SetValue("bio", "toolong");
         form.SetValue("span", new List<string> { "2026-02-01", "2026-01-01" });
@@ -67,17 +68,17 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void A_schema_can_fix_its_own_language_and_a_field_message_still_wins()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "x",
             Messages = FormMessages.Default with { Required = "Fill this in" },
             Fields =
             [
-                new FormFieldSchema { Key = "a", Required = true },
-                new FormFieldSchema { Key = "b", Required = true, RequiredMessage = "B please" },
+                new DynamicFieldSchema { Key = "a", Required = true },
+                new DynamicFieldSchema { Key = "b", Required = true, RequiredMessage = "B please" },
             ],
         };
-        var form = new FormController(schema);
+        var form = new DynamicFormController(schema);
 
         form.Validate();
 
@@ -88,13 +89,13 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void Changing_the_messages_recomputes_the_errors_already_on_screen()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
-            Fields = [new FormFieldSchema { Key = "sku", Required = true }],
+            Fields = [new DynamicFieldSchema { Key = "sku", Required = true }],
         };
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a", Required = true }, lines] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a", Required = true }, lines] });
         form.AddArrayItem(lines);
         form.Validate();
         Assert.Equal("This field is required", form.GetError("a"));
@@ -109,13 +110,13 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void Locale_messages_from_a_component_do_not_replace_a_language_chosen_by_code_or_schema()
     {
-        var explicitForm = new FormController(Schema()) { Messages = FormMessageLocales.De };
-        var schemaForm = new FormController(new FormSchema { FormKey = "x", Messages = FormMessageLocales.Es, Fields = [] });
-        var open = new FormController(Schema());
+        var explicitForm = new DynamicFormController(Schema()) { Messages = FormMessageLocales.De };
+        var schemaForm = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Messages = FormMessageLocales.Es, Fields = [] });
+        var open = new DynamicFormController(Schema());
 
         foreach (var form in new[] { explicitForm, schemaForm, open })
         {
-            Render<KlyFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
+            Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
         }
 
         Assert.Same(FormMessageLocales.De, explicitForm.Messages);
@@ -176,8 +177,8 @@ public sealed class LocalizationTests : BunitContext
 
     // Component texts
 
-    private IRenderedComponent<KlyFormEngine> Engine(KlyLocale locale, FormController form, Action<ComponentParameterCollectionBuilder<KlyFormEngine>>? configure = null) =>
-        Render<KlyFormEngine>(p =>
+    private IRenderedComponent<KlyDynamicFormEngine> Engine(KlyLocale locale, DynamicFormController form, Action<ComponentParameterCollectionBuilder<KlyDynamicFormEngine>>? configure = null) =>
+        Render<KlyDynamicFormEngine>(p =>
         {
             p.AddCascadingValue(locale);
             p.Add(c => c.Form, form);
@@ -186,13 +187,13 @@ public sealed class LocalizationTests : BunitContext
             configure?.Invoke(p);
         });
 
-    private static FormController Wizard() => new(new FormSchema
+    private static DynamicFormController Wizard() => new(new DynamicFormSchema
     {
         FormKey = "wizard",
         Steps =
         [
-            new FormStepSchema { Key = "a", Title = "A", Fields = [new FormFieldSchema { Key = "name", Label = "Nom", Required = true }] },
-            new FormStepSchema { Key = "b", Title = "B", Fields = [new FormFieldSchema { Key = "other" }] },
+            new DynamicStepSchema { Key = "a", Title = "A", Fields = [new DynamicFieldSchema { Key = "name", Label = "Nom", Required = true }] },
+            new DynamicStepSchema { Key = "b", Title = "B", Fields = [new DynamicFieldSchema { Key = "other" }] },
         ],
     });
 
@@ -217,7 +218,7 @@ public sealed class LocalizationTests : BunitContext
     public async Task Engine_shows_the_localized_submit_and_saving_texts_and_close_name()
     {
         var release = new TaskCompletionSource<bool>();
-        var form = new FormController(new FormSchema { FormKey = "x", Title = "T", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Title = "T", Fields = [new DynamicFieldSchema { Key = "a" }] });
         var cut = Engine(KlyLocales.De, form, p => p.Add(c => c.OnSave, async (_, _) => await release.Task));
 
         Assert.Equal("Absenden", cut.Find("[data-slot=form-action-submit]").TextContent.Trim());
@@ -232,7 +233,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void SubmitLabel_wins_over_the_locale_text()
     {
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a" }] });
         var cut = Engine(KlyLocales.Fr, form, p => p.Add(c => c.SubmitLabel, "Envoyer"));
 
         Assert.Equal("Envoyer", cut.Find("[data-slot=form-action-submit]").TextContent.Trim());
@@ -241,7 +242,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void A_regional_locale_uses_the_set_of_its_language()
     {
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a" }] });
         var cut = Engine(KlyLocales.Extend(KlyLocales.Fr, code: "fr-CA", name: "Français (Canada)"), form);
 
         Assert.Equal("Valider", cut.Find("[data-slot=form-action-submit]").TextContent.Trim());
@@ -250,7 +251,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void An_unknown_locale_gets_english()
     {
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a" }] });
         var cut = Engine(KlyLocales.Extend(KlyLocales.En, code: "tlh", name: "Klingon"), form);
 
         Assert.Equal("Submit", cut.Find("[data-slot=form-action-submit]").TextContent.Trim());
@@ -264,23 +265,23 @@ public sealed class LocalizationTests : BunitContext
             .Texts("fr", t => t with { Submit = "Envoyer", Messages = t.Messages with { Required = "Merci de renseigner ce champ" } })
             .Texts("fr-CA", t => t with { Submit = "Soumettre" }));
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a", Required = true }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a", Required = true }] });
 
-        var fr = ctx.Render<KlyFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
+        var fr = ctx.Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
         Assert.Equal("Envoyer", fr.Find("[data-slot=form-action-submit]").TextContent.Trim());
         form.Validate();
         Assert.Equal("Merci de renseigner ce champ", form.GetError("a"));
 
-        var ca = ctx.Render<KlyFormEngine>(p => p
+        var ca = ctx.Render<KlyDynamicFormEngine>(p => p
             .AddCascadingValue(KlyLocales.Extend(KlyLocales.Fr, code: "fr-CA"))
-            .Add(c => c.Form, new FormController(new FormSchema { FormKey = "y", Fields = [] })));
+            .Add(c => c.Form, new DynamicFormController(new DynamicFormSchema { FormKey = "y", Fields = [] })));
         Assert.Equal("Soumettre", ca.Find("[data-slot=form-action-submit]").TextContent.Trim());
     }
 
     [Fact]
     public void Texts_cannot_change_once_a_component_resolved_one()
     {
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a" }] });
         _ = Engine(KlyLocales.En, form);
         var options = Services.GetRequiredService<KlyrooOptions>().Extension<KlyrooFormOptions>();
 
@@ -297,35 +298,35 @@ public sealed class LocalizationTests : BunitContext
         using var ctx = new BunitContext();
         ctx.Services.AddKlyrooForm(f => f.Texts("fr", _ => null!));
         ctx.JSInterop.Mode = JSRuntimeMode.Loose;
-        Assert.Throws<InvalidOperationException>(() => ctx.Render<KlyFormEngine>(p => p
+        Assert.Throws<InvalidOperationException>(() => ctx.Render<KlyDynamicFormEngine>(p => p
             .AddCascadingValue(KlyLocales.Fr)
-            .Add(c => c.Form, new FormController(new FormSchema { FormKey = "x", Fields = [] }))));
+            .Add(c => c.Form, new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [] }))));
     }
 
     [Fact]
     public async Task Field_texts_follow_the_locale()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "x",
             Fields =
             [
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "pw",
                     Kind = FormFieldKind.Password,
                     Label = "Mot de passe",
                     PasswordRequirements = [new FormPasswordRequirement("len", "8 caractères", p => p.Length >= 8)],
                 },
-                new FormFieldSchema { Key = "span", Kind = FormFieldKind.DateRange, Label = "Période" },
-                new FormFieldSchema { Key = "stars", Kind = FormFieldKind.Rating, Label = "Note", Max = 3 },
-                new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Select, Label = "Choix", Options = [new FormOptionItem("a", "A")], OnCreateOption = t => new FormOptionItem(t, t) },
-                new FormFieldSchema { Key = "tags", Kind = FormFieldKind.Tag, Label = "Tags" },
-                new FormFieldSchema { Key = "lines", Kind = FormFieldKind.ArrayList, Label = "Lignes", Fields = [new FormFieldSchema { Key = "sku", Label = "Réf" }] },
+                new DynamicFieldSchema { Key = "span", Kind = FormFieldKind.DateRange, Label = "Période" },
+                new DynamicFieldSchema { Key = "stars", Kind = FormFieldKind.Rating, Label = "Note", Max = 3 },
+                new DynamicFieldSchema { Key = "pick", Kind = FormFieldKind.Select, Label = "Choix", Options = [new FormOptionItem("a", "A")], OnCreateOption = t => new FormOptionItem(t, t) },
+                new DynamicFieldSchema { Key = "tags", Kind = FormFieldKind.Tag, Label = "Tags" },
+                new DynamicFieldSchema { Key = "lines", Kind = FormFieldKind.ArrayList, Label = "Lignes", Fields = [new DynamicFieldSchema { Key = "sku", Label = "Réf" }] },
             ],
         };
-        var form = new FormController(schema);
-        var cut = Render<KlyFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
+        var form = new DynamicFormController(schema);
+        var cut = Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
 
         Assert.Equal("Afficher le mot de passe", cut.Find("[data-slot=form-password-toggle]").GetAttribute("aria-label"));
         Assert.Equal("Afficher", cut.Find("[data-slot=form-password-toggle]").TextContent.Trim());
@@ -349,17 +350,17 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public void Page_texts_follow_the_locale()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "p",
             Title = "Titre",
             Sections =
             [
-                new FormPageSectionSchema { Key = "a", Label = "A", Fields = [new FormFieldSchema { Key = "x", Required = true }] },
-                new FormPageSectionSchema { Key = "b", Label = "B", Optional = true, Fields = [new FormFieldSchema { Key = "y" }] },
+                new DynamicSectionSchema { Key = "a", Label = "A", Fields = [new DynamicFieldSchema { Key = "x", Required = true }] },
+                new DynamicSectionSchema { Key = "b", Label = "B", Optional = true, Fields = [new DynamicFieldSchema { Key = "y" }] },
             ],
         };
-        var cut = Render<KlyFormPage>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, new FormController(schema)));
+        var cut = Render<KlyDynamicFormPage>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, new DynamicFormController(schema)));
 
         Assert.Equal("1 à compléter.", cut.Find("[data-slot=form-page-summary]").TextContent.Trim());
         Assert.Equal("Sections du formulaire", cut.Find("nav").GetAttribute("aria-label"));
@@ -372,7 +373,7 @@ public sealed class LocalizationTests : BunitContext
     public void Provider_and_guard_texts_follow_the_locale()
     {
         var provider = Render<KlyFormProvider>(p => p.AddCascadingValue(KlyLocales.Fr));
-        _ = Services.GetRequiredService<FormService>().CreateFormAsync(new FormSchema { Fields = [new FormFieldSchema { Key = "a" }] });
+        _ = Services.GetRequiredService<DynamicFormService>().CreateFormAsync(new DynamicFormSchema { Fields = [new DynamicFieldSchema { Key = "a" }] });
         provider.Render();
         Assert.Equal("Formulaire", provider.Find("dialog").GetAttribute("aria-label"));
     }
@@ -380,7 +381,7 @@ public sealed class LocalizationTests : BunitContext
     [Fact]
     public async Task The_navigation_guard_asks_in_the_language_of_the_locale()
     {
-        var form = new FormController(new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a" }] });
         _ = Render<KlyFormNavigationGuard>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
         var confirm = JSInterop.Setup<bool>("confirm", "Vous avez des modifications non enregistrées. Quitter cette page et les perdre ?");
         confirm.SetResult(false);

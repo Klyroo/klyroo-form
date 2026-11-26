@@ -1,6 +1,6 @@
-@namespace Klyroo.Form
+@namespace Klyroo.Form.Dynamic
 @inherits KlyComponentBase
-@inject ILogger<KlySchemaField> Logger
+@inject ILogger<KlyDynamicFieldView> Logger
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 
@@ -21,22 +21,22 @@
     private FormUiState Ui => FormUiState.For(Form);
 
     /// <summary>The controller that holds the value of the field.</summary>
-    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+    [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
 
-    /// <summary>The field to render, usually one of <see cref="FormController.CurrentVisibleTopFields"/>. Containers render their children with nested <see cref="KlySchemaField"/> components.</summary>
-    [Parameter, EditorRequired] public FormFieldSchema Field { get; set; } = default!;
+    /// <summary>The field to render, usually one of <see cref="DynamicFormController.CurrentVisibleTopFields"/>. Containers render their children with nested <see cref="KlyDynamicFieldView"/> components.</summary>
+    [Parameter, EditorRequired] public DynamicFieldSchema Field { get; set; } = default!;
 
     protected override void OnParametersSet() => Form?.UseLocaleMessages(Texts.Messages);
 
-    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>, and reach the fields inside containers, tabs and lists.</summary>
-    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormControlContext>>? FieldTemplates { get; set; }
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="DynamicFieldSchema.CustomKey"/>. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>, and reach the fields inside containers, tabs and lists.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<DynamicControlContext>>? FieldTemplates { get; set; }
 
     private int Cols => FormLayout.Columns(Form.Schema);
 
     private static bool HasInlineLabel(FormFieldKind kind) => kind is FormFieldKind.Checkbox or FormFieldKind.Switch;
 
     // Controls made of several inputs are labelled through aria-labelledby instead of a label element.
-    private static bool IsGroupControl(FormFieldSchema field) =>
+    private static bool IsGroupControl(DynamicFieldSchema field) =>
         field.Kind is FormFieldKind.Radio or FormFieldKind.CheckboxGroup or FormFieldKind.Rating or FormFieldKind.DateRange
         || (field.Kind is FormFieldKind.Select or FormFieldKind.AutoComplete && field.Multiple);
 
@@ -51,7 +51,7 @@
 
     private const string ClearButtonClass = "inline-flex size-8 shrink-0 items-center justify-center rounded-(--klyroo-radius) border border-(--klyroo-border) text-xs text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50";
 
-    private RenderFragment RenderField(FormController form, FormFieldSchema field)
+    private RenderFragment RenderField(DynamicFormController form, DynamicFieldSchema field)
     {
         var cols = Cols;
         var spanStyle = FormLayout.SpanStyle(field.Span, cols);
@@ -121,7 +121,7 @@
         var groupControl = IsGroupControl(field);
         var validating = form.IsValidating(field.Key);
 
-        var binding = new FormControlContext(
+        var binding = new DynamicControlContext(
             form,
             field,
             fieldId,
@@ -221,7 +221,7 @@
         </div>;
     }
 
-    private RenderFragment RenderInfo(FormFieldSchema field, string spanStyle)
+    private RenderFragment RenderInfo(DynamicFieldSchema field, string spanStyle)
     {
         var tone = (field.DisplayTone ?? "neutral").Trim().ToLowerInvariant();
         tone = tone is "info" or "success" or "warning" or "error" ? tone : "neutral";
@@ -257,7 +257,7 @@
         </div>;
     }
 
-    private RenderFragment RenderContainer(FormController form, FormFieldSchema field, string spanStyle, int cols)
+    private RenderFragment RenderContainer(DynamicFormController form, DynamicFieldSchema field, string spanStyle, int cols)
     {
         var isCard = field.Kind == FormFieldKind.Card;
         var frame = isCard ? "rounded-(--klyroo-radius-md) border border-(--klyroo-border) bg-(--klyroo-bg) p-4" : "";
@@ -276,7 +276,7 @@
                     <div class="grid gap-4" style="@gridStyle">
                         @foreach (var child in children)
                         {
-                            <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
+                            <KlyDynamicFieldView Form="form" Field="child" FieldTemplates="FieldTemplates" />
                         }
                     </div>
                 </div>
@@ -298,13 +298,13 @@
             <div class="grid gap-4" style="@gridStyle">
                 @foreach (var child in children)
                 {
-                    <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
+                    <KlyDynamicFieldView Form="form" Field="child" FieldTemplates="FieldTemplates" />
                 }
             </div>
         </div>;
     }
 
-    private RenderFragment RenderTabs(FormController form, FormFieldSchema field, string spanStyle, string fieldId, int cols)
+    private RenderFragment RenderTabs(DynamicFormController form, DynamicFieldSchema field, string spanStyle, string fieldId, int cols)
     {
         var visibleTabs = field.Tabs!.Where(t => t.Condition is null || t.Condition(form)).ToList();
         if (visibleTabs.Count == 0) return @<text></text>;
@@ -334,13 +334,13 @@
                  class="grid gap-4" style="@(FormLayout.GridStyle(cols))" data-slot="form-tab-panel">
                 @foreach (var child in activeTab.Fields)
                 {
-                    <KlySchemaField Form="form" Field="child" FieldTemplates="FieldTemplates" />
+                    <KlyDynamicFieldView Form="form" Field="child" FieldTemplates="FieldTemplates" />
                 }
             </div>
         </div>;
     }
 
-    private RenderFragment RenderArrayField(FormController form, FormFieldSchema field, string spanStyle, string fieldId, int cols)
+    private RenderFragment RenderArrayField(DynamicFormController form, DynamicFieldSchema field, string spanStyle, string fieldId, int cols)
     {
         var items = form.GetArrayItems(field.Key);
         var error = form.GetError(field.Key);
@@ -352,7 +352,7 @@
         var helpId = string.IsNullOrEmpty(field.Help) ? null : $"{fieldId}-help";
         var errorId = error is null ? null : $"{fieldId}-error";
         var describedBy = Join(descriptionId, helpId, errorId);
-        var cells = (field.Fields ?? []).Where(c => c.Kind != FormFieldKind.Hidden && form.ShouldRenderField(c) && !FormController.IsStateless(c.Kind) && !FormController.IsContainer(c.Kind)).ToList();
+        var cells = (field.Fields ?? []).Where(c => c.Kind != FormFieldKind.Hidden && form.ShouldRenderField(c) && !DynamicFormController.IsStateless(c.Kind) && !DynamicFormController.IsContainer(c.Kind)).ToList();
         var gridStyle = FormLayout.GridStyle(cols);
 
         return @<div style="@spanStyle"
@@ -416,7 +416,7 @@
                                     var cellRequired = form.IsFieldRequired(child);
                                     var cellGroup = IsGroupControl(child);
                                     var cellShowLabel = !string.IsNullOrEmpty(child.Label) && !HasInlineLabel(child.Kind);
-                                    var cellBinding = new FormControlContext(
+                                    var cellBinding = new DynamicControlContext(
                                         form,
                                         child,
                                         cellId,
@@ -496,7 +496,7 @@
         </div>;
     }
 
-    private RenderFragment RenderControl(FormController form, FormFieldSchema field, FormControlContext b)
+    private RenderFragment RenderControl(DynamicFormController form, DynamicFieldSchema field, DynamicControlContext b)
     {
         var invalid = b.Error is not null ? "true" : null;
         var required = b.Required ? "true" : null;
@@ -805,7 +805,7 @@
         }
     }
 
-    private RenderFragment ClearButton(FormControlContext b, object? cleared) =>
+    private RenderFragment ClearButton(DynamicControlContext b, object? cleared) =>
         @<button type="button"
                  class="@ClearButtonClass"
                  aria-label="@Texts.Clear"
@@ -813,7 +813,7 @@
                  data-slot="form-control-clear"
                  @onclick="@(() => b.Commit(cleared))">✕</button>;
 
-    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, FormControlContext b, bool multiple)
+    private RenderFragment RenderChoiceList(DynamicFormController form, DynamicFieldSchema field, DynamicControlContext b, bool multiple)
     {
         var options = form.GetFieldOptions(field);
         var selected = multiple ? AsStringList(b.Value) : [];
@@ -874,7 +874,7 @@
         </div>;
     }
 
-    private RenderFragment RenderCustom(FormFieldSchema field, FormControlContext b)
+    private RenderFragment RenderCustom(DynamicFieldSchema field, DynamicControlContext b)
     {
         var renderer = ResolveRenderer(field.CustomKey);
         return renderer is null
@@ -883,14 +883,14 @@
     }
 
     // The FieldTemplates parameter wins over the renderers registered in AddKlyrooForm.
-    private RenderFragment<FormControlContext>? ResolveRenderer(string? key)
+    private RenderFragment<DynamicControlContext>? ResolveRenderer(string? key)
     {
         if (string.IsNullOrEmpty(key)) return null;
         if (FieldTemplates is not null && FieldTemplates.TryGetValue(key, out var template)) return template;
         return Options.Extension<KlyrooFormOptions>().TryGetCustomField(key, out var registered) ? registered : null;
     }
 
-    private RenderFragment RenderFile(FormFieldSchema field, FormControlContext b)
+    private RenderFragment RenderFile(DynamicFieldSchema field, DynamicControlContext b)
     {
         var files = FilesOf(b.Value);
         var version = Ui.FileInputVersions.GetValueOrDefault(b.Id);
@@ -941,7 +941,7 @@
     // A chosen file is read into memory right away, up to MaxFileSize: the value then holds the bytes and does not depend on the browser input,
     // which a step change, a hidden field or a removal unmounts. A file above the limit is not read: it stays in the value so that validation names it,
     // and opening it fails.
-    private async Task OnFilesChosenAsync(FormFieldSchema field, FormControlContext b, InputFileChangeEventArgs e)
+    private async Task OnFilesChosenAsync(DynamicFieldSchema field, DynamicControlContext b, InputFileChangeEventArgs e)
     {
         if (e.FileCount == 0) return;
         var limit = field.MaxFileSize ?? FormFileValue.DefaultMaxSize;
@@ -977,7 +977,7 @@
     }
 
     // The browser input keeps showing its selection and does not fire change for the same file again, so a removal gives it a new identity.
-    private void RemoveFile(FormFieldSchema field, FormControlContext b, FormFileValue file)
+    private void RemoveFile(DynamicFieldSchema field, DynamicControlContext b, FormFileValue file)
     {
         Ui.FileInputVersions[b.Id] = Ui.FileInputVersions.GetValueOrDefault(b.Id) + 1;
         if (!field.Multiple)
@@ -989,7 +989,7 @@
         b.Commit(rest.Count == 0 ? null : rest);
     }
 
-    private RenderFragment RenderTags(FormFieldSchema field, FormControlContext b)
+    private RenderFragment RenderTags(DynamicFieldSchema field, DynamicControlContext b)
     {
         var tags = AsStringList(b.Value);
         var draft = Ui.Drafts.GetValueOrDefault(b.Id, "");
@@ -1028,7 +1028,7 @@
         </div>;
     }
 
-    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, FormControlContext b)
+    private RenderFragment RenderCreateOption(DynamicFormController form, DynamicFieldSchema field, DynamicControlContext b)
     {
         var draftKey = $"{b.Id}-create";
         var draft = Ui.Drafts.GetValueOrDefault(draftKey, "");
@@ -1054,7 +1054,7 @@
         </div>;
     }
 
-    private void CreateOption(FormController form, FormFieldSchema field, string draftKey)
+    private void CreateOption(DynamicFormController form, DynamicFieldSchema field, string draftKey)
     {
         var text = Ui.Drafts.GetValueOrDefault(draftKey, "");
         if (form.CreateFieldOption(field, text) is not null)
@@ -1063,7 +1063,7 @@
         }
     }
 
-    private void OnTagInput(FormControlContext b, string? raw)
+    private void OnTagInput(DynamicControlContext b, string? raw)
     {
         raw ??= "";
         var parts = raw.Split(',');
@@ -1079,7 +1079,7 @@
         Ui.Drafts[b.Id] = parts[^1];
     }
 
-    private void OnTagKeyDown(FormControlContext b, KeyboardEventArgs e)
+    private void OnTagKeyDown(DynamicControlContext b, KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
         var tags = AsStringList(b.Current());
@@ -1142,7 +1142,7 @@
     }
 
     // The text the user types stays on screen until the input loses focus; the state gets the matching option value.
-    private void OnAutoCompleteInput(FormControlContext b, IReadOnlyList<FormOptionItem> options, string? text)
+    private void OnAutoCompleteInput(DynamicControlContext b, IReadOnlyList<FormOptionItem> options, string? text)
     {
         Ui.Drafts[b.Id] = text ?? "";
         b.Set(ResolveAutoComplete(options, text));
@@ -1162,7 +1162,7 @@
         return range.Count > index ? range[index] : "";
     }
 
-    private static object? CellValue(FormController form, string arrayKey, int index, string childKey)
+    private static object? CellValue(DynamicFormController form, string arrayKey, int index, string childKey)
     {
         var rows = form.GetArrayItems(arrayKey);
         return index < rows.Count ? rows[index].GetValueOrDefault(childKey) : null;
@@ -1193,7 +1193,7 @@
         if (!Ui.RevealedPasswords.Remove(id)) Ui.RevealedPasswords.Add(id);
     }
 
-    private static void OnNumberInput(FormControlContext b, string? raw)
+    private static void OnNumberInput(DynamicControlContext b, string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
@@ -1206,7 +1206,7 @@
         }
     }
 
-    private static async Task OnButtonClickAsync(FormController form, FormFieldSchema field)
+    private static async Task OnButtonClickAsync(DynamicFormController form, DynamicFieldSchema field)
     {
         if (field.OnClick is not null)
         {

@@ -2,6 +2,7 @@ using Bunit;
 using Klyroo.Form;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -16,30 +17,30 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [Fact]
     public void FormController_validates_Min_Max_MaxLength_and_Custom_Validators()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "validation-matrix",
             Fields =
             [
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "code", Label = "Code", Required = true, MaxLength = 6,
                     Validators =
                     [
-                        new FormValidatorRule("minlen", "At least 3 chars", (v, _) => (v?.ToString()?.Length ?? 0) >= 3),
-                        new FormValidatorRule("alnum", "Uppercase alphanumeric only", (v, _) => System.Text.RegularExpressions.Regex.IsMatch(v?.ToString() ?? "", "^[A-Z0-9]+$"))
+                        new DynamicValidatorRule("minlen", "At least 3 chars", (v, _) => (v?.ToString()?.Length ?? 0) >= 3),
+                        new DynamicValidatorRule("alnum", "Uppercase alphanumeric only", (v, _) => System.Text.RegularExpressions.Regex.IsMatch(v?.ToString() ?? "", "^[A-Z0-9]+$"))
                     ]
                 },
-                new FormFieldSchema { Key = "seats", Label = "Seats", Kind = FormFieldKind.Number, Min = 1, Max = 100 },
-                new FormFieldSchema
+                new DynamicFieldSchema { Key = "seats", Label = "Seats", Kind = FormFieldKind.Number, Min = 1, Max = 100 },
+                new DynamicFieldSchema
                 {
                     Key = "domain", Label = "Domain",
-                    Validators = [new FormValidatorRule("tld", "Must end with .dev", (v, _) => v?.ToString()?.EndsWith(".dev", StringComparison.Ordinal) == true)]
+                    Validators = [new DynamicValidatorRule("tld", "Must end with .dev", (v, _) => v?.ToString()?.EndsWith(".dev", StringComparison.Ordinal) == true)]
                 }
             ]
         };
 
-        var ctrl = new FormController(schema, new Dictionary<string, object?>
+        var ctrl = new DynamicFormController(schema, new Dictionary<string, object?>
         {
             ["code"] = "ab",
             ["seats"] = 250.0,
@@ -67,25 +68,25 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [Fact]
     public void FormController_ResetField_ResetSection_and_Reset_with_new_input_restore_clean_state()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "resets",
             Sections =
             [
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "profile", Label = "Profile",
-                    Fields = [new FormFieldSchema { Key = "name", Label = "Name" }, new FormFieldSchema { Key = "role", Label = "Role" }]
+                    Fields = [new DynamicFieldSchema { Key = "name", Label = "Name" }, new DynamicFieldSchema { Key = "role", Label = "Role" }]
                 },
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "billing", Label = "Billing",
-                    Fields = [new FormFieldSchema { Key = "currency", Label = "Currency" }]
+                    Fields = [new DynamicFieldSchema { Key = "currency", Label = "Currency" }]
                 }
             ]
         };
 
-        var ctrl = new FormController(schema, new Dictionary<string, object?>
+        var ctrl = new DynamicFormController(schema, new Dictionary<string, object?>
         {
             ["name"] = "Alice", ["role"] = "Admin", ["currency"] = "EUR"
         });
@@ -112,17 +113,17 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [Fact]
     public void FormController_ArrayTable_supports_Add_Update_Remove_and_serializes_cleanly()
     {
-        var linesField = new FormFieldSchema
+        var linesField = new DynamicFieldSchema
         {
             Key = "lines", Label = "Lines", Kind = FormFieldKind.ArrayTable,
             Fields =
             [
-                new FormFieldSchema { Key = "sku", Label = "SKU", Required = true },
-                new FormFieldSchema { Key = "qty", Label = "Qty", Kind = FormFieldKind.Number, DefaultValue = 1.0 }
+                new DynamicFieldSchema { Key = "sku", Label = "SKU", Required = true },
+                new DynamicFieldSchema { Key = "qty", Label = "Qty", Kind = FormFieldKind.Number, DefaultValue = 1.0 }
             ]
         };
 
-        var ctrl = new FormController(new FormSchema { FormKey = "invoice", Fields = [linesField] });
+        var ctrl = new DynamicFormController(new DynamicFormSchema { FormKey = "invoice", Fields = [linesField] });
         ctrl.AddArrayItem(linesField);
         ctrl.AddArrayItem(linesField);
         ctrl.SetArrayItemValue("lines", 0, "sku", "A-100");
@@ -143,14 +144,14 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     public async Task FormController_wizard_honors_OnBeforeNext_and_PreviousStepAsync()
     {
         var allowNext = false;
-        var wizard = new FormController(new FormSchema
+        var wizard = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "checkout",
             OnBeforeNext = (_, _) => Task.FromResult(allowNext),
             Steps =
             [
-                new FormStepSchema { Key = "info", Title = "Info", Fields = [new FormFieldSchema { Key = "email", Label = "Email", DefaultValue = "a@b.com" }] },
-                new FormStepSchema { Key = "confirm", Title = "Confirm", Fields = [new FormFieldSchema { Key = "agree", Label = "Agree", Kind = FormFieldKind.Checkbox, DefaultValue = true }] }
+                new DynamicStepSchema { Key = "info", Title = "Info", Fields = [new DynamicFieldSchema { Key = "email", Label = "Email", DefaultValue = "a@b.com" }] },
+                new DynamicStepSchema { Key = "confirm", Title = "Confirm", Fields = [new DynamicFieldSchema { Key = "agree", Label = "Agree", Kind = FormFieldKind.Checkbox, DefaultValue = true }] }
             ]
         });
 
@@ -168,60 +169,60 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [Fact]
     public void FormController_CreateFieldOption_and_DisabledWhen_and_IsEmptyValue_work()
     {
-        var tagsField = new FormFieldSchema
+        var tagsField = new DynamicFieldSchema
         {
             Key = "tag", Label = "Tag", Kind = FormFieldKind.Select,
             Options = [new("core", "Core")],
             OnCreateOption = label => new FormOptionItem(label.ToLowerInvariant(), label)
         };
-        var lockedField = new FormFieldSchema
+        var lockedField = new DynamicFieldSchema
         {
             Key = "locked", Label = "Locked", DisabledWhen = _ => true
         };
 
-        var ctrl = new FormController(new FormSchema { FormKey = "opts", Fields = [tagsField, lockedField] });
+        var ctrl = new DynamicFormController(new DynamicFormSchema { FormKey = "opts", Fields = [tagsField, lockedField] });
         var created = ctrl.CreateFieldOption(tagsField, "Enterprise");
         Assert.NotNull(created);
         Assert.Equal(2, ctrl.GetFieldOptions(tagsField).Count);
         Assert.True(ctrl.IsFieldDisabled(lockedField));
 
-        Assert.True(FormController.IsEmptyValue(null));
-        Assert.True(FormController.IsEmptyValue("   "));
-        Assert.False(FormController.IsEmptyValue("ok"));
-        Assert.False(FormController.IsEmptyValue(0));
+        Assert.True(DynamicFormController.IsEmptyValue(null));
+        Assert.True(DynamicFormController.IsEmptyValue("   "));
+        Assert.False(DynamicFormController.IsEmptyValue("ok"));
+        Assert.False(DynamicFormController.IsEmptyValue(0));
     }
 
     [Fact]
     public void KlyFormEngine_and_LxFormPage_render_fields_sections_and_validation_in_bUnit()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "org-form",
             Title = "Organization",
             Fields =
             [
-                new FormFieldSchema { Key = "orgName", Label = "Organization Name", Required = true },
-                new FormFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Select, DefaultValue = "pro", Options = [new("pro", "Pro"), new("ent", "Enterprise")] }
+                new DynamicFieldSchema { Key = "orgName", Label = "Organization Name", Required = true },
+                new DynamicFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Select, DefaultValue = "pro", Options = [new("pro", "Pro"), new("ent", "Enterprise")] }
             ]
         };
 
-        var ctrl = new FormController(schema);
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, ctrl));
+        var ctrl = new DynamicFormController(schema);
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, ctrl));
         Assert.Contains("Organization Name", cut.Markup);
         Assert.Contains("Plan", cut.Markup);
 
-        var pageSchema = new FormSchema
+        var pageSchema = new DynamicFormSchema
         {
             FormKey = "settings-page",
             Title = "Workspace Settings",
             Sections =
             [
-                new FormPageSectionSchema { Key = "general", Label = "General", Fields = [new FormFieldSchema { Key = "site", Label = "Site Name", Required = true }] },
-                new FormPageSectionSchema { Key = "notes", Label = "Notes", Optional = true, Fields = [new FormFieldSchema { Key = "note", Label = "Note" }] }
+                new DynamicSectionSchema { Key = "general", Label = "General", Fields = [new DynamicFieldSchema { Key = "site", Label = "Site Name", Required = true }] },
+                new DynamicSectionSchema { Key = "notes", Label = "Notes", Optional = true, Fields = [new DynamicFieldSchema { Key = "note", Label = "Note" }] }
             ]
         };
-        var pageCtrl = new FormController(pageSchema);
-        var pageCut = Render<KlyFormPage>(p => p.Add(x => x.Form, pageCtrl));
+        var pageCtrl = new DynamicFormController(pageSchema);
+        var pageCut = Render<KlyDynamicFormPage>(p => p.Add(x => x.Form, pageCtrl));
         Assert.Contains("General", pageCut.Markup);
         Assert.Contains("Notes", pageCut.Markup);
     }
@@ -230,13 +231,13 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     public async Task KlyFormProvider_and_FormService_handle_both_Submit_and_Cancel_outcomes()
     {
         var provider = Render<KlyFormProvider>();
-        var svc = Services.GetRequiredService<FormService>();
+        var svc = Services.GetRequiredService<DynamicFormService>();
 
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "modal-create",
             Title = "Create Project",
-            Fields = [new FormFieldSchema { Key = "name", Label = "Name", Required = true, DefaultValue = "KlyrooApp" }]
+            Fields = [new DynamicFieldSchema { Key = "name", Label = "Name", Required = true, DefaultValue = "KlyrooApp" }]
         };
 
         // 1. Open in Modal & submit
@@ -262,13 +263,13 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     public async Task KlyFormProvider_submit_button_runs_schema_hooks_once()
     {
         var provider = Render<KlyFormProvider>();
-        var svc = Services.GetRequiredService<FormService>();
+        var svc = Services.GetRequiredService<DynamicFormService>();
         var beforeSubmitCalls = 0;
         var submitCalls = 0;
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "overlay-once",
-            Fields = [new FormFieldSchema { Key = "name", Label = "Name", DefaultValue = "Klyroo" }],
+            Fields = [new DynamicFieldSchema { Key = "name", Label = "Name", DefaultValue = "Klyroo" }],
             OnBeforeSubmit = _ => { beforeSubmitCalls++; return Task.FromResult(true); },
             OnSubmit = _ => { submitCalls++; return Task.CompletedTask; },
         };
@@ -290,12 +291,12 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [InlineData(FormFieldKind.Switch)]
     public void Required_checkbox_and_switch_must_be_checked(FormFieldKind kind)
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "consent",
-            Fields = [new FormFieldSchema { Key = "terms", Label = "Terms", Kind = kind, Required = true }]
+            Fields = [new DynamicFieldSchema { Key = "terms", Label = "Terms", Kind = kind, Required = true }]
         };
-        var ctrl = new FormController(schema, new Dictionary<string, object?> { ["terms"] = false });
+        var ctrl = new DynamicFormController(schema, new Dictionary<string, object?> { ["terms"] = false });
 
         Assert.False(ctrl.Validate());
         Assert.Equal("This field is required", ctrl.GetError("terms"));
@@ -307,12 +308,12 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     [Fact]
     public void MaxLength_is_validated_without_a_custom_rule()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "max-length",
-            Fields = [new FormFieldSchema { Key = "code", Label = "Code", MaxLength = 4 }]
+            Fields = [new DynamicFieldSchema { Key = "code", Label = "Code", MaxLength = 4 }]
         };
-        var ctrl = new FormController(schema, new Dictionary<string, object?> { ["code"] = "TOO-LONG" });
+        var ctrl = new DynamicFormController(schema, new Dictionary<string, object?> { ["code"] = "TOO-LONG" });
 
         Assert.False(ctrl.Validate());
         Assert.Equal("Must be at most 4 characters", ctrl.GetError("code"));
@@ -325,17 +326,17 @@ public sealed class FormEngineUiAndEdgeCaseTests : BunitContext
     public void Hidden_and_omitted_list_columns_leave_the_output_rows()
     {
         var showNotes = false;
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines", Label = "Lines", Kind = FormFieldKind.ArrayList,
             Fields =
             [
-                new FormFieldSchema { Key = "sku", Label = "SKU" },
-                new FormFieldSchema { Key = "notes", Label = "Notes", Condition = _ => showNotes },
-                new FormFieldSchema { Key = "tmp", Label = "Tmp", OmitFromOutput = true },
+                new DynamicFieldSchema { Key = "sku", Label = "SKU" },
+                new DynamicFieldSchema { Key = "notes", Label = "Notes", Condition = _ => showNotes },
+                new DynamicFieldSchema { Key = "tmp", Label = "Tmp", OmitFromOutput = true },
             ],
         };
-        var ctrl = new FormController(new FormSchema { FormKey = "order", Fields = [lines] });
+        var ctrl = new DynamicFormController(new DynamicFormSchema { FormKey = "order", Fields = [lines] });
         ctrl.AddArrayItem(lines);
         ctrl.SetArrayItemValue("lines", 0, "sku", "A-1");
         ctrl.SetArrayItemValue("lines", 0, "notes", "fragile");

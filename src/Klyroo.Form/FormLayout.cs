@@ -1,9 +1,10 @@
+using Klyroo.Form.Dynamic;
 namespace Klyroo.Form;
 
-// Grid helpers shared by the components: FormSchema.Columns sets the column count and every span is clamped to it.
+// Grid helpers shared by the components: DynamicFormSchema.Columns sets the column count and every span is clamped to it.
 internal static class FormLayout
 {
-    public static int Columns(FormSchema schema) => Math.Clamp(schema.Columns, 1, 12);
+    public static int Columns(DynamicFormSchema schema) => Math.Clamp(schema.Columns, 1, 12);
 
     public static string GridStyle(int columns) => $"grid-template-columns: repeat({columns}, minmax(0, 1fr))";
 
@@ -29,13 +30,13 @@ internal static class FormLayout
     public static string SummaryId(string formKey) => Id("summary-" + formKey);
 
     // The id of the control to focus for an error: the field, the cell of a list, or the summary when the error belongs to the form.
-    public static string TargetId(FormController form, FormErrorEntry entry) =>
+    public static string TargetId(DynamicFormController form, FormErrorEntry entry) =>
         entry.FieldKey is null ? SummaryId(form.Schema.FormKey)
         : entry.RowIndex is { } row && entry.ChildKey is { } child ? Id($"{entry.FieldKey}-{row}-{child}")
         : Id(entry.FieldKey);
 
     // The id to focus after a failed submit or Next: the first field in error, else the summary, else nothing.
-    public static string? FirstErrorTargetId(FormController form)
+    public static string? FirstErrorTargetId(DynamicFormController form)
     {
         var entries = form.GetErrorEntries();
         return entries.Count == 0 ? null : TargetId(form, entries[0]);

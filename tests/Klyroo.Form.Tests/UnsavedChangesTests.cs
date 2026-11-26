@@ -3,50 +3,51 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
 public sealed class UnsavedChangesTests : BunitContext
 {
-    private static FormSchema Schema() => new()
+    private static DynamicFormSchema Schema() => new()
     {
         FormKey = "draft",
         Steps =
         [
-            new FormStepSchema
+            new DynamicStepSchema
             {
                 Key = "a",
                 Title = "A",
                 Fields =
                 [
-                    new FormFieldSchema { Key = "name", Label = "Name" },
-                    new FormFieldSchema { Key = "age", Kind = FormFieldKind.Number },
-                    new FormFieldSchema { Key = "rating", Kind = FormFieldKind.Rating },
-                    new FormFieldSchema { Key = "agree", Kind = FormFieldKind.Switch },
-                    new FormFieldSchema { Key = "tags", Kind = FormFieldKind.Tag },
-                    new FormFieldSchema { Key = "password", Kind = FormFieldKind.Password },
-                    new FormFieldSchema { Key = "code", Kind = FormFieldKind.OneTimeCode },
-                    new FormFieldSchema
+                    new DynamicFieldSchema { Key = "name", Label = "Name" },
+                    new DynamicFieldSchema { Key = "age", Kind = FormFieldKind.Number },
+                    new DynamicFieldSchema { Key = "rating", Kind = FormFieldKind.Rating },
+                    new DynamicFieldSchema { Key = "agree", Kind = FormFieldKind.Switch },
+                    new DynamicFieldSchema { Key = "tags", Kind = FormFieldKind.Tag },
+                    new DynamicFieldSchema { Key = "password", Kind = FormFieldKind.Password },
+                    new DynamicFieldSchema { Key = "code", Kind = FormFieldKind.OneTimeCode },
+                    new DynamicFieldSchema
                     {
                         Key = "lines",
                         Kind = FormFieldKind.ArrayList,
                         Fields =
                         [
-                            new FormFieldSchema { Key = "sku" },
-                            new FormFieldSchema { Key = "qty", Kind = FormFieldKind.Number },
+                            new DynamicFieldSchema { Key = "sku" },
+                            new DynamicFieldSchema { Key = "qty", Kind = FormFieldKind.Number },
                         ],
                     },
                 ],
             },
-            new FormStepSchema { Key = "b", Title = "B", Fields = [new FormFieldSchema { Key = "note" }] },
+            new DynamicStepSchema { Key = "b", Title = "B", Fields = [new DynamicFieldSchema { Key = "note" }] },
         ],
     };
 
     private static readonly Dictionary<string, object?> Initial = new() { ["name"] = "Ada" };
 
-    private static FormController Edited()
+    private static DynamicFormController Edited()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         form.SetValue("name", "Grace");
         form.SetValue("age", 36.0);
         form.SetValue("rating", 4);
@@ -65,7 +66,7 @@ public sealed class UnsavedChangesTests : BunitContext
     public void A_restored_draft_is_dirty_against_the_original_baseline()
     {
         var draft = Edited().ExportState();
-        var fresh = new FormController(Schema(), Initial);
+        var fresh = new DynamicFormController(Schema(), Initial);
         Assert.False(fresh.IsDirty);
 
         fresh.RestoreDraft(draft);
@@ -83,11 +84,11 @@ public sealed class UnsavedChangesTests : BunitContext
     public void Reset_with_the_same_values_would_have_made_the_draft_clean_which_is_what_RestoreDraft_avoids()
     {
         var draft = Edited().ExportState();
-        var viaReset = new FormController(Schema(), Initial);
+        var viaReset = new DynamicFormController(Schema(), Initial);
         viaReset.Reset(draft.Values);
         Assert.False(viaReset.IsDirty);
 
-        var viaRestore = new FormController(Schema(), Initial);
+        var viaRestore = new DynamicFormController(Schema(), Initial);
         viaRestore.RestoreDraft(draft);
         Assert.True(viaRestore.IsDirty);
     }
@@ -95,7 +96,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public void Restoring_the_baseline_values_makes_the_form_clean_again()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         form.SetValue("name", "Grace");
         var typed = form.ExportState();
         form.ResetField("name");
@@ -103,7 +104,7 @@ public sealed class UnsavedChangesTests : BunitContext
 
         form.RestoreDraft(typed);
         Assert.True(form.IsDirty);
-        form.RestoreDraft(new FormController(Schema(), Initial).ExportState());
+        form.RestoreDraft(new DynamicFormController(Schema(), Initial).ExportState());
         Assert.False(form.IsDirty);
     }
 
@@ -128,8 +129,8 @@ public sealed class UnsavedChangesTests : BunitContext
     {
         var source = Edited();
         source.SetValue("name", "Grace");
-        var draft = new FormDraft(new Dictionary<string, object?> { ["note"] = "n" }, StepIndex: 1);
-        var form = new FormController(Schema(), Initial);
+        var draft = new FormDraft(new Dictionary<string, object?> { ["note"] = "n" }, stepIndex: 1);
+        var form = new DynamicFormController(Schema(), Initial);
 
         form.RestoreDraft(draft);
 
@@ -142,13 +143,13 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public void RestoreDraft_clears_errors_touched_state_and_ignores_unknown_keys_and_out_of_range_steps()
     {
-        var form = new FormController(
-            new FormSchema { FormKey = "x", Fields = [new FormFieldSchema { Key = "a", Required = true }] });
+        var form = new DynamicFormController(
+            new DynamicFormSchema { FormKey = "x", Fields = [new DynamicFieldSchema { Key = "a", Required = true }] });
         form.Validate();
         form.SetFormError("boom");
         Assert.True(form.HasBlockingErrors);
 
-        form.RestoreDraft(new FormDraft(new Dictionary<string, object?> { ["a"] = "v", ["ghost"] = 1 }, StepIndex: 9));
+        form.RestoreDraft(new FormDraft(new Dictionary<string, object?> { ["a"] = "v", ["ghost"] = 1 }, stepIndex: 9));
 
         Assert.False(form.HasBlockingErrors);
         Assert.Empty(form.Errors);
@@ -160,10 +161,10 @@ public sealed class UnsavedChangesTests : BunitContext
     public void RestoreDraft_does_not_call_Watch()
     {
         var calls = 0;
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "x",
-            Fields = [new FormFieldSchema { Key = "a", Watch = (_, _) => calls++ }],
+            Fields = [new DynamicFieldSchema { Key = "a", Watch = (_, _) => calls++ }],
         });
 
         form.RestoreDraft(new FormDraft(new Dictionary<string, object?> { ["a"] = "v" }));
@@ -176,7 +177,7 @@ public sealed class UnsavedChangesTests : BunitContext
     {
         var json = Edited().ExportState().ToJson();
         var draft = FormDraft.FromJson(json);
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
 
         form.RestoreDraft(draft);
 
@@ -195,17 +196,17 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public void An_empty_list_in_json_becomes_an_empty_set_of_rows_and_dates_stay_text()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "x",
             Fields =
             [
-                new FormFieldSchema { Key = "lines", Kind = FormFieldKind.ArrayList, Fields = [new FormFieldSchema { Key = "sku" }] },
-                new FormFieldSchema { Key = "when", Kind = FormFieldKind.Date },
-                new FormFieldSchema { Key = "span", Kind = FormFieldKind.DateRange },
+                new DynamicFieldSchema { Key = "lines", Kind = FormFieldKind.ArrayList, Fields = [new DynamicFieldSchema { Key = "sku" }] },
+                new DynamicFieldSchema { Key = "when", Kind = FormFieldKind.Date },
+                new DynamicFieldSchema { Key = "span", Kind = FormFieldKind.DateRange },
             ],
         };
-        var form = new FormController(schema);
+        var form = new DynamicFormController(schema);
 
         form.RestoreDraft(FormDraft.FromJson("""{"version":1,"step":0,"values":{"lines":[],"when":"2026-11-26","span":["2026-01-01","2026-01-31"]}}"""));
 
@@ -247,7 +248,7 @@ public sealed class UnsavedChangesTests : BunitContext
         await Task.Delay(50, Xunit.TestContext.Current.CancellationToken);
     }
 
-    private (IRenderedComponent<KlyFormNavigationGuard> Cut, NavigationManager Nav) Guard(FormController form, Action<ComponentParameterCollectionBuilder<KlyFormNavigationGuard>>? configure = null)
+    private (IRenderedComponent<KlyFormNavigationGuard> Cut, NavigationManager Nav) Guard(DynamicFormController form, Action<ComponentParameterCollectionBuilder<KlyFormNavigationGuard>>? configure = null)
     {
         Services.AddKlyrooForm();
         JSInterop.Mode = JSRuntimeMode.Loose;
@@ -262,7 +263,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public async Task Guard_prevents_internal_navigation_while_dirty_when_the_user_declines()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var (_, nav) = Guard(form, p => p.Add(c => c.ConfirmLeave, _ => Task.FromResult(false)));
         var start = nav.Uri;
         form.SetValue("name", "Grace");
@@ -276,7 +277,7 @@ public sealed class UnsavedChangesTests : BunitContext
     public async Task Guard_lets_internal_navigation_through_when_the_user_confirms_or_the_form_is_clean()
     {
         var asked = 0;
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var (_, nav) = Guard(form, p => p.Add(c => c.ConfirmLeave, _ =>
         {
             asked++;
@@ -296,7 +297,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public async Task Guard_uses_window_confirm_with_the_message_by_default()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var (_, nav) = Guard(form, p => p.Add(c => c.Message, "Really leave?"));
         var confirm = JSInterop.Setup<bool>("confirm", "Really leave?");
         confirm.SetResult(false);
@@ -312,7 +313,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public async Task Guard_stops_blocking_once_a_submission_succeeds()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var asked = 0;
         var (_, nav) = Guard(form, p => p.Add(c => c.ConfirmLeave, _ =>
         {
@@ -331,7 +332,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public async Task Disabled_guard_never_asks()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var (_, nav) = Guard(form, p => p.Add(c => c.Disabled, true).Add(c => c.ConfirmLeave, _ => Task.FromResult(false)));
         form.SetValue("name", "Grace");
 
@@ -343,7 +344,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public void Guard_asks_the_browser_to_confirm_external_navigation_only_while_dirty()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         var (cut, _) = Guard(form);
         Assert.DoesNotContain(JSInterop.Invocations, i => i.Identifier.Contains("enableNavigationPrompt", StringComparison.Ordinal));
 
@@ -357,7 +358,7 @@ public sealed class UnsavedChangesTests : BunitContext
     [Fact]
     public void Guard_without_external_confirmation_does_not_enable_the_browser_prompt()
     {
-        var form = new FormController(Schema(), Initial);
+        var form = new DynamicFormController(Schema(), Initial);
         _ = Guard(form, p => p.Add(c => c.ConfirmExternalNavigation, false));
 
         form.SetValue("name", "Grace");

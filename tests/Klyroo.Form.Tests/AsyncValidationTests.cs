@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -19,7 +20,7 @@ public sealed class AsyncValidationTests : BunitContext
         public List<CancellationToken> Tokens { get; } = [];
         public Dictionary<string, TaskCompletionSource<string?>> Pending { get; } = [];
 
-        public FormAsyncValidatorRule Rule(TimeSpan? debounce = null) =>
+        public DynamicAsyncValidatorRule Rule(TimeSpan? debounce = null) =>
             new("free", async (value, _, ct) =>
             {
                 var text = value?.ToString() ?? "";
@@ -34,17 +35,17 @@ public sealed class AsyncValidationTests : BunitContext
         public void Release(string value, string? message = null) => Pending[value].SetResult(message);
     }
 
-    private static FormFieldSchema Username(Gate gate, FormValidationTrigger trigger = FormValidationTrigger.Blur, TimeSpan? debounce = null, bool required = false) => new()
+    private static DynamicFieldSchema Username(Gate gate, FormValidationTrigger trigger = FormValidationTrigger.Blur, TimeSpan? debounce = null, bool required = false) => new()
     {
         Key = "username",
         Label = "Username",
         Required = required,
         Trigger = trigger,
-        Validators = [new FormValidatorRule("length", "Too short", (v, _) => (v?.ToString() ?? "").Length is 0 or >= 3)],
+        Validators = [new DynamicValidatorRule("length", "Too short", (v, _) => (v?.ToString() ?? "").Length is 0 or >= 3)],
         AsyncValidators = [gate.Rule(debounce)],
     };
 
-    private static FormController Form(params FormFieldSchema[] fields) => new(new FormSchema { FormKey = "a", Fields = fields });
+    private static DynamicFormController Form(params DynamicFieldSchema[] fields) => new(new DynamicFormSchema { FormKey = "a", Fields = fields });
 
     private static async Task Until(Func<bool> condition)
     {
@@ -256,10 +257,10 @@ public sealed class AsyncValidationTests : BunitContext
     public async Task An_exception_in_a_background_run_is_swallowed_and_submission_reports_it()
     {
         var calls = 0;
-        var field = new FormFieldSchema
+        var field = new DynamicFieldSchema
         {
             Key = "username",
-            AsyncValidators = [new FormAsyncValidatorRule("net", (_, _, _) =>
+            AsyncValidators = [new DynamicAsyncValidatorRule("net", (_, _, _) =>
             {
                 calls++;
                 throw new HttpRequestException("offline");
@@ -281,13 +282,13 @@ public sealed class AsyncValidationTests : BunitContext
     public async Task NextStepAsync_waits_for_the_rules_of_the_current_step()
     {
         var gate = new Gate();
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "wizard",
             Steps =
             [
-                new FormStepSchema { Key = "a", Title = "A", Fields = [Username(gate)] },
-                new FormStepSchema { Key = "b", Title = "B", Fields = [new FormFieldSchema { Key = "other" }] },
+                new DynamicStepSchema { Key = "a", Title = "A", Fields = [Username(gate)] },
+                new DynamicStepSchema { Key = "b", Title = "B", Fields = [new DynamicFieldSchema { Key = "other" }] },
             ],
         });
         form.SetValue("username", "ada");
@@ -314,14 +315,14 @@ public sealed class AsyncValidationTests : BunitContext
     public async Task Rules_of_a_field_run_in_order_and_the_first_message_wins()
     {
         var order = new List<string>();
-        var field = new FormFieldSchema
+        var field = new DynamicFieldSchema
         {
             Key = "x",
             AsyncValidators =
             [
-                new FormAsyncValidatorRule("one", (_, _, _) => { order.Add("one"); return ValueTask.FromResult<string?>(null); }) { Debounce = TimeSpan.Zero },
-                new FormAsyncValidatorRule("two", (_, _, _) => { order.Add("two"); return ValueTask.FromResult<string?>("two failed"); }) { Debounce = TimeSpan.Zero },
-                new FormAsyncValidatorRule("three", (_, _, _) => { order.Add("three"); return ValueTask.FromResult<string?>("three failed"); }) { Debounce = TimeSpan.Zero },
+                new DynamicAsyncValidatorRule("one", (_, _, _) => { order.Add("one"); return ValueTask.FromResult<string?>(null); }) { Debounce = TimeSpan.Zero },
+                new DynamicAsyncValidatorRule("two", (_, _, _) => { order.Add("two"); return ValueTask.FromResult<string?>("two failed"); }) { Debounce = TimeSpan.Zero },
+                new DynamicAsyncValidatorRule("three", (_, _, _) => { order.Add("three"); return ValueTask.FromResult<string?>("three failed"); }) { Debounce = TimeSpan.Zero },
             ],
         };
         var form = Form(field);
@@ -371,8 +372,8 @@ public sealed class AsyncValidationTests : BunitContext
     {
         var gate = new Gate();
         var hidden = Username(gate);
-        var form = Form(new FormFieldSchema { Key = "gate", DefaultValue = "closed" },
-            new FormFieldSchema
+        var form = Form(new DynamicFieldSchema { Key = "gate", DefaultValue = "closed" },
+            new DynamicFieldSchema
             {
                 Key = "username",
                 Condition = f => f.GetValue<string>("gate") == "open",
@@ -389,7 +390,7 @@ public sealed class AsyncValidationTests : BunitContext
     {
         var gate = new Gate();
         var form = Form(Username(gate));
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         var input = cut.Find("#kly-ff-username");
 
         await input.InputAsync("ada");
@@ -420,7 +421,7 @@ public sealed class AsyncValidationTests : BunitContext
         var gate = new Gate();
         var form = Form(Username(gate));
         form.SetValue("username", "ada");
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         var submit = cut.Find("form").SubmitAsync();
         await Until(() => gate.Calls.Count == 1);

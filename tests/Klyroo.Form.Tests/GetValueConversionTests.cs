@@ -1,5 +1,6 @@
 using System.Globalization;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -10,9 +11,9 @@ public sealed class GetValueConversionTests
     [Flags]
     private enum Perm { None = 0, Read = 1, Write = 2 }
 
-    private static FormController With(object? value)
+    private static DynamicFormController With(object? value)
     {
-        var form = new FormController(new FormSchema { FormKey = "c", Fields = [new FormFieldSchema { Key = "v" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "c", Fields = [new DynamicFieldSchema { Key = "v" }] });
         form.SetValue("v", value);
         return form;
     }
@@ -233,19 +234,19 @@ public sealed class GetValueConversionTests
     [Fact]
     public void Controls_values_round_trip_through_GetValue()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "rt",
             Fields =
             [
-                new FormFieldSchema { Key = "d", Kind = FormFieldKind.Date },
-                new FormFieldSchema { Key = "dt", Kind = FormFieldKind.DateTime },
-                new FormFieldSchema { Key = "t", Kind = FormFieldKind.Time },
-                new FormFieldSchema { Key = "n", Kind = FormFieldKind.Number },
-                new FormFieldSchema { Key = "r", Kind = FormFieldKind.Rating },
+                new DynamicFieldSchema { Key = "d", Kind = FormFieldKind.Date },
+                new DynamicFieldSchema { Key = "dt", Kind = FormFieldKind.DateTime },
+                new DynamicFieldSchema { Key = "t", Kind = FormFieldKind.Time },
+                new DynamicFieldSchema { Key = "n", Kind = FormFieldKind.Number },
+                new DynamicFieldSchema { Key = "r", Kind = FormFieldKind.Rating },
             ],
         };
-        var form = new FormController(schema);
+        var form = new DynamicFormController(schema);
         form.SetValue("d", "2026-11-26");
         form.SetValue("dt", "2026-11-26T09:30");
         form.SetValue("t", "09:30");

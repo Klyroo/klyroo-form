@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -31,7 +32,7 @@ public sealed class RobustnessTests : BunitContext
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
-    private static FormController Form(params FormFieldSchema[] fields) => new(new FormSchema { FormKey = "r", Fields = fields });
+    private static DynamicFormController Form(params DynamicFieldSchema[] fields) => new(new DynamicFormSchema { FormKey = "r", Fields = fields });
 
     private static async Task Until(Func<bool> condition)
     {
@@ -50,7 +51,7 @@ public sealed class RobustnessTests : BunitContext
         public List<CancellationToken> Tokens { get; } = [];
         public Dictionary<string, TaskCompletionSource<string?>> Pending { get; } = [];
 
-        public FormAsyncValidatorRule Rule() => new("gate", async (value, _, ct) =>
+        public DynamicAsyncValidatorRule Rule() => new("gate", async (value, _, ct) =>
         {
             var text = value?.ToString() ?? "";
             var source = Pending[text] = new TaskCompletionSource<string?>();
@@ -66,7 +67,7 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task Every_field_is_disabled_while_a_submission_runs()
     {
-        var field = new FormFieldSchema { Key = "a" };
+        var field = new DynamicFieldSchema { Key = "a" };
         var form = Form(field);
         var release = new TaskCompletionSource<bool>();
         Assert.False(form.IsFieldDisabled(field));
@@ -84,9 +85,9 @@ public sealed class RobustnessTests : BunitContext
     {
         var release = new TaskCompletionSource<bool>();
         var form = Form(
-            new FormFieldSchema { Key = "a", Label = "A" },
-            new FormFieldSchema { Key = "t", Kind = FormFieldKind.Checkbox, Label = "T" });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, async (_, _) => await release.Task));
+            new DynamicFieldSchema { Key = "a", Label = "A" },
+            new DynamicFieldSchema { Key = "t", Kind = FormFieldKind.Checkbox, Label = "T" });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, async (_, _) => await release.Task));
 
         var submit = cut.Find("form").SubmitAsync();
 
@@ -103,8 +104,8 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task An_exception_in_OnSave_becomes_a_localized_form_error_and_is_logged()
     {
-        var form = Form(new FormFieldSchema { Key = "a" });
-        var cut = Render<KlyFormEngine>(p => p
+        var form = Form(new DynamicFieldSchema { Key = "a" });
+        var cut = Render<KlyDynamicFormEngine>(p => p
             .AddCascadingValue(KlyLocales.Fr)
             .Add(c => c.Form, form)
             .Add(c => c.OnSave, (_, _) => throw new InvalidOperationException("db down")));
@@ -120,8 +121,8 @@ public sealed class RobustnessTests : BunitContext
     public async Task The_failure_notice_does_not_block_a_second_attempt_and_goes_away_with_it()
     {
         var calls = 0;
-        var form = Form(new FormFieldSchema { Key = "a" });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, (_, _) =>
+        var form = Form(new DynamicFieldSchema { Key = "a" });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, (_, _) =>
         {
             if (++calls == 1) throw new InvalidOperationException("once");
             return Task.FromResult(true);
@@ -139,30 +140,30 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task An_exception_in_an_async_rule_an_OnSubmit_callback_and_a_Next_hook_is_reported_in_the_form()
     {
-        var throwing = new FormFieldSchema
+        var throwing = new DynamicFieldSchema
         {
             Key = "a",
             DefaultValue = "x",
-            AsyncValidators = [new FormAsyncValidatorRule("net", (_, _, _) => throw new HttpRequestException("offline")) { Debounce = TimeSpan.Zero }],
+            AsyncValidators = [new DynamicAsyncValidatorRule("net", (_, _, _) => throw new HttpRequestException("offline")) { Debounce = TimeSpan.Zero }],
         };
         var rule = Form(throwing);
-        var ruleCut = Render<KlyFormEngine>(p => p.Add(c => c.Form, rule));
+        var ruleCut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, rule));
         await ruleCut.Find("form").SubmitAsync();
         Assert.Contains("Something went wrong", ruleCut.Find("[data-slot=form-error-summary]").TextContent, StringComparison.Ordinal);
         Assert.False(rule.IsSubmitting);
 
-        var plain = Form(new FormFieldSchema { Key = "a" });
-        var callbackCut = Render<KlyFormEngine>(p => p.Add(c => c.Form, plain).Add(c => c.OnSubmit, _ => throw new InvalidOperationException("callback")));
+        var plain = Form(new DynamicFieldSchema { Key = "a" });
+        var callbackCut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, plain).Add(c => c.OnSubmit, _ => throw new InvalidOperationException("callback")));
         await callbackCut.Find("form").SubmitAsync();
         Assert.Contains("Something went wrong", callbackCut.Find("[data-slot=form-error-summary]").TextContent, StringComparison.Ordinal);
 
-        var wizard = new FormController(new FormSchema
+        var wizard = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "w",
-            Steps = [new FormStepSchema { Key = "a", Title = "A" }, new FormStepSchema { Key = "b", Title = "B" }],
+            Steps = [new DynamicStepSchema { Key = "a", Title = "A" }, new DynamicStepSchema { Key = "b", Title = "B" }],
             OnBeforeNext = (_, _) => throw new InvalidOperationException("hook"),
         });
-        var nextCut = Render<KlyFormEngine>(p => p.Add(c => c.Form, wizard));
+        var nextCut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, wizard));
         await nextCut.Find("[data-slot=form-action-next]").ClickAsync();
         Assert.Contains("Something went wrong", nextCut.Find("[data-slot=form-error-summary]").TextContent, StringComparison.Ordinal);
         Assert.Equal(0, wizard.CurrentStepIndex);
@@ -172,12 +173,12 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task An_exception_in_the_page_save_is_reported_too()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "p",
-            Sections = [new FormPageSectionSchema { Key = "s", Label = "S", Fields = [new FormFieldSchema { Key = "a" }] }],
+            Sections = [new DynamicSectionSchema { Key = "s", Label = "S", Fields = [new DynamicFieldSchema { Key = "a" }] }],
         });
-        var cut = Render<KlyFormPage>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, (_, _) => throw new InvalidOperationException("boom")));
+        var cut = Render<KlyDynamicFormPage>(p => p.Add(c => c.Form, form).Add(c => c.OnSave, (_, _) => throw new InvalidOperationException("boom")));
 
         await cut.Find("form").SubmitAsync();
 
@@ -189,7 +190,7 @@ public sealed class RobustnessTests : BunitContext
     public async Task An_edit_that_replaces_a_running_rule_never_surfaces_as_a_cancellation_from_ValidateAsync()
     {
         var gate = new Gate();
-        var form = Form(new FormFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
+        var form = Form(new DynamicFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
         form.SetValue("u", "ada");
 
         var run = form.ValidateAsync(cancellationToken: Xunit.TestContext.Current.CancellationToken);
@@ -207,7 +208,7 @@ public sealed class RobustnessTests : BunitContext
     public async Task A_submit_whose_rule_is_replaced_by_an_edit_waits_for_the_new_value()
     {
         var gate = new Gate();
-        var form = Form(new FormFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
+        var form = Form(new DynamicFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
         form.SetValue("u", "ada");
         var handled = false;
 
@@ -228,11 +229,11 @@ public sealed class RobustnessTests : BunitContext
     public async Task A_value_that_keeps_changing_under_its_rule_is_never_reported_valid()
     {
         var calls = 0;
-        var field = new FormFieldSchema
+        var field = new DynamicFieldSchema
         {
             Key = "u",
             Trigger = FormValidationTrigger.Submit,
-            AsyncValidators = [new FormAsyncValidatorRule("churn", (value, form, _) =>
+            AsyncValidators = [new DynamicAsyncValidatorRule("churn", (value, form, _) =>
             {
                 calls++;
                 form.SetValue("u", value + "!");
@@ -257,8 +258,8 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task The_baseline_after_a_save_is_what_the_handler_received_not_what_the_state_became()
     {
-        var form = new FormController(
-            new FormSchema { FormKey = "s", Fields = [new FormFieldSchema { Key = "name" }] },
+        var form = new DynamicFormController(
+            new DynamicFormSchema { FormKey = "s", Fields = [new DynamicFieldSchema { Key = "name" }] },
             new Dictionary<string, object?> { ["name"] = "old" });
         form.SetValue("name", "typed");
         object? received = null;
@@ -278,17 +279,17 @@ public sealed class RobustnessTests : BunitContext
 
     // 4 and 5. Drafts
 
-    private static FormFieldSchema Lines() => new()
+    private static DynamicFieldSchema Lines() => new()
     {
         Key = "lines",
         Kind = FormFieldKind.ArrayList,
         Fields =
         [
-            new FormFieldSchema { Key = "sku" },
-            new FormFieldSchema { Key = "pin", Kind = FormFieldKind.Password },
-            new FormFieldSchema { Key = "otp", Kind = FormFieldKind.OneTimeCode },
-            new FormFieldSchema { Key = "scan", Kind = FormFieldKind.File },
-            new FormFieldSchema { Key = "extra", Kind = FormFieldKind.Custom, CustomKey = "x" },
+            new DynamicFieldSchema { Key = "sku" },
+            new DynamicFieldSchema { Key = "pin", Kind = FormFieldKind.Password },
+            new DynamicFieldSchema { Key = "otp", Kind = FormFieldKind.OneTimeCode },
+            new DynamicFieldSchema { Key = "scan", Kind = FormFieldKind.File },
+            new DynamicFieldSchema { Key = "extra", Kind = FormFieldKind.Custom, CustomKey = "x" },
         ],
     };
 
@@ -319,18 +320,18 @@ public sealed class RobustnessTests : BunitContext
     public void RestoreDraft_never_fills_file_or_custom_fields_or_columns()
     {
         var lines = Lines();
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "d",
             Fields =
             [
-                new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File },
-                new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" },
-                new FormFieldSchema { Key = "name" },
+                new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File },
+                new DynamicFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" },
+                new DynamicFieldSchema { Key = "name" },
                 lines,
             ],
         };
-        var form = new FormController(schema);
+        var form = new DynamicFormController(schema);
 
         form.RestoreDraft(FormDraft.FromJson("""{"version":1,"step":0,"values":{"doc":"evil","pick":"evil","name":"ok","lines":[{"sku":"A","scan":"evil","extra":"evil"}]}}"""));
 
@@ -348,16 +349,16 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task A_chosen_file_is_read_into_memory_and_survives_the_input_being_unmounted()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "w",
             Steps =
             [
-                new FormStepSchema { Key = "a", Title = "A", Fields = [new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc" }] },
-                new FormStepSchema { Key = "b", Title = "B", Fields = [new FormFieldSchema { Key = "other" }] },
+                new DynamicStepSchema { Key = "a", Title = "A", Fields = [new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc" }] },
+                new DynamicStepSchema { Key = "b", Title = "B", Fields = [new DynamicFieldSchema { Key = "other" }] },
             ],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("hello", "note.txt", contentType: "text/plain"));
         await Until(() => form.GetValue("doc") is not null);
@@ -374,8 +375,8 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task Removing_one_of_several_files_keeps_the_others_readable()
     {
-        var form = Form(new FormFieldSchema { Key = "docs", Kind = FormFieldKind.File, Label = "Docs", Multiple = true });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "docs", Kind = FormFieldKind.File, Label = "Docs", Multiple = true });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("one", "a.txt"), InputFileContent.CreateFromText("two", "b.txt"));
         await Until(() => form.GetValue("docs") is not null);
 
@@ -390,8 +391,8 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public async Task A_file_above_MaxFileSize_is_not_read_fails_validation_and_cannot_be_opened()
     {
-        var form = Form(new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", MaxFileSize = 3 });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc", MaxFileSize = 3 });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         cut.FindComponent<InputFile>().UploadFiles(InputFileContent.CreateFromText("hello", "big.txt"));
         await Until(() => form.GetValue("doc") is not null);
@@ -405,7 +406,7 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public void Without_MaxFileSize_a_file_is_limited_to_the_default()
     {
-        var form = Form(new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File });
+        var form = Form(new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File });
         var big = new FormFileValue("big.bin", FormFileValue.DefaultMaxSize + 1, "", _ => ValueTask.FromResult<Stream>(Stream.Null));
         var fine = new FormFileValue("fine.bin", FormFileValue.DefaultMaxSize, "", _ => ValueTask.FromResult<Stream>(Stream.Null));
 
@@ -422,9 +423,9 @@ public sealed class RobustnessTests : BunitContext
     public async Task The_live_region_speaks_once_per_failed_attempt_and_not_on_every_edit()
     {
         var form = Form(
-            new FormFieldSchema { Key = "a", Label = "A", Required = true },
-            new FormFieldSchema { Key = "b", Label = "B", Required = true });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+            new DynamicFieldSchema { Key = "a", Label = "A", Required = true },
+            new DynamicFieldSchema { Key = "b", Label = "B", Required = true });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         string Live() => cut.Find("[data-slot=form-live-region]").TextContent;
         Assert.Equal("", Live());
 
@@ -447,8 +448,8 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public void The_live_region_announces_a_form_level_error_when_it_appears()
     {
-        var form = Form(new FormFieldSchema { Key = "a" });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "a" });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         form.SetFormError("Server unavailable");
         Assert.Contains("Server unavailable", cut.Find("[data-slot=form-live-region]").TextContent, StringComparison.Ordinal);
@@ -464,7 +465,7 @@ public sealed class RobustnessTests : BunitContext
     public async Task Disposing_the_controller_cancels_pending_validations_and_stops_new_ones()
     {
         var gate = new Gate();
-        var form = Form(new FormFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
+        var form = Form(new DynamicFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
         form.SetValue("u", "ada", markTouched: true);
         await Until(() => gate.Calls.Count == 1);
 
@@ -482,8 +483,8 @@ public sealed class RobustnessTests : BunitContext
     public async Task Closing_an_overlay_form_disposes_its_controller()
     {
         var gate = new Gate();
-        var service = Services.GetRequiredService<FormService>();
-        var task = service.CreateFormAsync(new FormSchema { FormKey = "o", Fields = [new FormFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] }] });
+        var service = Services.GetRequiredService<DynamicFormService>();
+        var task = service.CreateFormAsync(new DynamicFormSchema { FormKey = "o", Fields = [new DynamicFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] }] });
         var form = service.ActiveForm!;
         form.SetValue("u", "ada", markTouched: true);
         await Until(() => gate.Calls.Count == 1);
@@ -498,8 +499,8 @@ public sealed class RobustnessTests : BunitContext
     public async Task A_component_cancels_the_pending_validations_when_it_goes_away()
     {
         var gate = new Gate();
-        var form = Form(new FormFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
-        _ = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = Form(new DynamicFieldSchema { Key = "u", AsyncValidators = [gate.Rule()] });
+        _ = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         form.SetValue("u", "ada", markTouched: true);
         await Until(() => gate.Calls.Count == 1);
 
@@ -513,7 +514,7 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public void A_comma_combination_is_an_enum_value_only_for_flags_enums()
     {
-        var form = Form(new FormFieldSchema { Key = "v" });
+        var form = Form(new DynamicFieldSchema { Key = "v" });
         form.SetValue("v", "Low, High");
         Assert.False(form.TryGetValue<Level>("v", out _));
         form.SetValue("v", "Read, Write");
@@ -548,13 +549,13 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public void A_french_controller_reports_a_fractional_bound_and_a_file_limit_in_french()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "f",
             Fields =
             [
-                new FormFieldSchema { Key = "n", Kind = FormFieldKind.Number, Min = 3.5 },
-                new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, MaxFileSize = 1536 },
+                new DynamicFieldSchema { Key = "n", Kind = FormFieldKind.Number, Min = 3.5 },
+                new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, MaxFileSize = 1536 },
             ],
         }) { Messages = FormMessageLocales.Fr };
         form.SetValue("n", 1.0);
@@ -569,9 +570,9 @@ public sealed class RobustnessTests : BunitContext
     [Fact]
     public void The_file_list_shows_sizes_in_the_locale()
     {
-        var form = Form(new FormFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc" });
+        var form = Form(new DynamicFieldSchema { Key = "doc", Kind = FormFieldKind.File, Label = "Doc" });
         form.SetValue("doc", FormFileValue.FromBytes("a.bin", new byte[1536]));
-        var cut = Render<KlyFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.AddCascadingValue(KlyLocales.Fr).Add(c => c.Form, form));
 
         Assert.Contains("1,5 Ko", cut.Find("[data-slot=form-file]").TextContent, StringComparison.Ordinal);
     }

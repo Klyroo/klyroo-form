@@ -45,7 +45,7 @@
     private FormJs _js = default!;
 
     /// <summary>The controller whose errors to list.</summary>
-    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+    [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
 
     protected override void OnInitialized() => _js = new FormJs(Js);
 

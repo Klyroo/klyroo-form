@@ -1,25 +1,26 @@
 using Klyroo.Form;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
 public sealed class ArrayCellTests
 {
-    private static (FormController Form, FormFieldSchema Lines) Invoice(Func<FormController, bool>? noteCondition = null, List<object?>? watched = null)
+    private static (DynamicFormController Form, DynamicFieldSchema Lines) Invoice(Func<DynamicFormController, bool>? noteCondition = null, List<object?>? watched = null)
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayTable,
             Watch = (v, _) => watched?.Add("list"),
             Fields =
             [
-                new FormFieldSchema { Key = "sku", Required = true, MaxLength = 5, Watch = (v, _) => watched?.Add(v) },
-                new FormFieldSchema { Key = "qty", Kind = FormFieldKind.Number, Min = 1, DefaultValue = 1.0 },
-                new FormFieldSchema { Key = "note", Required = true, Condition = noteCondition },
+                new DynamicFieldSchema { Key = "sku", Required = true, MaxLength = 5, Watch = (v, _) => watched?.Add(v) },
+                new DynamicFieldSchema { Key = "qty", Kind = FormFieldKind.Number, Min = 1, DefaultValue = 1.0 },
+                new DynamicFieldSchema { Key = "note", Required = true, Condition = noteCondition },
             ],
         };
-        return (new FormController(new FormSchema { Fields = [lines] }), lines);
+        return (new DynamicFormController(new DynamicFormSchema { Fields = [lines] }), lines);
     }
 
     [Fact]

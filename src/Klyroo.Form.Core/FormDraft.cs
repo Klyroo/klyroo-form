@@ -1,20 +1,31 @@
+using Klyroo.Form.Dynamic;
 using System.Globalization;
 using System.Text.Json;
 
 namespace Klyroo.Form;
 
 /// <summary>
-/// A snapshot of what the user has typed, produced by <see cref="FormController.ExportState"/> and loaded back with <see cref="FormController.RestoreDraft"/>,
+/// A snapshot of what the user has typed, produced by <see cref="DynamicFormController.ExportState"/> and loaded back with <see cref="DynamicFormController.RestoreDraft"/>,
 /// for example to keep a long form across a page reload. It holds values only: the baseline that dirty tracking compares against stays with the controller.
 /// <see cref="ToJson"/> and <see cref="FromJson"/> write and read it without reflection, so it works under NativeAOT and trimming.
 /// </summary>
-/// <param name="Values">The values by key, in the CLR types the controls use (strings, <see cref="double"/>, <see cref="bool"/>, <c>List&lt;string&gt;</c>, rows as <c>List&lt;Dictionary&lt;string, object?&gt;&gt;</c>).</param>
-/// <param name="StepIndex">Zero-based index of the step the user was on. 0 for a form without steps.</param>
-public sealed record FormDraft(IReadOnlyDictionary<string, object?> Values, int StepIndex = 0)
+public sealed class FormDraft
 {
     private const int Version = 1;
 
-    /// <summary>Writes the draft as JSON. Values of other types than the ones of <see cref="Values"/> are written as text.</summary>
+    internal FormDraft(IReadOnlyDictionary<string, object?> values, int stepIndex = 0)
+    {
+        Values = values;
+        StepIndex = stepIndex;
+    }
+
+    // The values by key, in the CLR types the controls use (strings, doubles, booleans, lists of strings, rows as lists of dictionaries).
+    internal IReadOnlyDictionary<string, object?> Values { get; }
+
+    /// <summary>Zero-based index of the step the user was on. 0 for a form without steps.</summary>
+    public int StepIndex { get; }
+
+    /// <summary>Writes the draft as JSON. Values the controls do not use are written as text.</summary>
     /// <returns>A JSON document, for example to store in the browser.</returns>
     public string ToJson()
     {
@@ -31,7 +42,7 @@ public sealed record FormDraft(IReadOnlyDictionary<string, object?> Values, int 
         return System.Text.Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    /// <summary>Reads a draft written by <see cref="ToJson"/>. Numbers come back as <see cref="double"/>, or as <see cref="decimal"/> when their digits do not fit a double (a large <see cref="long"/>); <see cref="FormController.RestoreDraft"/> converts each value to the type its field uses.</summary>
+    /// <summary>Reads a draft written by <see cref="ToJson"/>. Numbers come back as <see cref="double"/>, or as <see cref="decimal"/> when their digits do not fit a double (a large <see cref="long"/>); <see cref="DynamicFormController.RestoreDraft"/> converts each value to the type its field uses.</summary>
     /// <param name="json">The JSON document.</param>
     /// <returns>The draft.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="json"/> is <c>null</c>.</exception>
@@ -56,7 +67,7 @@ public sealed record FormDraft(IReadOnlyDictionary<string, object?> Values, int 
         }
     }
 
-    private static void WriteValue(Utf8JsonWriter writer, object? value)
+    internal static void WriteValue(Utf8JsonWriter writer, object? value)
     {
         switch (value)
         {

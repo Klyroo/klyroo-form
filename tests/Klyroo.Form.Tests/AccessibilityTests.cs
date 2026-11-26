@@ -2,6 +2,7 @@ using Bunit;
 using Klyroo.UI;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -26,8 +27,8 @@ public sealed class AccessibilityTests : BunitContext
     public async Task Provider_overlay_is_a_modal_dialog_that_closes_the_form_when_the_dialog_closes()
     {
         var provider = Render<KlyFormProvider>();
-        var service = Services.GetRequiredService<FormService>();
-        var task = service.CreateFormAsync(new FormSchema { Title = "Quick create", Fields = [new FormFieldSchema { Key = "a" }] });
+        var service = Services.GetRequiredService<DynamicFormService>();
+        var task = service.CreateFormAsync(new DynamicFormSchema { Title = "Quick create", Fields = [new DynamicFieldSchema { Key = "a" }] });
         provider.Render();
 
         var modal = provider.Find("kly-modal");
@@ -49,11 +50,11 @@ public sealed class AccessibilityTests : BunitContext
     public async Task Provider_overlay_cannot_be_dismissed_while_the_form_is_saving()
     {
         var provider = Render<KlyFormProvider>();
-        var service = Services.GetRequiredService<FormService>();
+        var service = Services.GetRequiredService<DynamicFormService>();
         var release = new TaskCompletionSource();
-        _ = service.CreateFormAsync(new FormSchema
+        _ = service.CreateFormAsync(new DynamicFormSchema
         {
-            Fields = [new FormFieldSchema { Key = "a" }],
+            Fields = [new DynamicFieldSchema { Key = "a" }],
             OnSubmit = _ => release.Task,
         });
         provider.Render();
@@ -71,17 +72,17 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task Failed_submit_focuses_the_first_invalid_field()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "f",
             Fields =
             [
-                new FormFieldSchema { Key = "name", Label = "Name", DefaultValue = "ok" },
-                new FormFieldSchema { Key = "email", Label = "Email", Required = true },
-                new FormFieldSchema { Key = "phone", Label = "Phone", Required = true },
+                new DynamicFieldSchema { Key = "name", Label = "Name", DefaultValue = "ok" },
+                new DynamicFieldSchema { Key = "email", Label = "Email", Required = true },
+                new DynamicFieldSchema { Key = "phone", Label = "Phone", Required = true },
             ],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         await cut.Find("form").SubmitAsync();
 
@@ -92,16 +93,16 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task Failed_Next_focuses_the_first_invalid_field_of_the_step()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "wizard",
             Steps =
             [
-                new FormStepSchema { Key = "a", Title = "A", Fields = [new FormFieldSchema { Key = "first", Required = true }] },
-                new FormStepSchema { Key = "b", Title = "B", Fields = [new FormFieldSchema { Key = "second" }] },
+                new DynamicStepSchema { Key = "a", Title = "A", Fields = [new DynamicFieldSchema { Key = "first", Required = true }] },
+                new DynamicStepSchema { Key = "b", Title = "B", Fields = [new DynamicFieldSchema { Key = "second" }] },
             ],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         await cut.Find("[data-slot=form-action-next]").ClickAsync();
 
@@ -112,9 +113,9 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task A_form_level_error_alone_moves_focus_to_the_summary()
     {
-        var form = new FormController(new FormSchema { FormKey = "f", Fields = [new FormFieldSchema { Key = "name" }] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "f", Fields = [new DynamicFieldSchema { Key = "name" }] });
         form.SetFormError("Server unavailable");
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         await cut.Find("form").SubmitAsync();
 
@@ -125,15 +126,15 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task A_failed_cell_focuses_the_cell_control()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
-            Fields = [new FormFieldSchema { Key = "sku", Label = "SKU", Required = true }],
+            Fields = [new DynamicFieldSchema { Key = "sku", Label = "SKU", Required = true }],
         };
-        var form = new FormController(new FormSchema { FormKey = "f", Fields = [lines] });
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "f", Fields = [lines] });
         form.AddArrayItem(lines);
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         await cut.Find("form").SubmitAsync();
 
@@ -146,12 +147,12 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task Summary_link_focuses_its_field()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "f",
-            Fields = [new FormFieldSchema { Key = "email", Label = "Email", Required = true }],
+            Fields = [new DynamicFieldSchema { Key = "email", Label = "Email", Required = true }],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         await cut.Find("form").SubmitAsync();
         cut.WaitForAssertion(() => Assert.Single(FocusedIds(_module)));
 
@@ -163,8 +164,8 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task A_successful_submit_does_not_move_focus()
     {
-        var form = new FormController(new FormSchema { FormKey = "f", Fields = [new FormFieldSchema { Key = "name", DefaultValue = "a" }] });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var form = new DynamicFormController(new DynamicFormSchema { FormKey = "f", Fields = [new DynamicFieldSchema { Key = "name", DefaultValue = "a" }] });
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
 
         await cut.Find("form").SubmitAsync();
 
@@ -174,12 +175,12 @@ public sealed class AccessibilityTests : BunitContext
     [Fact]
     public async Task Field_errors_are_linked_with_aria_describedby_and_are_not_alerts()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             FormKey = "f",
-            Fields = [new FormFieldSchema { Key = "email", Label = "Email", Required = true, Help = "Work address" }],
+            Fields = [new DynamicFieldSchema { Key = "email", Label = "Email", Required = true, Help = "Work address" }],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(c => c.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(c => c.Form, form));
         await cut.Find("form").SubmitAsync();
 
         var input = cut.Find("#kly-ff-email");

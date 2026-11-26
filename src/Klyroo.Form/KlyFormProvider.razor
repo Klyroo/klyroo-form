@@ -1,7 +1,7 @@
 @namespace Klyroo.Form
 @inherits KlyComponentBase
 @implements IDisposable
-@inject FormService FormApi
+@inject DynamicFormService FormApi
 
 @if (ChildContent is not null)
 {
@@ -39,7 +39,7 @@
     private bool _everOpened;
     private FormShellMode _mode = FormShellMode.Modal;
     private string? _lastTitle;
-    private FormController? _subscribed;
+    private DynamicFormController? _subscribed;
 
     /// <summary>The content of the provider, usually the page body. Overlay forms render after it.</summary>
     [Parameter] public RenderFragment? ChildContent { get; set; }
@@ -67,9 +67,9 @@
         _lastTitle = form.Schema.Title;
     }
 
-    private RenderFragment FormBody(FormController? form, FormShellMode mode) => form is null ? @<text></text> :
+    private RenderFragment FormBody(DynamicFormController? form, FormShellMode mode) => form is null ? @<text></text> :
         @<div class="@(mode == FormShellMode.Fullscreen ? "mx-auto w-full max-w-3xl" : "w-full")">
-            <KlyFormEngine @key="form" Form="@form"
+            <KlyDynamicFormEngine @key="form" Form="@form"
                            Shell="@mode"
                            OnSubmit="@(_ => FormApi.CompleteSubmittedForm(form))"
                            OnCancel="@(_ => FormApi.CloseForm())" />

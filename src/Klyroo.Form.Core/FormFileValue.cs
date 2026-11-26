@@ -1,11 +1,12 @@
+using Klyroo.Form.Dynamic;
 using System.Globalization;
 
 namespace Klyroo.Form;
 
 /// <summary>
 /// A file chosen in a <see cref="FormFieldKind.File"/> field, without any UI type: the name, size and content type the user's device reported, and a way to open the content.
-/// The value of a file field is a <see cref="FormFileValue"/> (or <c>null</c>), or a <c>List&lt;FormFileValue&gt;</c> with <see cref="FormFieldSchema.Multiple"/>. The controller checks
-/// <see cref="FormFieldSchema.Accept"/>, <see cref="FormFieldSchema.MaxFileSize"/> and <see cref="FormFieldSchema.Multiple"/> on it, so a test can build one by hand with <see cref="FromBytes"/>.
+/// The value of a file field is a <see cref="FormFileValue"/> (or <c>null</c>), or a <c>List&lt;FormFileValue&gt;</c> with <see cref="DynamicFieldSchema.Multiple"/>. The controller checks
+/// <see cref="DynamicFieldSchema.Accept"/>, <see cref="DynamicFieldSchema.MaxFileSize"/> and <see cref="DynamicFieldSchema.Multiple"/> on it, so a test can build one by hand with <see cref="FromBytes"/>.
 /// </summary>
 public sealed class FormFileValue : IEquatable<FormFileValue>
 {
@@ -85,7 +86,7 @@ public sealed class FormFileValue : IEquatable<FormFileValue>
         return false;
     }
 
-    /// <summary>The largest file a <see cref="FormFieldKind.File"/> field accepts, and keeps in memory, when <see cref="FormFieldSchema.MaxFileSize"/> is not set: 10 MiB.</summary>
+    /// <summary>The largest file a <see cref="FormFieldKind.File"/> field accepts, and keeps in memory, when <see cref="DynamicFieldSchema.MaxFileSize"/> is not set: 10 MiB.</summary>
     public const long DefaultMaxSize = 10L * 1024 * 1024;
 
     /// <summary>Formats a size for a message: <c>512 B</c>, <c>1.5 KB</c>, <c>5 MB</c>. The default is the invariant culture and English-style units; a locale passes its own decimal separator and units (French: <c>1,5 Mo</c>).</summary>

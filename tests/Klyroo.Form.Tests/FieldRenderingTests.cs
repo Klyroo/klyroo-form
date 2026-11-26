@@ -3,6 +3,7 @@ using Klyroo.Form;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -14,35 +15,35 @@ public sealed class FieldRenderingTests : BunitContext
         JSInterop.Mode = JSRuntimeMode.Loose;
     }
 
-    private (IRenderedComponent<KlyFormEngine> Cut, FormController Form) Engine(params FormFieldSchema[] fields)
+    private (IRenderedComponent<KlyDynamicFormEngine> Cut, DynamicFormController Form) Engine(params DynamicFieldSchema[] fields)
     {
-        var form = new FormController(new FormSchema { Fields = fields });
-        return (Render<KlyFormEngine>(p => p.Add(x => x.Form, form)), form);
+        var form = new DynamicFormController(new DynamicFormSchema { Fields = fields });
+        return (Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, form)), form);
     }
 
-    private static string Control(FormFieldSchema field) => $"[data-form-field={field.Key}] [data-slot=form-control]";
+    private static string Control(DynamicFieldSchema field) => $"[data-form-field={field.Key}] [data-slot=form-control]";
 
     [Fact]
     public void KlyFormPage_renders_container_children_and_lists_with_typed_controls_and_labels()
     {
-        var lines = new FormFieldSchema { Key = "lines", Label = "Lines", Kind = FormFieldKind.ArrayList, Fields = [new FormFieldSchema { Key = "sku", Label = "SKU" }] };
-        var form = new FormController(new FormSchema
+        var lines = new DynamicFieldSchema { Key = "lines", Label = "Lines", Kind = FormFieldKind.ArrayList, Fields = [new DynamicFieldSchema { Key = "sku", Label = "SKU" }] };
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             Sections =
             [
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "main", Label = "Main",
                     Fields =
                     [
-                        new FormFieldSchema { Key = "box", Kind = FormFieldKind.Card, Label = "Box", Fields = [new FormFieldSchema { Key = "inner", Label = "Inner" }] },
-                        new FormFieldSchema { Key = "agree", Label = "Agree", Kind = FormFieldKind.Checkbox },
+                        new DynamicFieldSchema { Key = "box", Kind = FormFieldKind.Card, Label = "Box", Fields = [new DynamicFieldSchema { Key = "inner", Label = "Inner" }] },
+                        new DynamicFieldSchema { Key = "agree", Label = "Agree", Kind = FormFieldKind.Checkbox },
                         lines,
                     ],
                 },
             ],
         });
-        var cut = Render<KlyFormPage>(p => p.Add(x => x.Form, form));
+        var cut = Render<KlyDynamicFormPage>(p => p.Add(x => x.Form, form));
 
         var inner = cut.Find("[data-form-field=inner] input");
         Assert.Equal(inner.Id, cut.Find("[data-form-field=inner] label").GetAttribute("for"));
@@ -57,11 +58,11 @@ public sealed class FieldRenderingTests : BunitContext
     public async Task KlyFormPage_is_a_form_so_Enter_submits_it()
     {
         IReadOnlyDictionary<string, object?>? submitted = null;
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
-            Sections = [new FormPageSectionSchema { Key = "s", Label = "S", Fields = [new FormFieldSchema { Key = "name", DefaultValue = "Acme" }] }],
+            Sections = [new DynamicSectionSchema { Key = "s", Label = "S", Fields = [new DynamicFieldSchema { Key = "name", DefaultValue = "Acme" }] }],
         });
-        var cut = Render<KlyFormPage>(p => p.Add(x => x.Form, form).Add(x => x.OnSubmit, d => submitted = d));
+        var cut = Render<KlyDynamicFormPage>(p => p.Add(x => x.Form, form).Add(x => x.OnSubmit, d => submitted = d));
 
         Assert.Equal("submit", cut.Find("[data-slot=form-page-submit]").GetAttribute("type"));
         await cut.Find("form[data-slot=form-page]").SubmitAsync();
@@ -71,7 +72,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Repeatable_lists_show_their_error_required_marker_texts_and_disabled_state()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Label = "Lines",
@@ -82,7 +83,7 @@ public sealed class FieldRenderingTests : BunitContext
             Description = "The order lines",
             Hint = "Max 10",
             Help = "One per product",
-            Fields = [new FormFieldSchema { Key = "sku", Label = "SKU" }],
+            Fields = [new DynamicFieldSchema { Key = "sku", Label = "SKU" }],
         };
         var (cut, form) = Engine(lines);
         form.AddArrayItem(lines);
@@ -108,11 +109,11 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Cells_render_their_kind_and_show_their_errors()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayTable,
-            Fields = [new FormFieldSchema { Key = "qty", Label = "Qty", Kind = FormFieldKind.Number, Required = true }],
+            Fields = [new DynamicFieldSchema { Key = "qty", Label = "Qty", Kind = FormFieldKind.Number, Required = true }],
         };
         var (cut, form) = Engine(lines);
         form.AddArrayItem(lines);
@@ -133,12 +134,12 @@ public sealed class FieldRenderingTests : BunitContext
     {
         var clicks = 0;
         var submits = 0;
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
-            Fields = [new FormFieldSchema { Key = "fill", Label = "Fill from profile", Kind = FormFieldKind.Button, OnClick = _ => { clicks++; return Task.CompletedTask; } }],
+            Fields = [new DynamicFieldSchema { Key = "fill", Label = "Fill from profile", Kind = FormFieldKind.Button, OnClick = _ => { clicks++; return Task.CompletedTask; } }],
             OnSubmit = _ => { submits++; return Task.CompletedTask; },
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, form));
 
         var button = cut.Find("[data-slot=form-button]");
         Assert.Equal("button", button.GetAttribute("type"));
@@ -153,8 +154,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Empty_tabs_and_containers_render_nothing()
     {
         var (cut, _) = Engine(
-            new FormFieldSchema { Key = "t", Label = "T", Kind = FormFieldKind.Tabs, Tabs = [] },
-            new FormFieldSchema { Key = "g", Label = "G", Kind = FormFieldKind.Group });
+            new DynamicFieldSchema { Key = "t", Label = "T", Kind = FormFieldKind.Tabs, Tabs = [] },
+            new DynamicFieldSchema { Key = "g", Label = "G", Kind = FormFieldKind.Group });
 
         Assert.Empty(cut.FindAll("input"));
         Assert.Empty(cut.FindAll("[data-slot=form-container]"));
@@ -164,9 +165,9 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Switch_label_shows_once_and_checkbox_hint_and_reset_show()
     {
-        var sw = new FormFieldSchema { Key = "sw", Label = "Notifications", Kind = FormFieldKind.Switch };
-        var cb = new FormFieldSchema { Key = "cb", Label = "Agree", Kind = FormFieldKind.Checkbox, Hint = "Required by law", DirtyCheck = true };
-        var plain = new FormFieldSchema { Key = "plain", Hint = "No label", DirtyCheck = true };
+        var sw = new DynamicFieldSchema { Key = "sw", Label = "Notifications", Kind = FormFieldKind.Switch };
+        var cb = new DynamicFieldSchema { Key = "cb", Label = "Agree", Kind = FormFieldKind.Checkbox, Hint = "Required by law", DirtyCheck = true };
+        var plain = new DynamicFieldSchema { Key = "plain", Hint = "No label", DirtyCheck = true };
         var (cut, form) = Engine(sw, cb, plain);
         form.SetValue("cb", true);
         form.SetValue("plain", "x");
@@ -183,7 +184,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void A_radio_group_has_an_id_and_is_labelled_by_an_existing_element()
     {
-        var radio = new FormFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, Options = [new("a", "A"), new("b", "B")] };
+        var radio = new DynamicFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, Options = [new("a", "A"), new("b", "B")] };
         var (cut, _) = Engine(radio);
 
         var group = cut.Find("[role=radiogroup]");
@@ -197,8 +198,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Textarea_and_password_have_maxlength()
     {
         var (cut, _) = Engine(
-            new FormFieldSchema { Key = "bio", Kind = FormFieldKind.Textarea, MaxLength = 200 },
-            new FormFieldSchema { Key = "pw", Kind = FormFieldKind.Password, MaxLength = 64 });
+            new DynamicFieldSchema { Key = "bio", Kind = FormFieldKind.Textarea, MaxLength = 200 },
+            new DynamicFieldSchema { Key = "pw", Kind = FormFieldKind.Password, MaxLength = 64 });
 
         Assert.Equal("200", cut.Find("textarea").GetAttribute("maxlength"));
         Assert.Equal("64", cut.Find("input[type=password]").GetAttribute("maxlength"));
@@ -207,7 +208,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void A_null_slider_shows_its_minimum_and_stays_null_until_moved()
     {
-        var slider = new FormFieldSchema { Key = "vol", Kind = FormFieldKind.Slider, Min = 10, Max = 90 };
+        var slider = new DynamicFieldSchema { Key = "vol", Kind = FormFieldKind.Slider, Min = 10, Max = 90 };
         var (cut, form) = Engine(slider);
 
         Assert.Equal("10", cut.Find("input[type=range]").GetAttribute("value"));
@@ -222,9 +223,9 @@ public sealed class FieldRenderingTests : BunitContext
     public void Inputs_with_an_error_are_marked_invalid_and_described_by_the_error()
     {
         var (cut, form) = Engine(
-            new FormFieldSchema { Key = "name", Label = "Name", Required = true },
-            new FormFieldSchema { Key = "kind", Label = "Kind", Kind = FormFieldKind.Select, Required = true, Options = [new("a", "A")] },
-            new FormFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, Required = true, Options = [new("a", "A")] });
+            new DynamicFieldSchema { Key = "name", Label = "Name", Required = true },
+            new DynamicFieldSchema { Key = "kind", Label = "Kind", Kind = FormFieldKind.Select, Required = true, Options = [new("a", "A")] },
+            new DynamicFieldSchema { Key = "plan", Label = "Plan", Kind = FormFieldKind.Radio, Required = true, Options = [new("a", "A")] });
         Assert.Null(cut.Find("#kly-ff-name").GetAttribute("aria-invalid"));
 
         form.Validate();
@@ -243,7 +244,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void CheckboxGroup_writes_a_list_of_values()
     {
-        var field = new FormFieldSchema { Key = "days", Label = "Days", Kind = FormFieldKind.CheckboxGroup, Options = [new("mon", "Monday"), new("tue", "Tuesday")] };
+        var field = new DynamicFieldSchema { Key = "days", Label = "Days", Kind = FormFieldKind.CheckboxGroup, Options = [new("mon", "Monday"), new("tue", "Tuesday")] };
         var (cut, form) = Engine(field);
 
         cut.FindAll("[data-form-field=days] input[type=checkbox]")[1].Change(true);
@@ -261,7 +262,7 @@ public sealed class FieldRenderingTests : BunitContext
     [InlineData(FormFieldKind.OneTimeCode, "text", "one-time-code", "numeric")]
     public void Text_like_kinds_render_their_input_type(FormFieldKind kind, string type, string? autocomplete, string? inputMode)
     {
-        var (cut, _) = Engine(new FormFieldSchema { Key = "f", Kind = kind, MaxLength = 6 });
+        var (cut, _) = Engine(new DynamicFieldSchema { Key = "f", Kind = kind, MaxLength = 6 });
 
         var input = cut.Find("#kly-ff-f");
         Assert.Equal(type, input.GetAttribute("type"));
@@ -273,7 +274,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void DateRange_renders_two_dates_and_writes_a_two_item_list()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "stay", Label = "Stay", Kind = FormFieldKind.DateRange });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "stay", Label = "Stay", Kind = FormFieldKind.DateRange });
 
         Assert.Equal(2, cut.FindAll("[data-form-field=stay] input[type=date]").Count);
         cut.Find("[data-slot=form-date-range-start]").Input("2026-05-01");
@@ -288,7 +289,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Rating_renders_accessible_radio_stars_and_stores_an_int()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "score", Label = "Score", Kind = FormFieldKind.Rating, Max = 4 });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "score", Label = "Score", Kind = FormFieldKind.Rating, Max = 4 });
 
         var stars = cut.FindAll("[data-form-field=score] input[type=radio]");
         Assert.Equal(4, stars.Count);
@@ -301,7 +302,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Tag_adds_on_Enter_and_comma_and_removes_with_its_button()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "tags", Label = "Tags", Kind = FormFieldKind.Tag });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "tags", Label = "Tags", Kind = FormFieldKind.Tag });
 
         var input = cut.Find("#kly-ff-tags");
         Assert.Equal("kly-form-detached", input.GetAttribute("form"));
@@ -318,7 +319,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Multiple_select_renders_checkboxes_writing_a_list()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "langs", Label = "Languages", Kind = FormFieldKind.Select, Multiple = true, Options = [new("cs", "C#"), new("fs", "F#")] });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "langs", Label = "Languages", Kind = FormFieldKind.Select, Multiple = true, Options = [new("cs", "C#"), new("fs", "F#")] });
 
         Assert.Empty(cut.FindAll("select"));
         cut.FindAll("[data-form-field=langs] input[type=checkbox]")[0].Change(true);
@@ -328,7 +329,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void OnCreateOption_renders_a_create_entry_that_adds_and_selects_the_option()
     {
-        var field = new FormFieldSchema { Key = "tag", Label = "Tag", Kind = FormFieldKind.Select, Options = [new("a", "A")], OnCreateOption = t => new FormOptionItem(t.ToLowerInvariant(), t) };
+        var field = new DynamicFieldSchema { Key = "tag", Label = "Tag", Kind = FormFieldKind.Select, Options = [new("a", "A")], OnCreateOption = t => new FormOptionItem(t.ToLowerInvariant(), t) };
         var (cut, form) = Engine(field);
 
         cut.Find("[data-slot=form-create-option-input]").Input("Beta");
@@ -341,7 +342,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void AutoComplete_is_a_text_input_with_suggestions_that_stores_the_option_value()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "city", Label = "City", Kind = FormFieldKind.AutoComplete, Options = [new("par", "Paris"), new("lyo", "Lyon")] });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "city", Label = "City", Kind = FormFieldKind.AutoComplete, Options = [new("par", "Paris"), new("lyo", "Lyon")] });
 
         var input = cut.Find("#kly-ff-city");
         Assert.Equal("text", input.GetAttribute("type"));
@@ -360,10 +361,10 @@ public sealed class FieldRenderingTests : BunitContext
     [InlineData(FormFieldKind.Number, 4.0)]
     public void Textarea_password_and_number_are_clearable(FormFieldKind kind, object value)
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "f", Kind = kind, Clearable = true, DefaultValue = value });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "f", Kind = kind, Clearable = true, DefaultValue = value });
 
         cut.Find("[data-slot=form-control-clear]").Click();
-        Assert.True(FormController.IsEmptyValue(form.GetValue("f")));
+        Assert.True(DynamicFormController.IsEmptyValue(form.GetValue("f")));
     }
 
     [Fact]
@@ -376,8 +377,8 @@ public sealed class FieldRenderingTests : BunitContext
             new("eu-ber", "Berlin", Group: "Europe"),
         ];
         var (cut, _) = Engine(
-            new FormFieldSchema { Key = "sel", Kind = FormFieldKind.Select, Options = options },
-            new FormFieldSchema { Key = "rad", Kind = FormFieldKind.Radio, Options = options });
+            new DynamicFieldSchema { Key = "sel", Kind = FormFieldKind.Select, Options = options },
+            new DynamicFieldSchema { Key = "rad", Kind = FormFieldKind.Radio, Options = options });
 
         var optgroups = cut.FindAll("[data-form-field=sel] optgroup");
         Assert.Equal(["Europe", "America"], optgroups.Select(g => g.GetAttribute("label")));
@@ -393,8 +394,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Collapsible_containers_render_a_disclosure()
     {
         var (cut, _) = Engine(
-            new FormFieldSchema { Key = "open", Label = "Open", Kind = FormFieldKind.Group, Collapsible = true, Fields = [new FormFieldSchema { Key = "a" }] },
-            new FormFieldSchema { Key = "closed", Label = "Closed", Kind = FormFieldKind.Card, Collapsible = true, DefaultCollapsed = true, Fields = [new FormFieldSchema { Key = "b" }] });
+            new DynamicFieldSchema { Key = "open", Label = "Open", Kind = FormFieldKind.Group, Collapsible = true, Fields = [new DynamicFieldSchema { Key = "a" }] },
+            new DynamicFieldSchema { Key = "closed", Label = "Closed", Kind = FormFieldKind.Card, Collapsible = true, DefaultCollapsed = true, Fields = [new DynamicFieldSchema { Key = "b" }] });
 
         var details = cut.FindAll("details[data-slot=form-container]");
         Assert.Equal(2, details.Count);
@@ -408,8 +409,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Info_blocks_apply_DisplayTone_and_DisplayKind()
     {
         var (cut, _) = Engine(
-            new FormFieldSchema { Key = "warn", Kind = FormFieldKind.Info, DisplayText = "Careful", DisplayTone = "Warning" },
-            new FormFieldSchema { Key = "plain", Kind = FormFieldKind.Info, DisplayText = "Note", DisplayKind = "text" });
+            new DynamicFieldSchema { Key = "warn", Kind = FormFieldKind.Info, DisplayText = "Careful", DisplayTone = "Warning" },
+            new DynamicFieldSchema { Key = "plain", Kind = FormFieldKind.Info, DisplayText = "Note", DisplayKind = "text" });
 
         var warn = cut.Find("[data-form-field=warn]");
         Assert.Equal("warning", warn.GetAttribute("data-tone"));
@@ -422,15 +423,15 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void The_current_step_description_is_shown_and_submit_appears_on_the_last_reachable_step()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             Steps =
             [
-                new FormStepSchema { Key = "one", Title = "One", Description = "Tell us about you", Fields = [new FormFieldSchema { Key = "a" }] },
-                new FormStepSchema { Key = "two", Title = "Two", SkipWhen = _ => true },
+                new DynamicStepSchema { Key = "one", Title = "One", Description = "Tell us about you", Fields = [new DynamicFieldSchema { Key = "a" }] },
+                new DynamicStepSchema { Key = "two", Title = "Two", SkipWhen = _ => true },
             ],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, form));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, form));
 
         Assert.Equal("Tell us about you", cut.Find("[data-slot=form-step-description]").TextContent);
         Assert.NotNull(cut.Find("[data-slot=form-action-submit]"));
@@ -440,15 +441,15 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Columns_and_section_span_set_the_grids()
     {
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             Columns = 2,
             Sections =
             [
-                new FormPageSectionSchema { Key = "a", Label = "A", Span = 6, Fields = [new FormFieldSchema { Key = "x", Span = 1 }, new FormFieldSchema { Key = "y" }] },
+                new DynamicSectionSchema { Key = "a", Label = "A", Span = 6, Fields = [new DynamicFieldSchema { Key = "x", Span = 1 }, new DynamicFieldSchema { Key = "y" }] },
             ],
         });
-        var cut = Render<KlyFormPage>(p => p.Add(x => x.Form, form));
+        var cut = Render<KlyDynamicFormPage>(p => p.Add(x => x.Form, form));
 
         Assert.Contains("repeat(2,", cut.Find("[data-slot=form-page-fields]").GetAttribute("style"), StringComparison.Ordinal);
         Assert.Contains("span 1 / span 1", cut.Find("[data-form-field=x]").GetAttribute("style"), StringComparison.Ordinal);
@@ -459,7 +460,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Password_requirements_render_a_live_checklist()
     {
-        var (cut, _) = Engine(new FormFieldSchema
+        var (cut, _) = Engine(new DynamicFieldSchema
         {
             Key = "pw",
             Kind = FormFieldKind.Password,
@@ -476,8 +477,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Provider_hosts_the_drawer_in_a_slideover_dialog()
     {
         var provider = Render<KlyFormProvider>();
-        var service = Services.GetRequiredService<FormService>();
-        _ = service.CreateFormAsync(new FormSchema { Title = "Edit", Fields = [new FormFieldSchema { Key = "a" }] }, mode: FormShellMode.Drawer);
+        var service = Services.GetRequiredService<DynamicFormService>();
+        _ = service.CreateFormAsync(new DynamicFormSchema { Title = "Edit", Fields = [new DynamicFieldSchema { Key = "a" }] }, mode: FormShellMode.Drawer);
         provider.Render();
 
         Assert.Equal("drawer", provider.Find("[data-slot=form-provider-overlay]").GetAttribute("data-mode"));
@@ -491,8 +492,8 @@ public sealed class FieldRenderingTests : BunitContext
     public void Provider_hosts_fullscreen_in_a_modal_that_fills_the_viewport()
     {
         var provider = Render<KlyFormProvider>();
-        var service = Services.GetRequiredService<FormService>();
-        _ = service.CreateFormAsync(new FormSchema { Fields = [new FormFieldSchema { Key = "a" }] }, mode: FormShellMode.Fullscreen);
+        var service = Services.GetRequiredService<DynamicFormService>();
+        _ = service.CreateFormAsync(new DynamicFormSchema { Fields = [new DynamicFieldSchema { Key = "a" }] }, mode: FormShellMode.Fullscreen);
         provider.Render();
 
         var dialog = provider.Find("dialog[data-form-dialog]");
@@ -505,16 +506,16 @@ public sealed class FieldRenderingTests : BunitContext
     public void The_selected_tab_survives_a_sibling_appearing_or_disappearing()
     {
         var (cut, form) = Engine(
-            new FormFieldSchema { Key = "show", Kind = FormFieldKind.Checkbox, DefaultValue = true },
-            new FormFieldSchema { Key = "maybe", Condition = f => f.GetValue("show") is true },
-            new FormFieldSchema
+            new DynamicFieldSchema { Key = "show", Kind = FormFieldKind.Checkbox, DefaultValue = true },
+            new DynamicFieldSchema { Key = "maybe", Condition = f => f.GetValue("show") is true },
+            new DynamicFieldSchema
             {
                 Key = "tabs",
                 Kind = FormFieldKind.Tabs,
                 Tabs =
                 [
-                    new FormTabItemSchema { Key = "a", Label = "A", Fields = [new FormFieldSchema { Key = "fa" }] },
-                    new FormTabItemSchema { Key = "b", Label = "B", Fields = [new FormFieldSchema { Key = "fb" }] },
+                    new DynamicTabSchema { Key = "a", Label = "A", Fields = [new DynamicFieldSchema { Key = "fa" }] },
+                    new DynamicTabSchema { Key = "b", Label = "B", Fields = [new DynamicFieldSchema { Key = "fb" }] },
                 ],
             });
 
@@ -529,7 +530,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void AutoComplete_keeps_the_typed_text_while_the_user_types()
     {
-        var (cut, form) = Engine(new FormFieldSchema { Key = "country", Kind = FormFieldKind.AutoComplete, Options = [new("DE", "Germany"), new("DK", "Denmark")] });
+        var (cut, form) = Engine(new DynamicFieldSchema { Key = "country", Kind = FormFieldKind.AutoComplete, Options = [new("DE", "Germany"), new("DK", "Denmark")] });
 
         cut.Find("#kly-ff-country").Input("De");
         Assert.Equal("De", cut.Find("#kly-ff-country").GetAttribute("value"));
@@ -543,7 +544,7 @@ public sealed class FieldRenderingTests : BunitContext
     [Fact]
     public void Rating_renders_every_star_up_to_Max()
     {
-        var (cut, _) = Engine(new FormFieldSchema { Key = "score", Kind = FormFieldKind.Rating, Max = 12 });
+        var (cut, _) = Engine(new DynamicFieldSchema { Key = "score", Kind = FormFieldKind.Rating, Max = 12 });
 
         Assert.Equal(12, cut.FindAll("[data-form-field=score] input[type=radio]").Count);
     }
@@ -552,15 +553,15 @@ public sealed class FieldRenderingTests : BunitContext
     public async Task The_stepper_keeps_the_current_step_and_Enter_before_the_last_step_moves_next()
     {
         var submitted = false;
-        var form = new FormController(new FormSchema
+        var form = new DynamicFormController(new DynamicFormSchema
         {
             Steps =
             [
-                new FormStepSchema { Key = "s1", Title = "One", SkipWhen = f => f.GetValue<string>("x") == "skip", Fields = [new FormFieldSchema { Key = "x" }] },
-                new FormStepSchema { Key = "s2", Title = "Two", Fields = [new FormFieldSchema { Key = "y", Required = true }] },
+                new DynamicStepSchema { Key = "s1", Title = "One", SkipWhen = f => f.GetValue<string>("x") == "skip", Fields = [new DynamicFieldSchema { Key = "x" }] },
+                new DynamicStepSchema { Key = "s2", Title = "Two", Fields = [new DynamicFieldSchema { Key = "y", Required = true }] },
             ],
         });
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, form).Add(x => x.OnSubmit, _ => submitted = true));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, form).Add(x => x.OnSubmit, _ => submitted = true));
 
         form.SetValue("x", "skip");
         cut.Render();

@@ -1,23 +1,24 @@
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
 public sealed class CrossFieldRevalidationTests
 {
-    private static FormFieldSchema Password() => new() { Key = "password", Kind = FormFieldKind.Password };
+    private static DynamicFieldSchema Password() => new() { Key = "password", Kind = FormFieldKind.Password };
 
-    private static FormFieldSchema Confirm(bool dependsOn = false, FormValidationTrigger trigger = FormValidationTrigger.Blur) => new()
+    private static DynamicFieldSchema Confirm(bool dependsOn = false, FormValidationTrigger trigger = FormValidationTrigger.Blur) => new()
     {
         Key = "confirm",
         Kind = FormFieldKind.Password,
         Trigger = trigger,
         DependsOn = dependsOn ? ["password"] : null,
-        Validators = [new FormValidatorRule("match", "Passwords differ",
+        Validators = [new DynamicValidatorRule("match", "Passwords differ",
             (v, f) => Equals(v ?? "", f.GetValue("password") ?? ""))],
     };
 
-    private static FormController Form(params FormFieldSchema[] fields) =>
-        new(new FormSchema { FormKey = "x", Fields = fields });
+    private static DynamicFormController Form(params DynamicFieldSchema[] fields) =>
+        new(new DynamicFormSchema { FormKey = "x", Fields = fields });
 
     [Fact]
     public void Changing_the_password_clears_the_stale_confirm_error()
@@ -93,8 +94,8 @@ public sealed class CrossFieldRevalidationTests
     public void RequiredWhen_error_clears_when_the_condition_stops_holding()
     {
         var form = Form(
-            new FormFieldSchema { Key = "kind" },
-            new FormFieldSchema { Key = "vat", RequiredWhen = f => f.GetValue<string>("kind") == "company" });
+            new DynamicFieldSchema { Key = "kind" },
+            new DynamicFieldSchema { Key = "vat", RequiredWhen = f => f.GetValue<string>("kind") == "company" });
         form.SetValue("kind", "company");
         form.MarkTouched("vat");
         Assert.Equal("This field is required", form.GetError("vat"));
@@ -110,8 +111,8 @@ public sealed class CrossFieldRevalidationTests
     public void RequiredWhen_error_shows_up_through_DependsOn_once_the_field_is_touched()
     {
         var form = Form(
-            new FormFieldSchema { Key = "kind" },
-            new FormFieldSchema { Key = "vat", DependsOn = ["kind"], RequiredWhen = f => f.GetValue<string>("kind") == "company" });
+            new DynamicFieldSchema { Key = "kind" },
+            new DynamicFieldSchema { Key = "vat", DependsOn = ["kind"], RequiredWhen = f => f.GetValue<string>("kind") == "company" });
         form.MarkTouched("vat");
         Assert.Null(form.GetError("vat"));
 
@@ -137,8 +138,8 @@ public sealed class CrossFieldRevalidationTests
     [Fact]
     public void ResetField_revalidates_the_fields_that_depend_on_it()
     {
-        var form = new FormController(
-            new FormSchema { FormKey = "x", Fields = [Password(), Confirm()] },
+        var form = new DynamicFormController(
+            new DynamicFormSchema { FormKey = "x", Fields = [Password(), Confirm()] },
             new Dictionary<string, object?> { ["password"] = "abc", ["confirm"] = "abc" });
         form.SetValue("password", "zzz");
         form.SetValue("confirm", "abc", markTouched: true);
@@ -152,22 +153,22 @@ public sealed class CrossFieldRevalidationTests
     [Fact]
     public void Cell_errors_clear_when_the_field_they_compare_with_changes()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
             Fields =
             [
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "qty",
                     Kind = FormFieldKind.Number,
-                    Validators = [new FormValidatorRule("cap", "Above the cap",
+                    Validators = [new DynamicValidatorRule("cap", "Above the cap",
                         (v, f) => v is not double d || d <= (f.GetValue<double?>("cap") ?? double.MaxValue))],
                 },
             ],
         };
-        var form = Form(new FormFieldSchema { Key = "cap", Kind = FormFieldKind.Number }, lines);
+        var form = Form(new DynamicFieldSchema { Key = "cap", Kind = FormFieldKind.Number }, lines);
         form.SetValue("cap", 5.0);
         form.AddArrayItem(lines);
         form.SetArrayItemValue("lines", 0, "qty", 9.0, markTouched: true);
@@ -182,23 +183,23 @@ public sealed class CrossFieldRevalidationTests
     [Fact]
     public void A_cell_DependsOn_raises_an_error_on_a_touched_cell()
     {
-        var lines = new FormFieldSchema
+        var lines = new DynamicFieldSchema
         {
             Key = "lines",
             Kind = FormFieldKind.ArrayList,
             Fields =
             [
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "qty",
                     Kind = FormFieldKind.Number,
                     DependsOn = ["cap"],
-                    Validators = [new FormValidatorRule("cap", "Above the cap",
+                    Validators = [new DynamicValidatorRule("cap", "Above the cap",
                         (v, f) => v is not double d || d <= (f.GetValue<double?>("cap") ?? double.MaxValue))],
                 },
             ],
         };
-        var form = Form(new FormFieldSchema { Key = "cap", Kind = FormFieldKind.Number }, lines);
+        var form = Form(new DynamicFieldSchema { Key = "cap", Kind = FormFieldKind.Number }, lines);
         form.SetValue("cap", 10.0);
         form.AddArrayItem(lines);
         form.SetArrayItemValue("lines", 0, "qty", 9.0, markTouched: true);

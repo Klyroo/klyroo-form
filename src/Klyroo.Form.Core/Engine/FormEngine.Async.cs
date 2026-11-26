@@ -1,26 +1,12 @@
 namespace Klyroo.Form;
 
-public sealed partial class FormController
+internal sealed partial class FormEngine
 {
-    /// <summary><c>true</c> while any asynchronous rule (see <see cref="FormFieldSchema.AsyncValidators"/>) is waiting for its debounce or running.</summary>
-    public bool HasPendingValidation => _pendingValidations.Count > 0;
+    internal bool HasPendingValidation => _pendingValidations.Count > 0;
 
-    /// <summary>Tells whether an asynchronous rule of a field is waiting for its debounce or running, which the components show as a pending state next to the field.</summary>
-    /// <param name="path">Key of the field.</param>
-    /// <returns><c>true</c> while the field is being validated asynchronously.</returns>
-    public bool IsValidating(string path) => _pendingValidations.ContainsKey(path);
+    internal bool IsValidating(string path) => _pendingValidations.ContainsKey(path);
 
-    /// <summary>
-    /// Validates like <see cref="Validate"/>, then runs the asynchronous rules (see <see cref="FormFieldSchema.AsyncValidators"/>) of the validated fields that have a non-empty value,
-    /// pass their synchronous checks and have no result yet for the current value, in parallel across fields, and validates again with their results.
-    /// <see cref="SubmitAsync()"/> and <see cref="NextStepAsync"/> call it.
-    /// </summary>
-    /// <param name="currentStepOnly"><c>true</c> to validate only the fields of the current step.</param>
-    /// <param name="cancellationToken">Cancels the rules that run. The rules run now, so a background run of the same field is cancelled and its result is not reused.</param>
-    /// <returns><c>true</c> if none of the validated fields and cells has an error and no blocking error applies, as for <see cref="Validate"/>.</returns>
-    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled. A run replaced by an edit is not an error: it is run again.</exception>
-    /// <exception cref="Exception">An exception thrown by an asynchronous rule propagates, after the other rules finished or were cancelled.</exception>
-    public async Task<bool> ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = default)
+    internal async Task<bool> ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = default)
     {
         var valid = Validate(currentStepOnly);
         for (var attempt = 0; ; attempt++)
@@ -37,14 +23,14 @@ public sealed partial class FormController
 
     private bool HasAsyncWork(bool currentStepOnly) => FieldsNeedingAsyncValidation(currentStepOnly).Count > 0;
 
-    private List<(FormFieldSchema Field, object? Value)> FieldsNeedingAsyncValidation(bool currentStepOnly)
+    private List<(FieldNode Field, object? Value)> FieldsNeedingAsyncValidation(bool currentStepOnly)
     {
-        var result = new List<(FormFieldSchema, object?)>();
+        var result = new List<(FieldNode, object?)>();
         if (Schema.ValidateMode is not (FormValidationMode.All or FormValidationMode.ValidatorsOnly)) return result;
-        IReadOnlyList<FormFieldSchema> scope = ActiveFields;
+        IReadOnlyList<FieldNode> scope = ActiveFields;
         if (currentStepOnly && CurrentStep is not null)
         {
-            var stepFields = new List<FormFieldSchema>();
+            var stepFields = new List<FieldNode>();
             CollectActive(CurrentStep.Fields, stepFields);
             scope = stepFields;
         }
@@ -61,7 +47,7 @@ public sealed partial class FormController
     }
 
     // An asynchronous rule runs for a value that is not empty and that passes the synchronous checks.
-    private bool IsAsyncEligible(FormFieldSchema field, object? value) =>
+    private bool IsAsyncEligible(FieldNode field, object? value) =>
         field.AsyncValidators is { Count: > 0 }
         && Schema.ValidateMode is FormValidationMode.All or FormValidationMode.ValidatorsOnly
         && !IsEmptyValue(value)
@@ -70,10 +56,10 @@ public sealed partial class FormController
     private (object? Value, string? Message)? CachedAsyncResult(string key, object? value) =>
         _asyncResults.TryGetValue(key, out var result) && ValuesEqual(result.Value, value) ? result : null;
 
-    private string? CachedAsyncError(FormFieldSchema field, object? value) =>
+    private string? CachedAsyncError(FieldNode field, object? value) =>
         field.AsyncValidators is { Count: > 0 } ? CachedAsyncResult(field.Key, value)?.Message : null;
 
-    private static async ValueTask<string?> RunRulesAsync(FormFieldSchema field, FormController form, object? value, CancellationToken cancellationToken)
+    private static async ValueTask<string?> RunRulesAsync(FieldNode field, FormEngine form, object? value, CancellationToken cancellationToken)
     {
         foreach (var rule in field.AsyncValidators ?? [])
         {
@@ -83,7 +69,7 @@ public sealed partial class FormController
         return null;
     }
 
-    private void StoreAsyncResult(FormFieldSchema field, object? value, string? message)
+    private void StoreAsyncResult(FieldNode field, object? value, string? message)
     {
         _asyncResults[field.Key] = (value, message);
         if (ActiveFields.Contains(field)) ValidateFieldCore(field);
@@ -91,7 +77,7 @@ public sealed partial class FormController
 
     // Submission needs the result for this value: take it from the background run that has it (cutting its debounce short, so the service is not called
     // twice for one value and submission does not wait for the debounce), otherwise run the rules now.
-    private async Task CheckNowAsync(FormFieldSchema field, object? value, CancellationToken cancellationToken)
+    private async Task CheckNowAsync(FieldNode field, object? value, CancellationToken cancellationToken)
     {
         if (_backgroundRuns.TryGetValue(field.Key, out var background) && ValuesEqual(background.Value, value))
         {
@@ -111,7 +97,7 @@ public sealed partial class FormController
     }
 
     // Runs the rules of a field now, for submission, and records the result for the value they saw.
-    private async Task RunNowAsync(FormFieldSchema field, object? value, CancellationToken cancellationToken)
+    private async Task RunNowAsync(FieldNode field, object? value, CancellationToken cancellationToken)
     {
         CancelPendingValidation(field.Key);
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -140,7 +126,7 @@ public sealed partial class FormController
     // Starts the debounced background run for the current value, cancelling an older one. Does nothing when there is nothing to check.
     // The new run is registered before the old one is cancelled: cancelling runs the continuations of whoever awaited the old run, inline, and one of
     // them (ValidateAsync) must find the new run and wait for it instead of starting a second run for the same value.
-    private void ScheduleAsyncValidation(FormFieldSchema field)
+    private void ScheduleAsyncValidation(FieldNode field)
     {
         _pendingValidations.Remove(field.Key, out var previous);
         CancellationTokenSource? cts = null;
@@ -161,7 +147,7 @@ public sealed partial class FormController
         if (cts is not null && run is not null) _ = RunInBackgroundAsync(field, value, cts, run);
     }
 
-    private async Task RunInBackgroundAsync(FormFieldSchema field, object? value, CancellationTokenSource cts, BackgroundRun run)
+    private async Task RunInBackgroundAsync(FieldNode field, object? value, CancellationTokenSource cts, BackgroundRun run)
     {
         var finished = false;
         try
@@ -208,10 +194,8 @@ public sealed partial class FormController
 
     private bool _disposed;
 
-    /// <summary>Cancels the asynchronous validations that are waiting for their debounce or running, without changing any value or error. A component calls it when it goes away.</summary>
-    public void CancelPendingValidations() => CancelAllPendingValidations();
+    internal void CancelPendingValidations() => CancelAllPendingValidations();
 
-    /// <summary>Cancels the pending asynchronous validations and stops starting new ones. The values and errors stay readable.</summary>
     public void Dispose()
     {
         _disposed = true;

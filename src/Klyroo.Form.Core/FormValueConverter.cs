@@ -351,7 +351,7 @@ internal static class FormValueConverter
     }
 
     // A value read from a draft (JSON gives strings, doubles, booleans and lists) in the type the controls of this field use.
-    internal static object? NormalizeForField(FormFieldSchema field, object? value)
+    internal static object? NormalizeForField(FieldNode field, object? value)
     {
         if (value is null) return null;
         switch (field.Kind)

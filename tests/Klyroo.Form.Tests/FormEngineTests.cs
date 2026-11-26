@@ -1,6 +1,7 @@
 using Bunit;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
+using Klyroo.Form.Dynamic;
 
 namespace Klyroo.Form.Tests;
 
@@ -14,13 +15,13 @@ public sealed class FormEngineTests : BunitContext
     [Fact]
     public async Task FormController_handles_conditions_dirty_tracking_transforms_and_validation()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "profile",
             Title = "User Profile",
             Fields =
             [
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "name",
                     Label = "Full Name",
@@ -28,7 +29,7 @@ public sealed class FormEngineTests : BunitContext
                     DirtyCheck = true,
                     TransformOutput = v => v?.ToString()?.Trim(),
                 },
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "age",
                     Label = "Age",
@@ -37,14 +38,14 @@ public sealed class FormEngineTests : BunitContext
                     Max = 120,
                     DefaultValue = 25.0,
                 },
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "company",
                     Label = "Company",
                     Required = true,
                     Condition = f => f.GetValue<double>("age") >= 21,
                 },
-                new FormFieldSchema
+                new DynamicFieldSchema
                 {
                     Key = "password",
                     Label = "Password",
@@ -57,10 +58,10 @@ public sealed class FormEngineTests : BunitContext
             ]
         };
 
-        var controller = new FormController(schema, new Dictionary<string, object?> { ["name"] = "Alice" });
+        var controller = new DynamicFormController(schema, new Dictionary<string, object?> { ["name"] = "Alice" });
         Assert.False(controller.IsDirty);
 
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, controller));
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, controller));
         Assert.Equal("User Profile", cut.Find("[data-slot=form-title]").TextContent);
 
         // Company is visible because age default is 25 >= 21, and required
@@ -93,51 +94,51 @@ public sealed class FormEngineTests : BunitContext
     [Fact]
     public async Task KlyFormEngine_supports_multi_step_wizard_with_skipStep_and_array_fields()
     {
-        var schema = new FormSchema
+        var schema = new DynamicFormSchema
         {
             FormKey = "onboarding",
             Title = "Onboarding",
             Steps =
             [
-                new FormStepSchema
+                new DynamicStepSchema
                 {
                     Key = "account",
                     Title = "Account",
                     Fields =
                     [
-                        new FormFieldSchema { Key = "plan", Label = "Plan", Required = true, DefaultValue = "free" }
+                        new DynamicFieldSchema { Key = "plan", Label = "Plan", Required = true, DefaultValue = "free" }
                     ]
                 },
-                new FormStepSchema
+                new DynamicStepSchema
                 {
                     Key = "billing",
                     Title = "Billing",
                     SkipWhen = f => f.GetValue<string>("plan") == "free",
                     Fields =
                     [
-                        new FormFieldSchema { Key = "vat", Label = "VAT Number", Required = true }
+                        new DynamicFieldSchema { Key = "vat", Label = "VAT Number", Required = true }
                     ]
                 },
-                new FormStepSchema
+                new DynamicStepSchema
                 {
                     Key = "team",
                     Title = "Team",
                     Fields =
                     [
-                        new FormFieldSchema
+                        new DynamicFieldSchema
                         {
                             Key = "members",
                             Label = "Members",
                             Kind = FormFieldKind.ArrayList,
-                            Fields = [new FormFieldSchema { Key = "email", Label = "Email" }]
+                            Fields = [new DynamicFieldSchema { Key = "email", Label = "Email" }]
                         }
                     ]
                 }
             ]
         };
 
-        var controller = new FormController(schema);
-        var cut = Render<KlyFormEngine>(p => p.Add(x => x.Form, controller));
+        var controller = new DynamicFormController(schema);
+        var cut = Render<KlyDynamicFormEngine>(p => p.Add(x => x.Form, controller));
 
         // Step 0 ("account") -> Next should skip Step 1 ("billing", since plan == "free") and land on Step 2 ("team")
         Assert.Equal(0, controller.CurrentStepIndex);
@@ -154,36 +155,36 @@ public sealed class FormEngineTests : BunitContext
     [Fact]
     public async Task KlyFormPage_and_LxFormProvider_track_section_statuses_and_resolve_overlay_forms()
     {
-        var pageSchema = new FormSchema
+        var pageSchema = new DynamicFormSchema
         {
             FormKey = "settings",
             Title = "Workspace Settings",
             Sections =
             [
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "general",
                     Label = "General",
                     Fields =
                     [
-                        new FormFieldSchema { Key = "workspaceName", Label = "Workspace Name", Required = true }
+                        new DynamicFieldSchema { Key = "workspaceName", Label = "Workspace Name", Required = true }
                     ]
                 },
-                new FormPageSectionSchema
+                new DynamicSectionSchema
                 {
                     Key = "notes",
                     Label = "Notes",
                     Optional = true,
                     Fields =
                     [
-                        new FormFieldSchema { Key = "bio", Label = "Bio" }
+                        new DynamicFieldSchema { Key = "bio", Label = "Bio" }
                     ]
                 }
             ]
         };
 
-        var pageController = new FormController(pageSchema);
-        var pageCut = Render<KlyFormPage>(p => p.Add(x => x.Form, pageController));
+        var pageController = new DynamicFormController(pageSchema);
+        var pageCut = Render<KlyDynamicFormPage>(p => p.Add(x => x.Form, pageController));
 
         var statuses = pageController.GetSectionStates();
         Assert.Equal(FormPageSectionStatus.Pending, statuses[0].Status);
@@ -195,13 +196,13 @@ public sealed class FormEngineTests : BunitContext
         Assert.Equal(FormPageSectionStatus.Complete, pageController.GetSectionStates()[0].Status);
         Assert.Contains("Everything is ready.", pageCut.Find("[data-slot=form-page-summary]").TextContent);
 
-        // Test programmatic overlay via FormService + KlyFormProvider
+        // Test programmatic overlay via DynamicFormService + KlyFormProvider
         var providerCut = Render<KlyFormProvider>();
-        var formService = Services.GetRequiredService<FormService>();
-        var modalSchema = new FormSchema
+        var formService = Services.GetRequiredService<DynamicFormService>();
+        var modalSchema = new DynamicFormSchema
         {
             Title = "Quick Create",
-            Fields = [new FormFieldSchema { Key = "title", Label = "Title", DefaultValue = "New Task" }]
+            Fields = [new DynamicFieldSchema { Key = "title", Label = "Title", DefaultValue = "New Task" }]
         };
 
         var task = formService.CreateFormAsync(modalSchema);

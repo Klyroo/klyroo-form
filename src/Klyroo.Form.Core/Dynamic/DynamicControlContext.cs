@@ -1,4 +1,4 @@
-namespace Klyroo.Form;
+namespace Klyroo.Form.Dynamic;
 
 /// <summary>
 /// Everything a control needs to edit one field: the value and how to change it, the error, the state flags and the ids that tie the control to its label, description, help and error.
@@ -8,7 +8,7 @@ namespace Klyroo.Form;
 /// <example>
 /// <code>
 /// // A custom control: an input wired to the field, labelled and described like the built-in ones.
-/// RenderFragment&lt;FormControlContext&gt; renderer = ctx => builder =>
+/// RenderFragment&lt;DynamicControlContext&gt; renderer = ctx => builder =>
 /// {
 ///     builder.OpenElement(0, "input");
 ///     builder.AddAttribute(1, "id", ctx.Id);
@@ -21,7 +21,7 @@ namespace Klyroo.Form;
 /// };
 /// </code>
 /// </example>
-public sealed class FormControlContext
+public sealed class DynamicControlContext
 {
     private readonly Func<object?> _current;
     private readonly Action<object?> _set;
@@ -33,7 +33,7 @@ public sealed class FormControlContext
     /// <param name="field">The field.</param>
     /// <param name="id">The id of the control. The ids of the description, help and error elements are this id followed by <c>-description</c>, <c>-help</c> and <c>-error</c>.</param>
     /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
-    public FormControlContext(FormController form, FormFieldSchema field, string id)
+    public DynamicControlContext(DynamicFormController form, DynamicFieldSchema field, string id)
         : this(
             form,
             field,
@@ -54,9 +54,9 @@ public sealed class FormControlContext
     {
     }
 
-    internal FormControlContext(
-        FormController form,
-        FormFieldSchema field,
+    internal DynamicControlContext(
+        DynamicFormController form,
+        DynamicFieldSchema field,
         string id,
         object? value,
         Func<object?> current,
@@ -94,10 +94,10 @@ public sealed class FormControlContext
     }
 
     /// <summary>The controller that holds the value.</summary>
-    public FormController Form { get; }
+    public DynamicFormController Form { get; }
 
     /// <summary>The field being edited. For a cell of a repeatable list, the child field of the column.</summary>
-    public FormFieldSchema Field { get; }
+    public DynamicFieldSchema Field { get; }
 
     /// <summary>The <c>id</c> the control must use, so that the label points at it.</summary>
     public string Id { get; }
@@ -108,13 +108,13 @@ public sealed class FormControlContext
     /// <summary>The error to show, or <c>null</c>. The error text itself is rendered by the component around the control.</summary>
     public string? Error { get; }
 
-    /// <summary><c>true</c> when the field is disabled (<see cref="FormFieldSchema.Disabled"/> or <see cref="FormFieldSchema.DisabledWhen"/>, or its list is). Render the control disabled.</summary>
+    /// <summary><c>true</c> when the field is disabled (<see cref="DynamicFieldSchema.Disabled"/> or <see cref="DynamicFieldSchema.DisabledWhen"/>, or its list is). Render the control disabled.</summary>
     public bool Disabled { get; }
 
-    /// <summary><c>true</c> when the field is required (<see cref="FormFieldSchema.Required"/> or <see cref="FormFieldSchema.RequiredWhen"/>). Set <c>aria-required</c> on the control.</summary>
+    /// <summary><c>true</c> when the field is required (<see cref="DynamicFieldSchema.Required"/> or <see cref="DynamicFieldSchema.RequiredWhen"/>). Set <c>aria-required</c> on the control.</summary>
     public bool Required { get; }
 
-    /// <summary><c>true</c> while an asynchronous rule of the field runs (see <see cref="FormController.IsValidating"/>).</summary>
+    /// <summary><c>true</c> while an asynchronous rule of the field runs (see <see cref="DynamicFormController.IsValidating"/>).</summary>
     public bool Validating { get; }
 
     /// <summary>The ids of the elements that label a control made of several inputs (<c>aria-labelledby</c>), or <c>null</c> when a <c>label</c> element points at <see cref="Id"/>.</summary>
@@ -136,12 +136,12 @@ public sealed class FormControlContext
     /// <returns>The current value.</returns>
     public object? Current() => _current();
 
-    /// <summary>Gets the live value converted to <typeparamref name="T"/> like <see cref="FormController.GetValue{T}"/> does.</summary>
+    /// <summary>Gets the live value converted to <typeparamref name="T"/> like <see cref="DynamicFormController.GetValue{T}"/> does.</summary>
     /// <typeparam name="T">The wanted type.</typeparam>
     /// <returns>The converted value, or <c>default</c>.</returns>
     public T? Current<T>() => FormValueConverter.TryConvert<T>(_current(), out var value) ? value : default;
 
-    /// <summary>Changes the value while the user is editing, for example on every keystroke. The field is validated as <see cref="FormController.SetValue"/> does: only once touched, and per its trigger.</summary>
+    /// <summary>Changes the value while the user is editing, for example on every keystroke. The field is validated as <see cref="DynamicFormController.SetValue"/> does: only once touched, and per its trigger.</summary>
     /// <param name="value">The new value.</param>
     public void Set(object? value) => _set(value);
 
@@ -153,7 +153,7 @@ public sealed class FormControlContext
     public void Blur() => _blur();
 
     // Ids of the description, help and error elements that exist, in the order the built-in controls list them.
-    internal static string? DescribedByFor(FormFieldSchema field, string id, bool hasError)
+    internal static string? DescribedByFor(DynamicFieldSchema field, string id, bool hasError)
     {
         var ids = new List<string>(3);
         if (!string.IsNullOrEmpty(field.Description)) ids.Add(id + "-description");

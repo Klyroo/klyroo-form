@@ -10,11 +10,11 @@
 @code {
     private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
 
-    private FormController? _subscribed;
+    private DynamicFormController? _subscribed;
     private bool _dirty;
 
-    /// <summary>The controller to protect. Navigation is blocked while <see cref="FormController.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
-    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+    /// <summary>The controller to protect. Navigation is blocked while <see cref="DynamicFormController.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
+    [Parameter, EditorRequired] public DynamicFormController Form { get; set; } = default!;
 
     /// <summary>Asks the browser to confirm leaving the site, reloading or closing the tab while the form is dirty. The browser shows its own text; it cannot be changed. The default is <c>true</c>.</summary>
     [Parameter] public bool ConfirmExternalNavigation { get; set; } = true;
