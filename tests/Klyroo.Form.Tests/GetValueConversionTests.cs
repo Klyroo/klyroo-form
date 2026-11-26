@@ -194,7 +194,11 @@ public sealed class GetValueConversionTests
         Assert.True(With("1").GetValue<bool>("v"));
         Assert.False(With("0").GetValue<bool>("v"));
         Assert.False(With("maybe").TryGetValue<bool>("v", out _));
-        Assert.False(With(1).TryGetValue<bool>("v", out _));
+        // Boxed numbers 1 and 0 are flags (a checkbox value read from JSON or a database); other numbers are not.
+        Assert.True(With(1).GetValue<bool>("v"));
+        Assert.False(With(0.0).GetValue<bool>("v"));
+        Assert.True(With(0.0).TryGetValue<bool>("v", out _));
+        Assert.False(With(2).TryGetValue<bool>("v", out _));
     }
 
     [Fact]

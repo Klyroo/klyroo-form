@@ -75,6 +75,10 @@ public static partial class FormMessageLocales
         for (var c = culture; c.Name.Length > 0; c = c.Parent) yield return c.Name;
     }
 
+    // A number with the decimal separator of a language, without culture data (an app may run with invariant globalization).
+    internal static string Number(double n, string decimalSeparator) =>
+        n.ToString(CultureInfo.InvariantCulture).Replace(".", decimalSeparator, StringComparison.Ordinal);
+
     // Russian plural forms: one (1, 21, 31...), few (2-4, 22-24...), many (the rest, 11-14 included).
     internal static string RussianPlural(int n, string one, string few, string many)
     {

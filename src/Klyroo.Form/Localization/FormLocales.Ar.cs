@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "اختر ملفات",
         NoFileChosen = "لم يتم اختيار ملف",
         RemoveFile = name => $"إزالة {name}",
+        SomethingWentWrong = "حدث خطأ ما. حاول مرة أخرى.",
         Messages = FormMessageLocales.Ar,
     };
 }

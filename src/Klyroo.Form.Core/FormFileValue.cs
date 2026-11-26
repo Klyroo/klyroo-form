@@ -85,21 +85,27 @@ public sealed class FormFileValue : IEquatable<FormFileValue>
         return false;
     }
 
-    /// <summary>Formats a size for a message, in the invariant culture: <c>512 B</c>, <c>1.5 KB</c>, <c>5 MB</c>.</summary>
+    /// <summary>The largest file a <see cref="FormFieldKind.File"/> field accepts, and keeps in memory, when <see cref="FormFieldSchema.MaxFileSize"/> is not set: 10 MiB.</summary>
+    public const long DefaultMaxSize = 10L * 1024 * 1024;
+
+    /// <summary>Formats a size for a message: <c>512 B</c>, <c>1.5 KB</c>, <c>5 MB</c>. The default is the invariant culture and English-style units; a locale passes its own decimal separator and units (French: <c>1,5 Mo</c>).</summary>
     /// <param name="bytes">The size in bytes.</param>
-    /// <returns>The text, with the binary units B, KB, MB, GB and TB.</returns>
-    public static string FormatSize(long bytes)
+    /// <param name="decimalSeparator">The separator between the whole and the fractional part. The default is <c>.</c>.</param>
+    /// <param name="units">The names of the byte, kilobyte, megabyte, gigabyte and terabyte units, in that order. The default is <c>B</c>, <c>KB</c>, <c>MB</c>, <c>GB</c>, <c>TB</c>. Units step by 1024.</param>
+    /// <returns>The text.</returns>
+    public static string FormatSize(long bytes, string decimalSeparator = ".", IReadOnlyList<string>? units = null)
     {
-        if (bytes < 1024) return string.Create(CultureInfo.InvariantCulture, $"{bytes} B");
-        string[] units = ["KB", "MB", "GB", "TB"];
+        units ??= ["B", "KB", "MB", "GB", "TB"];
+        if (bytes < 1024) return string.Create(CultureInfo.InvariantCulture, $"{bytes} {units[0]}");
         var value = bytes / 1024d;
-        var unit = 0;
-        while (value >= 1024 && unit < units.Length - 1)
+        var unit = 1;
+        while (value >= 1024 && unit < units.Count - 1)
         {
             value /= 1024;
             unit++;
         }
-        return string.Create(CultureInfo.InvariantCulture, $"{Math.Round(value, 1):0.#} {units[unit]}");
+        var number = Math.Round(value, 1).ToString("0.#", CultureInfo.InvariantCulture).Replace(".", decimalSeparator, StringComparison.Ordinal);
+        return $"{number} {units[unit]}";
     }
 
     /// <summary>Two file values are equal when they have the same name, size, content type and modification time, which is how a field tells that the user chose the file that was already there.</summary>

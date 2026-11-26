@@ -163,4 +163,7 @@ public sealed record FormTexts
 
     /// <summary>The accessible name of the button that removes a file, given its name (<c>"Remove report.pdf"</c>).</summary>
     public Func<string, string> RemoveFile { get; init; } = name => $"Remove {name}";
+
+    /// <summary>The form-level error shown when saving, an asynchronous rule or a handler throws (<c>"Something went wrong. Try again."</c>).</summary>
+    public string SomethingWentWrong { get; init; } = "Something went wrong. Try again.";
 }

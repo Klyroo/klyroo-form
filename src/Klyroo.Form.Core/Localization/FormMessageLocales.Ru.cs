@@ -9,12 +9,13 @@ public static partial class FormMessageLocales
     public static FormMessages Ru { get; } = new()
     {
         Required = "Это поле обязательно",
-        MinValue = n => $"Значение должно быть не меньше {n.ToString(CultureInfo.InvariantCulture)}",
-        MaxValue = n => $"Значение должно быть не больше {n.ToString(CultureInfo.InvariantCulture)}",
+        MinValue = n => $"Значение должно быть не меньше {Number(n, ",")}",
+        MaxValue = n => $"Значение должно быть не больше {Number(n, ",")}",
         MaxLength = n => $"Не более {n} " + RussianPlural(n, "символа", "символов", "символов"),
         DateRangeOrder = "Дата окончания не может быть раньше даты начала",
         FileTooLarge = (name, size) => $"{name} больше {size}",
         FileTypeNotAllowed = (name, accept) => $"{name}: недопустимый тип ({accept})",
         SingleFileOnly = "Выберите только один файл",
+        FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["Б", "КБ", "МБ", "ГБ", "ТБ"]),
     };
 }

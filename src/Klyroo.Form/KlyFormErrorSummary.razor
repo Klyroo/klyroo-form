@@ -6,11 +6,12 @@
 @if (Form is not null)
 {
     var entries = Form.GetErrorEntries().Where(e => e.IsFormLevel || Form.SubmitFailed).ToList();
+    var liveText = NextLiveText(entries);
     var summaryId = FormLayout.SummaryId(Form.Schema.FormKey);
     var titleId = $"{summaryId}-title";
 
     @* One polite live region per form, always in the DOM so that assistive technology announces its text when it changes. *@
-    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-slot="form-live-region">@LiveText(entries)</div>
+    <div class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-slot="form-live-region">@liveText</div>
 
     @if (entries.Count > 0)
     {
@@ -52,8 +53,28 @@
 
     private string Title(IReadOnlyList<FormErrorEntry> entries) => Texts.ErrorsToFix(entries.Count);
 
-    private string LiveText(IReadOnlyList<FormErrorEntry> entries) =>
-        entries.Count == 0 ? "" : $"{Title(entries)}. {Describe(entries[0])}";
+    // A live region announces when its text changes, so the text changes only when something new is worth saying: after a failed attempt, when a
+    // form-level error appears, and (to empty) when the last error is gone. Editing a field after a failed submit does not announce anything.
+    private int _announcedFailures;
+    private string _announcedFormErrors = "";
+    private string _liveText = "";
+
+    private string NextLiveText(IReadOnlyList<FormErrorEntry> entries)
+    {
+        var failures = Form.SubmitFailureCount;
+        var formErrors = string.Join('\n', Form.FormErrors);
+        if (entries.Count == 0)
+        {
+            _liveText = "";
+        }
+        else if (failures != _announcedFailures || formErrors != _announcedFormErrors)
+        {
+            _liveText = $"{Title(entries)}. {Describe(entries[0])}";
+        }
+        _announcedFailures = failures;
+        _announcedFormErrors = formErrors;
+        return _liveText;
+    }
 
     // "Email: This field is required", or "SKU (Lines, 2): ..." for a cell of a repeatable list.
     private string Describe(FormErrorEntry entry)

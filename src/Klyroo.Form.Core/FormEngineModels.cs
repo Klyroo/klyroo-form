@@ -248,7 +248,7 @@ public sealed class FormFieldSchema
     public double? Step { get; init; }
     /// <summary>The accepted files of a <see cref="FormFieldKind.File"/> field, in the syntax of the HTML <c>accept</c> attribute: comma-separated extensions (<c>.png</c>), content types (<c>image/png</c>) and wildcards (<c>image/*</c>). It is the <c>accept</c> attribute of the input, which only filters the picker, so validation checks it too (see <see cref="FormFileValue.Matches"/>).</summary>
     public string? Accept { get; init; }
-    /// <summary>The largest accepted size in bytes of each file of a <see cref="FormFieldKind.File"/> field, enforced on validation. <c>null</c> means no limit.</summary>
+    /// <summary>The largest accepted size in bytes of each file of a <see cref="FormFieldKind.File"/> field. The components read a chosen file into memory when it is chosen, so this is also the most memory one file can take (times the number of files with <see cref="Multiple"/>, per field, for as long as the value is held). It is enforced on validation and when the content is read or opened. <c>null</c> means <see cref="FormFileValue.DefaultMaxSize"/> (10 MiB); set a larger value on purpose if you accept larger files.</summary>
     public long? MaxFileSize { get; init; }
     /// <summary>Names the renderer of a <see cref="FormFieldKind.Custom"/> field: the key it was registered under with <c>KlyrooFormOptions.CustomField</c>, or the key in the <c>FieldTemplates</c> parameter. Keys are case sensitive. A custom field without a registered renderer shows a notice instead of a control.</summary>
     public string? CustomKey { get; init; }
@@ -397,7 +397,8 @@ public sealed record FormSubmitOutcome(
     IReadOnlyDictionary<string, object?> FormData);
 
 /// <summary>Runtime state of a <see cref="FormSchema"/>: field values, an initial snapshot for dirty tracking, touched fields, validation errors, step navigation, repeatable rows and submission. It has no UI dependency and is not thread safe: use it from one thread or one synchronization context at a time.</summary>
-public sealed partial class FormController
+/// <remarks>Dispose it when it is no longer used: it cancels the asynchronous validations still waiting or running. A controller you pass to a component stays yours to dispose; one the component creates from a schema is disposed with the component.</remarks>
+public sealed partial class FormController : IDisposable
 {
     private readonly Dictionary<string, object?> _state = new(StringComparer.Ordinal);
     private readonly Dictionary<string, object?> _initialSnapshot = new(StringComparer.Ordinal);
@@ -806,11 +807,11 @@ public sealed partial class FormController
     public bool IsFieldRequired(FormFieldSchema field) =>
         field.Required || (field.RequiredWhen is not null && field.RequiredWhen(this));
 
-    /// <summary>Tells whether a field is currently disabled, from <see cref="FormFieldSchema.Disabled"/> and <see cref="FormFieldSchema.DisabledWhen"/>.</summary>
+    /// <summary>Tells whether a field is currently disabled, from <see cref="FormFieldSchema.Disabled"/>, <see cref="FormFieldSchema.DisabledWhen"/> and <see cref="IsSubmitting"/>: every field is disabled while a submission runs, so the user cannot edit values that are being validated or saved. The components render the controls disabled; <see cref="SetValue"/> from code still works.</summary>
     /// <param name="field">The field to test.</param>
     /// <returns><c>true</c> if the field is disabled.</returns>
     public bool IsFieldDisabled(FormFieldSchema field) =>
-        field.Disabled || (field.DisabledWhen is not null && field.DisabledWhen(this));
+        IsSubmitting || field.Disabled || (field.DisabledWhen is not null && field.DisabledWhen(this));
 
     /// <summary>Gets the options of a field: those from its options factory or its static options, followed by the options added with <see cref="CreateFieldOption"/>.</summary>
     /// <param name="field">The choice field.</param>
@@ -1264,7 +1265,8 @@ public sealed partial class FormController
         foreach (var file in files)
         {
             if (!file.Matches(field.Accept)) return Messages.FileTypeNotAllowed(file.Name, field.Accept!);
-            if (field.MaxFileSize is { } max && file.Size > max) return Messages.FileTooLarge(file.Name, FormFileValue.FormatSize(max));
+            var max = field.MaxFileSize ?? FormFileValue.DefaultMaxSize;
+            if (file.Size > max) return Messages.FileTooLarge(file.Name, Messages.FileSize(max));
         }
         return null;
     }
@@ -1321,6 +1323,7 @@ public sealed partial class FormController
             if (!valid)
             {
                 SubmitFailed = true;
+                SubmitFailureCount++;
                 Changed?.Invoke();
                 return false;
             }
@@ -1436,13 +1439,14 @@ public sealed partial class FormController
                 await Schema.OnSubmit(this);
             }
 
+            var submitted = CloneState();
             if (handler is not null && !await handler(this, cancellationToken))
             {
                 return false;
             }
 
-            // Rebaseline dirty snapshot on success
-            RetakeSnapshot();
+            // Rebaseline dirty snapshot on success, with what the handler was given and not with what the state became since.
+            RetakeSnapshot(submitted);
             succeeded = true;
             return true;
         }
@@ -1450,16 +1454,27 @@ public sealed partial class FormController
         {
             IsSubmitting = false;
             SubmitFailed = !succeeded;
+            if (!succeeded) SubmitFailureCount++;
             Changed?.Invoke();
         }
     }
 
-    private void RetakeSnapshot()
+    private Dictionary<string, object?> CloneState()
     {
-        _initialSnapshot.Clear();
+        var copy = new Dictionary<string, object?>(_state.Count, StringComparer.Ordinal);
         foreach (var (k, v) in _state)
         {
-            _initialSnapshot[k] = CloneValue(v);
+            copy[k] = CloneValue(v);
+        }
+        return copy;
+    }
+
+    private void RetakeSnapshot(Dictionary<string, object?> values)
+    {
+        _initialSnapshot.Clear();
+        foreach (var (k, v) in values)
+        {
+            _initialSnapshot[k] = v;
         }
     }
 
@@ -1470,6 +1485,7 @@ public sealed partial class FormController
         ClearValidationState();
         _customErrors.Clear();
         SubmitFailed = false;
+        SubmitFailureCount = 0;
         CancelAllPendingValidations();
         _asyncResults.Clear();
         CurrentStepIndex = 0;
@@ -1780,6 +1796,7 @@ public sealed class FormService
         if (replaced is not null)
         {
             replacedTcs?.TrySetResult(new FormSubmitOutcome(false, replaced.BuildOutput()));
+            replaced.Dispose();
         }
         return _tcs.Task;
     }
@@ -1804,17 +1821,20 @@ public sealed class FormService
         _tcs = null;
         Changed?.Invoke();
         tcs?.TrySetResult(new FormSubmitOutcome(true, data));
+        form.Dispose();
     }
 
     /// <summary>Closes the open form without submitting and completes the task of <see cref="CreateFormAsync"/> with <see cref="FormSubmitOutcome.IsCompleted"/> set to <c>false</c>. Does nothing when no form is open.</summary>
     public void CloseForm()
     {
         if (ActiveForm is null) return;
-        var data = ActiveForm.BuildOutput();
+        var closing = ActiveForm;
+        var data = closing.BuildOutput();
         var tcs = _tcs;
         ActiveForm = null;
         _tcs = null;
         Changed?.Invoke();
         tcs?.TrySetResult(new FormSubmitOutcome(false, data));
+        closing.Dispose();
     }
 }

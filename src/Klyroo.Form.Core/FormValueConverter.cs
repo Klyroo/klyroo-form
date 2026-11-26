@@ -89,7 +89,11 @@ internal static class FormValueConverter
     private static bool TryBool(object raw, out object? result)
     {
         result = null;
-        if (raw is not string s) return false;
+        if (raw is not string s)
+        {
+            // A boxed number is a flag when it is exactly 1 or 0.
+            return TryDecimal(raw, out var number) && (number == 1 || number == 0) && Set(number == 1, out result);
+        }
         s = s.Trim();
         if (bool.TryParse(s, out var b)) return Set(b, out result);
         if (s is "1" or "on" or "On" or "ON") return Set(true, out result);
@@ -254,6 +258,8 @@ internal static class FormValueConverter
         if (raw is string s)
         {
             s = s.Trim();
+            // "A, B" is a combination: it means something only for a [Flags] enum, otherwise Enum.TryParse would return a value no member has.
+            if (s.Contains(',', StringComparison.Ordinal) && !type.IsDefined(typeof(FlagsAttribute), inherit: false)) return false;
             if (!Enum.TryParse(type, s, ignoreCase: true, out var parsed) || parsed is null) return false;
             // "7" parses to 7 even when no member has that value: accept a number only when it names a member.
             var numeric = s.Length > 0 && (char.IsDigit(s[0]) || s[0] is '-' or '+');
@@ -284,6 +290,7 @@ internal static class FormValueConverter
                         foreach (var (key, cell) in map)
                         {
                             var child = field.Fields?.FirstOrDefault(c => c.Key == key);
+                            if (child?.Kind is FormFieldKind.File or FormFieldKind.Custom) continue;
                             row[key] = child is null ? cell : NormalizeForField(child, cell);
                         }
                         rows.Add(row);

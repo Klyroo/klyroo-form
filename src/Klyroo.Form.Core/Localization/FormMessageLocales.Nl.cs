@@ -9,12 +9,13 @@ public static partial class FormMessageLocales
     public static FormMessages Nl { get; } = new()
     {
         Required = "Dit veld is verplicht",
-        MinValue = n => $"De waarde moet minstens {n.ToString(CultureInfo.InvariantCulture)} zijn",
-        MaxValue = n => $"De waarde mag hoogstens {n.ToString(CultureInfo.InvariantCulture)} zijn",
-        MaxLength = n => $"Maximaal {n.ToString(CultureInfo.InvariantCulture)} tekens",
+        MinValue = n => $"De waarde moet minstens {Number(n, ",")} zijn",
+        MaxValue = n => $"De waarde mag hoogstens {Number(n, ",")} zijn",
+        MaxLength = n => $"Maximaal {Number(n, ",")} tekens",
         DateRangeOrder = "De einddatum mag niet vóór de startdatum liggen",
         FileTooLarge = (name, size) => $"{name} is groter dan {size}",
         FileTypeNotAllowed = (name, accept) => $"{name} is geen toegestaan type ({accept})",
         SingleFileOnly = "Kies slechts één bestand",
+        FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

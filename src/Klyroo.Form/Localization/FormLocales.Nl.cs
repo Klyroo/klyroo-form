@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "Bestanden kiezen",
         NoFileChosen = "Geen bestand gekozen",
         RemoveFile = name => $"{name} verwijderen",
+        SomethingWentWrong = "Er is iets misgegaan. Probeer het opnieuw.",
         Messages = FormMessageLocales.Nl,
     };
 }

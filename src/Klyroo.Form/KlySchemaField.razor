@@ -1,5 +1,6 @@
 @namespace Klyroo.Form
 @inherits KlyComponentBase
+@inject ILogger<KlySchemaField> Logger
 @using System.Globalization
 @using Microsoft.AspNetCore.Components.Forms
 
@@ -901,7 +902,7 @@
                            multiple="@field.Multiple" accept="@field.Accept" disabled="@b.Disabled"
                            aria-invalid="@invalid" aria-required="@(b.Required ? "true" : null)" aria-describedby="@b.DescribedBy"
                            data-slot="@b.Slot"
-                           OnChange="@(e => OnFilesChosen(field, b, e))" />
+                           OnChange="@(e => OnFilesChosenAsync(field, b, e))" />
                 <span>@(field.Multiple ? Texts.ChooseFiles : Texts.ChooseFile)</span>
             </label>
             @if (files.Count == 0)
@@ -916,7 +917,7 @@
                         var chosen = file;
                         <li class="flex items-center gap-2 text-xs" data-slot="form-file" data-name="@file.Name">
                             <span class="min-w-0 truncate text-(--klyroo-text)">@file.Name</span>
-                            <span class="shrink-0 text-[11px] text-(--klyroo-text-muted)">@FormFileValue.FormatSize(file.Size)</span>
+                            <span class="shrink-0 text-[11px] text-(--klyroo-text-muted)">@b.Form.Messages.FileSize(file.Size)</span>
                             <button type="button"
                                     class="inline-flex size-6 shrink-0 items-center justify-center rounded-full text-[11px] text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50"
                                     aria-label="@Texts.RemoveFile(file.Name)"
@@ -937,15 +938,43 @@
         _ => [],
     };
 
-    private static void OnFilesChosen(FormFieldSchema field, FormControlContext b, InputFileChangeEventArgs e)
+    // A chosen file is read into memory right away, up to MaxFileSize: the value then holds the bytes and does not depend on the browser input,
+    // which a step change, a hidden field or a removal unmounts. A file above the limit is not read: it stays in the value so that validation names it,
+    // and opening it fails.
+    private async Task OnFilesChosenAsync(FormFieldSchema field, FormControlContext b, InputFileChangeEventArgs e)
     {
         if (e.FileCount == 0) return;
-        var picked = e.GetMultipleFiles(e.FileCount).Select(ToFileValue).ToList();
+        var limit = field.MaxFileSize ?? FormFileValue.DefaultMaxSize;
+        var picked = new List<FormFileValue>();
+        try
+        {
+            foreach (var file in e.GetMultipleFiles(e.FileCount))
+            {
+                picked.Add(await ReadAsync(file, limit));
+            }
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            Logger.LogError(ex, "Klyroo.Form: reading a file chosen for '{Key}' failed.", field.Key);
+            b.Form.SetError(field.Key, Texts.SomethingWentWrong);
+            return;
+        }
         b.Commit(field.Multiple ? picked : picked[0]);
     }
 
-    private static FormFileValue ToFileValue(IBrowserFile file) =>
-        new(file.Name, file.Size, file.ContentType, ct => ValueTask.FromResult(file.OpenReadStream(Math.Max(file.Size, 1), ct)), file.LastModified);
+    private static async Task<FormFileValue> ReadAsync(IBrowserFile file, long limit)
+    {
+        if (file.Size > limit)
+        {
+            var name = file.Name;
+            return new FormFileValue(name, file.Size, file.ContentType, _ => throw new InvalidOperationException($"'{name}' is larger than the limit of {limit} bytes and was not read."), file.LastModified);
+        }
+        await using var stream = file.OpenReadStream(limit);
+        using var buffer = new MemoryStream(checked((int)Math.Min(file.Size, limit)));
+        await stream.CopyToAsync(buffer);
+        var bytes = buffer.ToArray();
+        return new FormFileValue(file.Name, bytes.Length, file.ContentType, _ => ValueTask.FromResult<Stream>(new MemoryStream(bytes, writable: false)), file.LastModified);
+    }
 
     // The browser input keeps showing its selection and does not fire change for the same file again, so a removal gives it a new identity.
     private void RemoveFile(FormFieldSchema field, FormControlContext b, FormFileValue file)

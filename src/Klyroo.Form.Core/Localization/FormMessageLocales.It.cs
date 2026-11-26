@@ -9,12 +9,13 @@ public static partial class FormMessageLocales
     public static FormMessages It { get; } = new()
     {
         Required = "Questo campo è obbligatorio",
-        MinValue = n => $"Il valore deve essere almeno {n.ToString(CultureInfo.InvariantCulture)}",
-        MaxValue = n => $"Il valore deve essere al massimo {n.ToString(CultureInfo.InvariantCulture)}",
-        MaxLength = n => $"Al massimo {n.ToString(CultureInfo.InvariantCulture)} caratteri",
+        MinValue = n => $"Il valore deve essere almeno {Number(n, ",")}",
+        MaxValue = n => $"Il valore deve essere al massimo {Number(n, ",")}",
+        MaxLength = n => $"Al massimo {Number(n, ",")} caratteri",
         DateRangeOrder = "La data di fine non può precedere la data di inizio",
         FileTooLarge = (name, size) => $"{name} supera {size}",
         FileTypeNotAllowed = (name, accept) => $"{name} non è di un tipo accettato ({accept})",
         SingleFileOnly = "Scegli un solo file",
+        FileSize = bytes => FormFileValue.FormatSize(bytes, ",", ["B", "KB", "MB", "GB", "TB"]),
     };
 }

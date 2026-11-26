@@ -20,6 +20,9 @@ public sealed partial class FormController
     /// <summary><c>true</c> after a submission, or a move to the next step, failed because of validation, a hook or a handler, until a submission succeeds, the step changes or <see cref="Reset"/> runs. The components list every field error in the error summary while it is set.</summary>
     public bool SubmitFailed { get; private set; }
 
+    /// <summary>How many times a submission or a move to the next step failed since the controller was created or last reset. The error summary announces once per increase instead of on every edit.</summary>
+    public int SubmitFailureCount { get; private set; }
+
     /// <summary>Sets an error on the form as a whole, for a failure that belongs to no field (a server rejection, a conflict). It is a <see cref="SetError"/> on <see cref="FormErrorKey"/>, so it shows in the error summary, and it clears with <see cref="ClearError"/> or <see cref="Reset"/>.</summary>
     /// <param name="message">The message to show.</param>
     /// <param name="blocking"><c>true</c> to make <see cref="Validate"/> and <see cref="SubmitAsync()"/> fail until the error is cleared. The default is <c>true</c>, since a form-level error usually means the data cannot be saved as it is; fields do not clear it when they change, so call <see cref="ClearError"/> when the user fixes the cause.</param>

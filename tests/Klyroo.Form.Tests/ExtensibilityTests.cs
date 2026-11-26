@@ -234,7 +234,7 @@ public sealed class ExtensibilityTests : BunitContext
     }
 
     [Fact]
-    public void A_custom_value_survives_a_draft_as_it_was_stored()
+    public void A_custom_value_is_not_restored_from_a_draft()
     {
         var form = Form(new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
         form.SetValue("pick", new List<string> { "a", "b" });
@@ -243,7 +243,8 @@ public sealed class ExtensibilityTests : BunitContext
         var other = Form(new FormFieldSchema { Key = "pick", Kind = FormFieldKind.Custom, CustomKey = "x" });
         other.RestoreDraft(draft);
 
-        Assert.Equal(["a", "b"], other.GetValue<List<string>>("pick"));
+        // A draft is stored text: it never fills a field whose value only your code can build.
+        Assert.Null(other.GetValue("pick"));
     }
 
     // File values
@@ -390,7 +391,7 @@ public sealed class ExtensibilityTests : BunitContext
         form.SetValue("doc", FormFileValue.FromBytes("gros.bin", new byte[2048]));
 
         Assert.False(form.Validate());
-        Assert.Equal("gros.bin dépasse 10 B", form.GetError("doc"));
+        Assert.Equal("gros.bin dépasse 10 o", form.GetError("doc"));
 
         var withRule = new FormFieldSchema
         {

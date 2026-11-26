@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "选择文件",
         NoFileChosen = "未选择文件",
         RemoveFile = name => $"移除 {name}",
+        SomethingWentWrong = "出了点问题，请重试。",
         Messages = FormMessageLocales.ZhCn,
     };
 }

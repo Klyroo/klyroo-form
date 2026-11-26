@@ -18,14 +18,21 @@ public sealed partial class FormController
     /// <param name="currentStepOnly"><c>true</c> to validate only the fields of the current step.</param>
     /// <param name="cancellationToken">Cancels the rules that run. The rules run now, so a background run of the same field is cancelled and its result is not reused.</param>
     /// <returns><c>true</c> if none of the validated fields and cells has an error and no blocking error applies, as for <see cref="Validate"/>.</returns>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled. A run replaced by an edit is not an error: it is run again.</exception>
     /// <exception cref="Exception">An exception thrown by an asynchronous rule propagates, after the other rules finished or were cancelled.</exception>
     public async Task<bool> ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = default)
     {
         var valid = Validate(currentStepOnly);
-        var work = FieldsNeedingAsyncValidation(currentStepOnly);
-        if (work.Count == 0) return valid;
-        await Task.WhenAll(work.Select(item => CheckNowAsync(item.Field, item.Value, cancellationToken)));
-        return Validate(currentStepOnly);
+        for (var attempt = 0; ; attempt++)
+        {
+            var work = FieldsNeedingAsyncValidation(currentStepOnly);
+            if (work.Count == 0) return valid;
+            // A value that changes while its rule runs leaves a result for the old value, which is not "no error". Check again, and if the
+            // results keep going stale report failure rather than success for a value no rule has seen.
+            if (attempt == 3) return false;
+            await Task.WhenAll(work.Select(item => CheckNowAsync(item.Field, item.Value, cancellationToken)));
+            valid = Validate(currentStepOnly);
+        }
     }
 
     private bool HasAsyncWork(bool currentStepOnly) => FieldsNeedingAsyncValidation(currentStepOnly).Count > 0;
@@ -82,12 +89,13 @@ public sealed partial class FormController
         if (ActiveFields.Contains(field)) ValidateFieldCore(field);
     }
 
-    // Submission needs the result for this value: take it from a background run that already called the service with it (so the service is not called
-    // twice for one value), otherwise run the rules now. A run still waiting for its debounce is replaced, since submission cannot wait for it.
+    // Submission needs the result for this value: take it from the background run that has it (cutting its debounce short, so the service is not called
+    // twice for one value and submission does not wait for the debounce), otherwise run the rules now.
     private async Task CheckNowAsync(FormFieldSchema field, object? value, CancellationToken cancellationToken)
     {
-        if (_backgroundRuns.TryGetValue(field.Key, out var background) && background.Started && ValuesEqual(background.Value, value))
+        if (_backgroundRuns.TryGetValue(field.Key, out var background) && ValuesEqual(background.Value, value))
         {
+            background.SkipDebounce.TrySetResult();
             await background.Done.WaitAsync(cancellationToken);
             if (CachedAsyncResult(field.Key, value) is not null) return;
         }
@@ -97,7 +105,7 @@ public sealed partial class FormController
     private sealed class BackgroundRun(object? value)
     {
         public object? Value { get; } = value;
-        public bool Started { get; set; }
+        public TaskCompletionSource SkipDebounce { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource DoneSource { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public Task Done => DoneSource.Task;
     }
@@ -115,6 +123,10 @@ public sealed partial class FormController
             cts.Token.ThrowIfCancellationRequested();
             StoreAsyncResult(field, value, message);
         }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // An edit or a reset replaced this run; ValidateAsync notices the missing result and runs the rule again.
+        }
         finally
         {
             if (_pendingValidations.TryGetValue(field.Key, out var current) && ReferenceEquals(current, cts))
@@ -126,16 +138,27 @@ public sealed partial class FormController
     }
 
     // Starts the debounced background run for the current value, cancelling an older one. Does nothing when there is nothing to check.
+    // The new run is registered before the old one is cancelled: cancelling runs the continuations of whoever awaited the old run, inline, and one of
+    // them (ValidateAsync) must find the new run and wait for it instead of starting a second run for the same value.
     private void ScheduleAsyncValidation(FormFieldSchema field)
     {
-        CancelPendingValidation(field.Key);
-        var value = CloneValue(GetValue(field.Key));
-        if (!ActiveFields.Contains(field) || !IsAsyncEligible(field, value) || CachedAsyncResult(field.Key, value) is not null) return;
-        var cts = new CancellationTokenSource();
-        var run = new BackgroundRun(value);
-        _pendingValidations[field.Key] = cts;
-        _backgroundRuns[field.Key] = run;
-        _ = RunInBackgroundAsync(field, value, cts, run);
+        _pendingValidations.Remove(field.Key, out var previous);
+        CancellationTokenSource? cts = null;
+        BackgroundRun? run = null;
+        object? value = null;
+        if (!_disposed)
+        {
+            value = CloneValue(GetValue(field.Key));
+            if (ActiveFields.Contains(field) && IsAsyncEligible(field, value) && CachedAsyncResult(field.Key, value) is null)
+            {
+                cts = new CancellationTokenSource();
+                run = new BackgroundRun(value);
+                _pendingValidations[field.Key] = cts;
+                _backgroundRuns[field.Key] = run;
+            }
+        }
+        previous?.Cancel();
+        if (cts is not null && run is not null) _ = RunInBackgroundAsync(field, value, cts, run);
     }
 
     private async Task RunInBackgroundAsync(FormFieldSchema field, object? value, CancellationTokenSource cts, BackgroundRun run)
@@ -144,8 +167,13 @@ public sealed partial class FormController
         try
         {
             var debounce = field.AsyncValidators!.Max(r => r.Debounce);
-            if (debounce > TimeSpan.Zero) await Task.Delay(debounce, cts.Token);
-            run.Started = true;
+            if (debounce > TimeSpan.Zero)
+            {
+                using var delay = CancellationTokenSource.CreateLinkedTokenSource(cts.Token);
+                await Task.WhenAny(Task.Delay(debounce, delay.Token), run.SkipDebounce.Task);
+                await delay.CancelAsync();
+                cts.Token.ThrowIfCancellationRequested();
+            }
             var message = await RunRulesAsync(field, this, value, cts.Token);
             cts.Token.ThrowIfCancellationRequested();
             StoreAsyncResult(field, value, message);
@@ -176,6 +204,18 @@ public sealed partial class FormController
         {
             cts.Cancel();
         }
+    }
+
+    private bool _disposed;
+
+    /// <summary>Cancels the asynchronous validations that are waiting for their debounce or running, without changing any value or error. A component calls it when it goes away.</summary>
+    public void CancelPendingValidations() => CancelAllPendingValidations();
+
+    /// <summary>Cancels the pending asynchronous validations and stops starting new ones. The values and errors stay readable.</summary>
+    public void Dispose()
+    {
+        _disposed = true;
+        CancelAllPendingValidations();
     }
 
     private void CancelAllPendingValidations()

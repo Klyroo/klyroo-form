@@ -2,6 +2,7 @@
 @inherits KlyComponentBase
 @implements IAsyncDisposable
 @inject IJSRuntime Js
+@inject ILogger<KlyFormPage> Logger
 
 @if (Form is not null)
 {
@@ -161,14 +162,15 @@
     private async Task OnSubmitAsync()
     {
         if (Form.IsSubmitting) return;
-        var ok = OnSave is { } save
-            ? await Form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
-            : await Form.SubmitAsync();
-        if (ok)
+        var ok = await FormRun.RunAsync(async () =>
         {
-            if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Form.BuildOutput());
-        }
-        else
+            var done = OnSave is { } save
+                ? await Form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
+                : await Form.SubmitAsync();
+            if (done && OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(Form.BuildOutput());
+            return done;
+        }, Form, Logger, Texts, _disposed.Token);
+        if (!ok)
         {
             _focusTarget = FormLayout.FirstErrorTargetId(Form);
             if (_focusTarget is not null) StateHasChanged();
@@ -192,6 +194,7 @@
         }
         await _disposed.CancelAsync();
         _disposed.Dispose();
+        Form.CancelPendingValidations();
         await _js.DisposeAsync();
     }
 }

@@ -2,6 +2,7 @@
 @inherits KlyComponentBase
 @implements IAsyncDisposable
 @inject IJSRuntime Js
+@inject ILogger<KlyFormEngine> Logger
 
 @if (EffectiveController is { } form)
 {
@@ -214,24 +215,22 @@
             await OnNextAsync();
             return;
         }
-        var ok = OnSave is { } save
-            ? await form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
-            : await form.SubmitAsync();
-        if (ok)
+        var ok = await FormRun.RunAsync(async () =>
         {
-            if (OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(form.BuildOutput());
-        }
-        else
-        {
-            RequestFocus(form);
-        }
+            var done = OnSave is { } save
+                ? await form.SubmitAsync((f, ct) => save(f.BuildOutput(), ct), _disposed.Token)
+                : await form.SubmitAsync();
+            if (done && OnSubmit.HasDelegate) await OnSubmit.InvokeAsync(form.BuildOutput());
+            return done;
+        }, form, Logger, Texts, _disposed.Token);
+        if (!ok) RequestFocus(form);
     }
 
     private async Task OnNextAsync()
     {
         var form = EffectiveController;
         if (form is null) return;
-        if (!await form.NextStepAsync()) RequestFocus(form);
+        if (!await FormRun.RunAsync(form.NextStepAsync, form, Logger, Texts, _disposed.Token)) RequestFocus(form);
     }
 
     private Task OnPreviousAsync() => EffectiveController?.PreviousStepAsync() ?? Task.CompletedTask;
@@ -269,6 +268,9 @@
         }
         await _disposed.CancelAsync();
         _disposed.Dispose();
+        // The controller the component created goes with it; one you passed stays yours, but nobody is left to show its pending checks.
+        if (_internalController is not null) _internalController.Dispose();
+        else Form?.CancelPendingValidations();
         await _js.DisposeAsync();
     }
 }

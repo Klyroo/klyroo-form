@@ -23,9 +23,9 @@ public sealed class AsyncValidationTests : BunitContext
             new("free", async (value, _, ct) =>
             {
                 var text = value?.ToString() ?? "";
-                Calls.Add(value);
-                Tokens.Add(ct);
                 var source = Pending[text] = new TaskCompletionSource<string?>();
+                Tokens.Add(ct);
+                Calls.Add(value);
                 await using var registration = ct.Register(() => source.TrySetCanceled(ct));
                 return await source.Task;
             })

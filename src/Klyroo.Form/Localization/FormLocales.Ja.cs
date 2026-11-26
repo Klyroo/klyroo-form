@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "ファイルを選択",
         NoFileChosen = "ファイルが選択されていません",
         RemoveFile = name => $"{name}を削除",
+        SomethingWentWrong = "問題が発生しました。もう一度お試しください。",
         Messages = FormMessageLocales.Ja,
     };
 }

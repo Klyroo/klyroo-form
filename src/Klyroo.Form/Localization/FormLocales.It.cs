@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "Scegli i file",
         NoFileChosen = "Nessun file scelto",
         RemoveFile = name => $"Rimuovi {name}",
+        SomethingWentWrong = "Qualcosa è andato storto. Riprova.",
         Messages = FormMessageLocales.It,
     };
 }

@@ -43,6 +43,9 @@ public sealed record FormMessages
     /// <summary>The error of a <see cref="FormFieldKind.DateRange"/> whose end is before its start (<c>"The end date must not be before the start date"</c>).</summary>
     public string DateRangeOrder { get; init; } = "The end date must not be before the start date";
 
+    /// <summary>Formats a size for a message and for the file list, with the decimal separator and the unit names of the language (<c>"1.5 MB"</c>, <c>"1,5 Mo"</c>). The default is <see cref="FormFileValue.FormatSize"/>.</summary>
+    public Func<long, string> FileSize { get; init; } = bytes => FormFileValue.FormatSize(bytes);
+
     /// <summary>The error of a <see cref="FormFieldKind.File"/> file above <see cref="FormFieldSchema.MaxFileSize"/>, given the file name and the limit as text (<c>"report.pdf is larger than 5 MB"</c>).</summary>
     public Func<string, string, string> FileTooLarge { get; init; } = (name, size) => $"{name} is larger than {size}";
 

@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "Выбрать файлы",
         NoFileChosen = "Файл не выбран",
         RemoveFile = name => $"Удалить {name}",
+        SomethingWentWrong = "Что-то пошло не так. Попробуйте ещё раз.",
         Messages = FormMessageLocales.Ru,
     };
 }

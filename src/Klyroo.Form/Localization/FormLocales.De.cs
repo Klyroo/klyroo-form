@@ -51,6 +51,7 @@ public static partial class FormLocales
         ChooseFiles = "Dateien auswählen",
         NoFileChosen = "Keine Datei ausgewählt",
         RemoveFile = name => $"{name} entfernen",
+        SomethingWentWrong = "Etwas ist schiefgelaufen. Versuchen Sie es erneut.",
         Messages = FormMessageLocales.De,
     };
 }
