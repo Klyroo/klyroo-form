@@ -38,11 +38,12 @@ internal sealed class FieldAccess(FormEngine engine, FieldNode node) : IFormFiel
 
     public FormWriteResult TrySet(JsonElement value)
     {
-        if (!FormJsonCoercion.TryCoerce(node, engine.GetFieldOptions(node), value, out var control, out var reason))
-        {
-            return FormWriteResult.Fail(reason ?? "the value does not fit the field.");
-        }
-        if (node.ControlCheck?.Invoke(control) is { } mismatch) return FormWriteResult.Fail(mismatch);
+        var options = engine.GetFieldOptions(node);
+        // A typed field reads the JSON through its codec, which also checks the value against the type; a dynamic field only has the kind rules.
+        var read = node.JsonReader is { } reader
+            ? reader(value, node, options, out var control, out var reason)
+            : FormJsonCoercion.TryCoerce(node, options, value, out control, out reason);
+        if (!read) return FormWriteResult.Fail(reason ?? "the value does not fit the field.");
         engine.SetValue(node.Key, control, markTouched: true);
         return FormWriteResult.Success;
     }

@@ -31,16 +31,38 @@ internal abstract class FormCodec<TValue>
 
     public void WriteJson(Utf8JsonWriter writer, TValue? value) => FormDraft.WriteValue(writer, ToControl(value));
 
-    // The JSON a model or a person gave, checked against the field (kind, bounds, options) and then against the type.
-    public bool TryReadJson(JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out TValue? value, out string? reason)
+    // The control value the JSON a model or a person gave stands for, checked against the field (kind, bounds, options, exact numbers) and then against the type.
+    // This is what IFormFieldAccess.TrySet stores, so a number keeps every digit it had.
+    public bool TryReadJsonControl(JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out object? control, out string? reason)
     {
-        value = default;
-        if (!FormJsonCoercion.TryCoerce(field, options, element, out var control, out reason)) return false;
-        if (TryFromControl(control, out value) == ControlValue.Invalid)
+        if (!FormJsonCoercion.TryCoerce(field, options, element, out control, out reason)) return false;
+        // The kind rules read a number as a double. A typed field keeps the digits the JSON had: the decimal (or the double, when it says the same) of its text.
+        if (field.Kind is FormFieldKind.Number or FormFieldKind.Slider && control is double && NumberText(element) is { } text
+            && FormValueConverter.NumberFromInput(text) is { } exact)
+        {
+            control = exact;
+        }
+        if (TryFromControl(control, out _) == ControlValue.Invalid)
         {
             reason = $"\"{field.Key}\" expects {FormValueMap.Expectation(typeof(TValue))}.";
             return false;
         }
+        return true;
+    }
+
+    private static string? NumberText(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.Number => element.GetRawText(),
+        JsonValueKind.String => element.GetString()?.Trim(),
+        _ => null,
+    };
+
+    // The JSON a model or a person gave, as the value of the field.
+    public bool TryReadJson(JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out TValue? value, out string? reason)
+    {
+        value = default;
+        if (!TryReadJsonControl(element, field, options, out var control, out reason)) return false;
+        TryFromControl(control, out value);
         return true;
     }
 

@@ -11,6 +11,8 @@ internal sealed class FieldSettings
 
     internal Func<object?, string?>? ControlCheck { get; set; }
 
+    internal JsonControlReader? JsonReader { get; set; }
+
     // The codec of the field (a FormCodec of its value type), set once the kind is final and before the explicit settings run.
     internal object? Codec { get; set; }
 
@@ -66,6 +68,7 @@ internal sealed class FieldSettings
     internal FieldNode ToNode() => new()
     {
         ControlCheck = ControlCheck,
+        JsonReader = JsonReader,
         Key = Key,
         Kind = Kind,
         Label = Label,

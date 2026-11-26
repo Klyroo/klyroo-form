@@ -1,4 +1,8 @@
+using System.Text.Json;
+
 namespace Klyroo.Form;
+
+internal delegate bool JsonControlReader(JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out object? control, out string? reason);
 
 internal sealed record ValidatorRule(
     string Key,
@@ -31,6 +35,9 @@ internal sealed class FieldNode
 
     // Typed fields: says why a control value cannot be a value of the field type (null when it can). Used when a value arrives as JSON.
     public Func<object?, string?>? ControlCheck { get; init; }
+
+    // Typed fields: reads the JSON of an agent or a draft through the codec of the field, to the control value it stands for.
+    public JsonControlReader? JsonReader { get; init; }
 
     public required string Key { get; init; }
     public FormFieldKind Kind { get; init; } = FormFieldKind.Text;

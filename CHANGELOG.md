@@ -52,6 +52,8 @@ All notable changes to this project are documented in this file. The format is b
 
 - `FormSchema<TModel>.MultiSelect(m => m.Roles)` gets the handle of a multiple choice from the schema, as `List` does for a list. `Field<IReadOnlyList<TElement>>(m => m.Roles)` finds it too, and `Field(m => m.Roles)` explains which method to use instead of failing with a type message. Before, no call of the schema could return the handle of a `List<T>` member declared with `MultiSelect`.
 
+- `IFormFieldAccess.TrySet` on a typed field goes through the codec of the field (`FormCodec<TValue>.TryReadJsonControl`), so a number keeps every digit it had: `1234567890123456789.1234567890` for a `decimal`, `9007199254740993` and `long.MaxValue` for a `long`, `ulong.MaxValue` for a `ulong`. It stored a `double` before, which rounded them or refused the largest ones. The option label matching and the other coercion rules are unchanged, and a dynamic `Number` field still stores a `double`.
+
 ### Changed
 
 - BREAKING: the runtime (dictionary) mode moved to the `Klyroo.Form.Dynamic` namespace with a `Dynamic` prefix: `DynamicFormSchema`, `DynamicFieldSchema`, `DynamicStepSchema`, `DynamicSectionSchema`, `DynamicTabSchema`, `DynamicFormController`, `DynamicValidatorRule`, `DynamicAsyncValidatorRule`, `DynamicControlContext`, `DynamicFormService` (with `DynamicFormOutcome`), `KlyDynamicFormEngine`, `KlyDynamicFormPage` and `KlyDynamicFieldView` (formerly `KlySchemaField`, with a new `Key` parameter). Behavior is unchanged, and the engine tests are kept under the new names. The classes are now thin public views over an internal `FormEngine` and `FieldNode` tree that the typed mode shares.
