@@ -15,7 +15,7 @@
     var active = FormApi.ActiveForm;
     var open = active is not null;
     var busy = active?.IsSubmitting == true;
-    var label = active?.Schema.Title ?? _lastTitle ?? "Form";
+    var label = active?.Schema.Title ?? _lastTitle ?? Texts.FormTitle;
     <div class="contents" data-slot="form-provider-overlay" data-mode="@_mode.ToString().ToLowerInvariant()" data-open="@(open ? "true" : "false")">
         @if (_mode == FormShellMode.Drawer)
         {
@@ -33,6 +33,8 @@
 
 @code {
     private const string FullscreenClass = "m-0 h-dvh max-h-none w-screen max-w-none rounded-none";
+
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
 
     private bool _everOpened;
     private FormShellMode _mode = FormShellMode.Modal;

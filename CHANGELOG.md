@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- Localization: the built-in texts of the components (`FormTexts`, one set per Klyroo.UI locale in `FormLocales`) and the built-in validation messages (`FormMessages`, in `Klyroo.Form.Core` so they work without Blazor, one set per locale in `FormMessageLocales`) follow the locale in twelve languages. English and French are reviewed, the others are drafts. `AddKlyrooForm(f => f.Texts(code, change))` changes a set, `FormSchema.Messages` and `FormController.Messages` choose the language of one form, and `FormMessageLocales.Resolve(code)` picks a set for a culture name.
 - Asynchronous validation: `FormFieldSchema.AsyncValidators` take `FormAsyncValidatorRule` (`(value, controller, CancellationToken) => ValueTask<string?>`, with a `Debounce`). They run in the background after blur and while editing, stale runs are cancelled, and `SubmitAsync`, `NextStepAsync` and the new `FormController.ValidateAsync` wait for them. `IsValidating(key)` and `HasPendingValidation` report a run, and the components show a pending state next to the field.
 - `KlyFormNavigationGuard`, a `NavigationLock` that follows `FormController.IsDirty`: it asks the browser to confirm external navigation while the form is dirty and confirms in-app navigation with `window.confirm` or your `ConfirmLeave`.
 - `FormController.ExportState()` and `RestoreDraft()` with `FormDraft` (and `ToJson` and `FromJson`, written without reflection). A restored draft keeps the original baseline, so it is still dirty; passwords and one-time codes are left out unless asked for.
@@ -34,6 +35,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- `KlyFormEngine.SubmitLabel` is `string?` and defaults to the `Submit` text of the current locale instead of the literal `Submit`; `KlyFormNavigationGuard.Message` defaults the same way. `KlySchemaField` derives from `KlyComponentBase`, which gives it `Class` and unmatched attributes like the other components.
 - `KlyFormProvider` hosts its overlay in `KlyModal` (`Modal`, `Fullscreen`) and `KlySlideover` (`Drawer`) of Klyroo.UI instead of a hand-made `div`: the native modal dialog traps focus, closes on Escape and on a click on the backdrop, and returns focus to the opener. It cannot be dismissed while the form saves. The `form-provider-dialog` and `form-provider-overlay` class names are gone; the overlay carries `data-slot="form-provider-overlay"`, `data-mode` and `data-open` on a wrapper and `data-form-dialog` on the dialog.
 - `GetValue<T>` no longer rounds a fraction into an integer type (`GetValue<int>` on 3.5 returned 4): it returns `default`, as it does for any other value that does not fit the type.
 - Per-field error messages no longer carry `role="alert"`: they stay linked to the control with `aria-describedby`, and the live region and the error summary announce errors once for the whole form.

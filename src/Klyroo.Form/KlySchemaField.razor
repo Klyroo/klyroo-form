@@ -1,4 +1,5 @@
 @namespace Klyroo.Form
+@inherits KlyComponentBase
 @using System.Globalization
 
 @if (Form is not null && Field is not null && Form.ShouldRenderField(Field))
@@ -13,6 +14,8 @@
 
     // UI state lives with the controller, keyed by field key or element id, not with this instance: Blazor reuses instances by
     // position, so a field whose earlier sibling appears or disappears would otherwise inherit another field's state.
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
     private FormUiState Ui => FormUiState.For(Form);
 
     /// <summary>The controller that holds the value of the field.</summary>
@@ -20,6 +23,8 @@
 
     /// <summary>The field to render, usually one of <see cref="FormController.CurrentVisibleTopFields"/>. Containers render their children with nested <see cref="KlySchemaField"/> components.</summary>
     [Parameter, EditorRequired] public FormFieldSchema Field { get; set; } = default!;
+
+    protected override void OnParametersSet() => Form?.UseLocaleMessages(Texts.Messages);
 
     private int Cols => FormLayout.Columns(Form.Schema);
 
@@ -180,7 +185,7 @@
                         {
                             <button type="button" class="text-(--klyroo-primary-text) hover:underline"
                                     data-slot="form-field-reset" @onclick="@(() => form.ResetField(field.Key))">
-                                Reset
+                                @Texts.Reset
                             </button>
                         }
                     </div>
@@ -198,7 +203,7 @@
             {
                 <span class="inline-flex items-center gap-1.5 text-xs text-(--klyroo-text-muted)" data-slot="form-field-pending">
                     <span class="size-3 animate-spin rounded-full border-2 border-(--klyroo-border) border-t-(--klyroo-primary)" aria-hidden="true"></span>
-                    Checking…
+                    @Texts.Checking
                 </span>
             }
 
@@ -379,7 +384,7 @@
                     {
                         <button type="button" class="text-(--klyroo-primary-text) hover:underline"
                                 data-slot="form-field-reset" @onclick="@(() => form.ResetField(field.Key))">
-                            Reset
+                            @Texts.Reset
                         </button>
                     }
                     <button type="button"
@@ -388,7 +393,7 @@
                             aria-describedby="@describedBy"
                             data-slot="form-array-add"
                             @onclick="@(() => form.AddArrayItem(field))">
-                        + @(field.AddItemLabel ?? "Add item")
+                        + @(field.AddItemLabel ?? Texts.AddItem)
                     </button>
                 </div>
             </div>
@@ -400,7 +405,7 @@
 
             @if (items.Count == 0)
             {
-                <p class="m-0 py-2 text-center text-xs text-(--klyroo-text-muted)" data-slot="form-array-empty">No items yet</p>
+                <p class="m-0 py-2 text-center text-xs text-(--klyroo-text-muted)" data-slot="form-array-empty">@Texts.NoItemsYet</p>
             }
             else
             {
@@ -468,7 +473,7 @@
                             </div>
                             <button type="button"
                                     class="inline-flex size-7 shrink-0 items-center justify-center rounded-(--klyroo-radius) text-xs text-(--klyroo-error-text) hover:bg-(--klyroo-error)/10 disabled:opacity-50"
-                                    aria-label="@($"Remove item {idx + 1}")"
+                                    aria-label="@Texts.RemoveItem(idx + 1)"
                                     disabled="@disabled"
                                     data-slot="form-array-remove"
                                     @onclick="@(() => form.RemoveArrayItem(field.Key, idx))">
@@ -543,10 +548,10 @@
                                    @onblur="@b.Blur" />
                             <button type="button"
                                     class="absolute end-1.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-(--klyroo-radius) px-2 py-0.5 text-[11px] font-medium text-(--klyroo-text-muted) hover:text-(--klyroo-text)"
-                                    aria-label="@(revealed ? "Hide password" : "Show password")"
+                                    aria-label="@(revealed ? Texts.HidePassword : Texts.ShowPassword)"
                                     data-slot="form-password-toggle"
                                     @onclick="@(() => TogglePasswordReveal(b.Id))">
-                                @(revealed ? "Hide" : "Show")
+                                @(revealed ? Texts.Hide : Texts.Show)
                             </button>
                         </div>
                         @if (field.Clearable && strVal.Length > 0)
@@ -556,7 +561,7 @@
                     </div>
                     @if (requirements is not null)
                     {
-                        <ul id="@requirementsId" class="m-0 flex list-none flex-col gap-0.5 p-0 text-[11px]" aria-label="Password requirements" data-slot="form-password-requirements">
+                        <ul id="@requirementsId" class="m-0 flex list-none flex-col gap-0.5 p-0 text-[11px]" aria-label="@Texts.PasswordRequirements" data-slot="form-password-requirements">
                             @foreach (var req in requirements)
                             {
                                 var met = req.Validate(strVal);
@@ -564,7 +569,7 @@
                                     data-slot="form-password-requirement" data-key="@req.Key" data-met="@(met ? "true" : "false")">
                                     <span aria-hidden="true">@(met ? "✓" : "○")</span>
                                     <span>@req.Label</span>
-                                    <span class="sr-only">@(met ? "(met)" : "(not met)")</span>
+                                    <span class="sr-only">@(met ? Texts.RequirementMet : Texts.RequirementNotMet)</span>
                                 </li>
                             }
                         </ul>
@@ -653,7 +658,7 @@
                             class="@(InputClass(b.Error))"
                             data-slot="@b.Slot"
                             @onchange="@(e => b.Commit(string.IsNullOrEmpty(e.Value?.ToString()) ? null : e.Value?.ToString()))">
-                        <option value="">@(field.Placeholder ?? "Select…")</option>
+                        <option value="">@(field.Placeholder ?? Texts.SelectPlaceholder)</option>
                         @foreach (var (group, groupItems) in GroupOptions(options))
                         {
                             if (group is null)
@@ -716,7 +721,7 @@
                 var end = range.Count > 1 ? range[1] : "";
                 return @<div id="@b.Id" role="group" aria-labelledby="@b.LabelledBy" aria-describedby="@b.DescribedBy"
                              class="flex flex-wrap items-center gap-2" data-slot="@b.Slot" data-control="date-range">
-                    <input id="@($"{b.Id}-start")" type="date" aria-label="Start date"
+                    <input id="@($"{b.Id}-start")" type="date" aria-label="@Texts.StartDate"
                            disabled="@b.Disabled" value="@start" max="@(end.Length > 0 ? end : null)"
                            aria-invalid="@invalid" aria-required="@required"
                            class="@(InputClass(b.Error, "flex-1"))"
@@ -724,7 +729,7 @@
                            @oninput="@(e => b.Set(ToRange(e.Value?.ToString(), RangePart(b.Current(), 1))))"
                            @onblur="@b.Blur" />
                     <span aria-hidden="true" class="text-xs text-(--klyroo-text-muted)">–</span>
-                    <input id="@($"{b.Id}-end")" type="date" aria-label="End date"
+                    <input id="@($"{b.Id}-end")" type="date" aria-label="@Texts.EndDate"
                            disabled="@b.Disabled" value="@end" min="@(start.Length > 0 ? start : null)"
                            aria-invalid="@invalid" aria-required="@required"
                            class="@(InputClass(b.Error, "flex-1"))"
@@ -748,7 +753,7 @@
                                    data-slot="form-rating-star" data-active="@(on ? "true" : "false")">
                                 <input type="radio" class="sr-only" name="@b.Id" value="@star"
                                        checked="@(current == star)" disabled="@b.Disabled"
-                                       aria-label="@($"{star} of {max}")"
+                                       aria-label="@Texts.RatingStar(star, max)"
                                        @onchange="@(() => b.Commit(star))"
                                        @onblur="@b.Blur" />
                                 <span aria-hidden="true">@(on ? "★" : "☆")</span>
@@ -802,7 +807,7 @@
     private RenderFragment ClearButton(Binding b, object? cleared) =>
         @<button type="button"
                  class="@ClearButtonClass"
-                 aria-label="Clear"
+                 aria-label="@Texts.Clear"
                  disabled="@b.Disabled"
                  data-slot="form-control-clear"
                  @onclick="@(() => b.Commit(cleared))">✕</button>;
@@ -875,7 +880,7 @@
         return @<div class="flex flex-col gap-1.5" data-control="tags">
             @if (tags.Count > 0)
             {
-                <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="@(field.Label ?? "Tags")" data-slot="form-tag-list">
+                <ul class="m-0 flex list-none flex-wrap gap-1.5 p-0" aria-label="@(field.Label ?? Texts.Tags)" data-slot="form-tag-list">
                     @foreach (var tag in tags)
                     {
                         var value = tag;
@@ -883,7 +888,7 @@
                             <span>@tag</span>
                             <button type="button"
                                     class="inline-flex size-5 items-center justify-center rounded-full text-[11px] text-(--klyroo-text-muted) hover:text-(--klyroo-text) disabled:opacity-50"
-                                    aria-label="@($"Remove {tag}")"
+                                    aria-label="@Texts.RemoveTag(tag)"
                                     disabled="@b.Disabled"
                                     data-slot="form-tag-remove"
                                     @onclick="@(() => b.Commit(Toggle(b.Current(), value, false)))">✕</button>
@@ -896,7 +901,7 @@
                    form="@DetachedFormId"
                    disabled="@b.Disabled"
                    maxlength="@field.MaxLength"
-                   placeholder="@(field.Placeholder ?? "Add a tag and press Enter")"
+                   placeholder="@(field.Placeholder ?? Texts.TagPlaceholder)"
                    value="@draft"
                    aria-invalid="@(b.Error is not null ? "true" : null)" aria-required="@(b.Required ? "true" : null)" aria-describedby="@b.DescribedBy"
                    class="@(InputClass(b.Error))"
@@ -916,8 +921,8 @@
                    type="text"
                    form="@DetachedFormId"
                    disabled="@b.Disabled"
-                   placeholder="New option"
-                   aria-label="@($"New option for {field.Label ?? field.Key}")"
+                   placeholder="@Texts.NewOption"
+                   aria-label="@Texts.NewOptionFor(field.Label ?? field.Key)"
                    value="@draft"
                    class="@(InputClass(null))"
                    data-slot="form-create-option-input"
@@ -928,7 +933,7 @@
                     disabled="@(b.Disabled || string.IsNullOrWhiteSpace(draft))"
                     data-slot="form-create-option-button"
                     @onclick="@(() => CreateOption(form, field, draftKey))">
-                Create
+                @Texts.Create
             </button>
         </div>;
     }

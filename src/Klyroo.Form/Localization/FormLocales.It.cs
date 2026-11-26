@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>Italiano (it). Needs review.</summary>
+    public static FormTexts It { get; } = new()
+    {
+        CloseForm = "Chiudi il modulo",
+        Back = "Indietro",
+        Next = "Avanti",
+        Reset = "Reimposta",
+        Cancel = "Annulla",
+        Submit = "Invia",
+        Saving = "Salvataggio in corso…",
+        FormSections = "Sezioni del modulo",
+        AllReady = "Tutto pronto.",
+        LeftToComplete = n => $"{n} da completare.",
+        SectionComplete = "Completata",
+        SectionInvalid = "Da correggere",
+        SectionOptional = "Facoltativa",
+        SectionProgress = (done, total) => $"{done} di {total}",
+        ErrorsToFix = n => n == 1 ? "C’è 1 errore da correggere" : $"Ci sono {n} errori da correggere",
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}, {row}): {message}",
+        Checking = "Verifica in corso…",
+        ShowPassword = "Mostra password",
+        HidePassword = "Nascondi password",
+        Show = "Mostra",
+        Hide = "Nascondi",
+        PasswordRequirements = "Requisiti della password",
+        RequirementMet = "(soddisfatto)",
+        RequirementNotMet = "(non soddisfatto)",
+        Clear = "Cancella",
+        StartDate = "Data di inizio",
+        EndDate = "Data di fine",
+        RatingStar = (star, count) => $"{star} di {count}",
+        SelectPlaceholder = "Seleziona…",
+        TagPlaceholder = "Aggiungi un tag e premi Invio",
+        Tags = "Tag",
+        RemoveTag = tag => $"Rimuovi {tag}",
+        NewOption = "Nuova opzione",
+        NewOptionFor = label => $"Nuova opzione per {label}",
+        Create = "Crea",
+        AddItem = "Aggiungi elemento",
+        NoItemsYet = "Nessun elemento",
+        RemoveItem = n => $"Rimuovi l’elemento {n}",
+        FormTitle = "Modulo",
+        UnsavedChanges = "Hai modifiche non salvate. Uscire da questa pagina e scartarle?",
+        ChooseFile = "Scegli un file",
+        ChooseFiles = "Scegli i file",
+        NoFileChosen = "Nessun file scelto",
+        RemoveFile = name => $"Rimuovi {name}",
+        Messages = FormMessageLocales.It,
+    };
+}

@@ -140,11 +140,17 @@ An error set with `SetError` on a key that matches no field is a form-level erro
 
 `FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 
+## Localization
+
+The controller has no locale, so its built-in validation messages (required, number bounds, text length, date range order, files) are a `FormMessages` record: English by default, `FormSchema.Messages` or `FormController.Messages` to choose another, and `FormMessageLocales` for the twelve built-in sets, which work without Blazor. A message that contains a number or a name is a function, so each language can order the words and choose its plural forms. `RequiredMessage` on a field and the messages of your own validators are never translated.
+
+The components add the texts of their own: `FormTexts`, one set per locale of Klyroo.UI in `FormLocales`, picked with the locale of the component (`KlyLocales.ResolveCode`, so `pt-PT` gets `pt` and an unknown language gets English). A set holds a `FormMessages`, and a component gives it to the controller it renders unless the schema or your code already chose one. `AddKlyrooForm(f => f.Texts("fr", t => t with { ... }))` changes a set; the texts become read-only once a component has resolved one. English and French are reviewed by a native speaker, the other sets are drafts.
+
 ## Core and Blazor
 
 | | `Klyroo.Form.Core` | `Klyroo.Form` |
 | :--- | :--- | :--- |
-| Contains | Schema types, `FormController`, `FormService` | `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `AddKlyrooForm()` |
+| Contains | Schema types, `FormController`, `FormService`, `FormMessages` | `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
 | Dependencies | None | Klyroo.UI and `Klyroo.Form.Core` |
 | Runs in | Any .NET 10 host, including NativeAOT | Blazor (Interactive Server, WebAssembly, Auto) and .NET MAUI Blazor Hybrid |
 | Use it for | Tests, view models, background logic | Rendering |

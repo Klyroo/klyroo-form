@@ -48,13 +48,14 @@
 
     protected override void OnInitialized() => _js = new FormJs(Js);
 
-    private static string Title(IReadOnlyList<FormErrorEntry> entries) =>
-        entries.Count == 1 ? "There is 1 error to fix" : $"There are {entries.Count} errors to fix";
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
+    private string Title(IReadOnlyList<FormErrorEntry> entries) => Texts.ErrorsToFix(entries.Count);
 
     private string LiveText(IReadOnlyList<FormErrorEntry> entries) =>
         entries.Count == 0 ? "" : $"{Title(entries)}. {Describe(entries[0])}";
 
-    // "Email: This field is required", or "Quantity (Lines 2): ..." for a cell of a repeatable list.
+    // "Email: This field is required", or "SKU (Lines, 2): ..." for a cell of a repeatable list.
     private string Describe(FormErrorEntry entry)
     {
         if (entry.IsFormLevel) return entry.Message;
@@ -64,9 +65,9 @@
         if (entry.RowIndex is { } row && entry.ChildKey is { } childKey)
         {
             var child = owner?.Fields?.FirstOrDefault(f => f.Key == childKey);
-            return $"{child?.Label ?? childKey} ({label}, {row + 1}): {entry.Message}";
+            return Texts.CellError(child?.Label ?? childKey, label ?? "", row + 1, entry.Message);
         }
-        return $"{label}: {entry.Message}";
+        return Texts.FieldError(label ?? "", entry.Message);
     }
 
     public ValueTask DisposeAsync() => _js.DisposeAsync();

@@ -1,4 +1,5 @@
 @namespace Klyroo.Form
+@inherits KlyComponentBase
 @implements IDisposable
 @inject IJSRuntime Js
 
@@ -7,6 +8,8 @@
                 OnBeforeInternalNavigation="OnBeforeInternalNavigationAsync" />
 
 @code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
     private FormController? _subscribed;
     private bool _dirty;
 
@@ -19,8 +22,8 @@
     /// <summary>Called when the user navigates inside the app while the form is dirty. Return <c>true</c> to let the navigation go ahead and <c>false</c> to stay, for example after asking in a <c>KlyModal</c>. Without it the guard asks with <c>window.confirm</c> and <see cref="Message"/>.</summary>
     [Parameter] public Func<LocationChangingContext, Task<bool>>? ConfirmLeave { get; set; }
 
-    /// <summary>The question of the default confirmation. The default is <c>You have unsaved changes. Leave this page and discard them?</c>.</summary>
-    [Parameter] public string Message { get; set; } = "You have unsaved changes. Leave this page and discard them?";
+    /// <summary>The question of the default confirmation. The default is the <c>UnsavedChanges</c> text of the current locale (<see cref="FormTexts.UnsavedChanges"/>).</summary>
+    [Parameter] public string? Message { get; set; }
 
     /// <summary>Turns the guard off, for example while the page saves and navigates on its own. The default is <c>false</c>.</summary>
     [Parameter] public bool Disabled { get; set; }
@@ -49,7 +52,7 @@
         if (Disabled || !Form.IsDirty) return;
         var leave = ConfirmLeave is not null
             ? await ConfirmLeave(context)
-            : await Js.InvokeAsync<bool>("confirm", context.CancellationToken, Message);
+            : await Js.InvokeAsync<bool>("confirm", context.CancellationToken, Message ?? Texts.UnsavedChanges);
         if (!leave) context.PreventNavigation();
     }
 

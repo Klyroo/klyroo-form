@@ -32,7 +32,7 @@
                     {
                         <button type="button"
                                 class="inline-flex size-7 items-center justify-center rounded-(--klyroo-radius) text-(--klyroo-text-muted) hover:bg-(--klyroo-bg-muted)"
-                                aria-label="Close form"
+                                aria-label="@Texts.CloseForm"
                                 disabled="@form.IsSubmitting"
                                 data-slot="form-close"
                                 @onclick="OnCancelAsync">✕</button>
@@ -87,7 +87,7 @@
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-prev"
                             @onclick="OnPreviousAsync">
-                        Back
+                        @Texts.Back
                     </button>
                 }
                 @if (ShowReset && form.IsDirty)
@@ -97,7 +97,7 @@
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-reset"
                             @onclick="@(() => form.Reset())">
-                        Reset
+                        @Texts.Reset
                     </button>
                 }
             </div>
@@ -110,7 +110,7 @@
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-cancel"
                             @onclick="OnCancelAsync">
-                        Cancel
+                        @Texts.Cancel
                     </button>
                 }
                 @if (form.IsStepped && !form.IsLastStep)
@@ -120,7 +120,7 @@
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-next"
                             @onclick="OnNextAsync">
-                        Next
+                        @Texts.Next
                     </button>
                 }
                 else
@@ -129,7 +129,7 @@
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90 disabled:opacity-50"
                             disabled="@form.IsSubmitting"
                             data-slot="form-action-submit">
-                        @(form.IsSubmitting ? "Saving…" : SubmitLabel)
+                        @(form.IsSubmitting ? Texts.Saving : (SubmitLabel ?? Texts.Submit))
                     </button>
                 }
             </div>
@@ -138,6 +138,8 @@
 }
 
 @code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
     private FormController? _internalController;
     private FormController? _subscribed;
     private readonly CancellationTokenSource _disposed = new();
@@ -156,8 +158,8 @@
     /// <summary>How the form is presented. Anything other than <see cref="FormShellMode.Inline"/> adds a close button to the header when <see cref="OnCancel"/> is bound.</summary>
     [Parameter] public FormShellMode Shell { get; set; } = FormShellMode.Inline;
 
-    /// <summary>Text of the submit button. The default is <c>Submit</c>.</summary>
-    [Parameter] public string SubmitLabel { get; set; } = "Submit";
+    /// <summary>Text of the submit button. The default is the <c>Submit</c> text of the current locale (<see cref="FormTexts.Submit"/>).</summary>
+    [Parameter] public string? SubmitLabel { get; set; }
 
     /// <summary>Shows a reset button in the footer while the form is dirty. The default is <c>true</c>.</summary>
     [Parameter] public bool ShowReset { get; set; } = true;
@@ -188,6 +190,7 @@
         }
 
         var current = EffectiveController;
+        current?.UseLocaleMessages(Texts.Messages);
         if (!ReferenceEquals(_subscribed, current))
         {
             if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;

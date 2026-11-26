@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>Español (es). Needs review.</summary>
+    public static FormTexts Es { get; } = new()
+    {
+        CloseForm = "Cerrar formulario",
+        Back = "Atrás",
+        Next = "Siguiente",
+        Reset = "Restablecer",
+        Cancel = "Cancelar",
+        Submit = "Enviar",
+        Saving = "Guardando…",
+        FormSections = "Secciones del formulario",
+        AllReady = "Todo listo.",
+        LeftToComplete = n => $"Faltan {n} por completar.",
+        SectionComplete = "Completada",
+        SectionInvalid = "Por corregir",
+        SectionOptional = "Opcional",
+        SectionProgress = (done, total) => $"{done} de {total}",
+        ErrorsToFix = n => n == 1 ? "Hay 1 error que corregir" : $"Hay {n} errores que corregir",
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}, {row}): {message}",
+        Checking = "Comprobando…",
+        ShowPassword = "Mostrar contraseña",
+        HidePassword = "Ocultar contraseña",
+        Show = "Mostrar",
+        Hide = "Ocultar",
+        PasswordRequirements = "Requisitos de la contraseña",
+        RequirementMet = "(cumplido)",
+        RequirementNotMet = "(no cumplido)",
+        Clear = "Borrar",
+        StartDate = "Fecha de inicio",
+        EndDate = "Fecha de fin",
+        RatingStar = (star, count) => $"{star} de {count}",
+        SelectPlaceholder = "Seleccionar…",
+        TagPlaceholder = "Añade una etiqueta y pulsa Intro",
+        Tags = "Etiquetas",
+        RemoveTag = tag => $"Quitar {tag}",
+        NewOption = "Nueva opción",
+        NewOptionFor = label => $"Nueva opción para {label}",
+        Create = "Crear",
+        AddItem = "Añadir elemento",
+        NoItemsYet = "Aún no hay elementos",
+        RemoveItem = n => $"Quitar el elemento {n}",
+        FormTitle = "Formulario",
+        UnsavedChanges = "Tienes cambios sin guardar. ¿Salir de esta página y descartarlos?",
+        ChooseFile = "Elegir archivo",
+        ChooseFiles = "Elegir archivos",
+        NoFileChosen = "Ningún archivo elegido",
+        RemoveFile = name => $"Quitar {name}",
+        Messages = FormMessageLocales.Es,
+    };
+}

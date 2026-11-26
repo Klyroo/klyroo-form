@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>日本語 (ja). Needs review.</summary>
+    public static FormTexts Ja { get; } = new()
+    {
+        CloseForm = "フォームを閉じる",
+        Back = "戻る",
+        Next = "次へ",
+        Reset = "リセット",
+        Cancel = "キャンセル",
+        Submit = "送信",
+        Saving = "保存中…",
+        FormSections = "フォームのセクション",
+        AllReady = "すべて入力済みです。",
+        LeftToComplete = n => $"残り{n}件の入力があります。",
+        SectionComplete = "完了",
+        SectionInvalid = "要修正",
+        SectionOptional = "任意",
+        SectionProgress = (done, total) => $"{done}/{total}",
+        ErrorsToFix = n => $"修正が必要なエラーが{n}件あります",
+        FieldError = (label, message) => $"{label}：{message}",
+        CellError = (column, list, row, message) => $"{column}（{list}、{row}）：{message}",
+        Checking = "確認中…",
+        ShowPassword = "パスワードを表示",
+        HidePassword = "パスワードを隠す",
+        Show = "表示",
+        Hide = "非表示",
+        PasswordRequirements = "パスワードの要件",
+        RequirementMet = "（満たしています）",
+        RequirementNotMet = "（満たしていません）",
+        Clear = "クリア",
+        StartDate = "開始日",
+        EndDate = "終了日",
+        RatingStar = (star, count) => $"{count}段階中{star}",
+        SelectPlaceholder = "選択してください…",
+        TagPlaceholder = "タグを入力して Enter を押してください",
+        Tags = "タグ",
+        RemoveTag = tag => $"{tag}を削除",
+        NewOption = "新しい選択肢",
+        NewOptionFor = label => $"{label}の新しい選択肢",
+        Create = "作成",
+        AddItem = "項目を追加",
+        NoItemsYet = "項目がありません",
+        RemoveItem = n => $"項目{n}を削除",
+        FormTitle = "フォーム",
+        UnsavedChanges = "保存されていない変更があります。このページを離れて変更を破棄しますか？",
+        ChooseFile = "ファイルを選択",
+        ChooseFiles = "ファイルを選択",
+        NoFileChosen = "ファイルが選択されていません",
+        RemoveFile = name => $"{name}を削除",
+        Messages = FormMessageLocales.Ja,
+    };
+}

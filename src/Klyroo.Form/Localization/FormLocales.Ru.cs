@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>Русский (ru). Needs review.</summary>
+    public static FormTexts Ru { get; } = new()
+    {
+        CloseForm = "Закрыть форму",
+        Back = "Назад",
+        Next = "Далее",
+        Reset = "Сбросить",
+        Cancel = "Отмена",
+        Submit = "Отправить",
+        Saving = "Сохранение…",
+        FormSections = "Разделы формы",
+        AllReady = "Всё готово.",
+        LeftToComplete = n => $"Осталось заполнить: {n}.",
+        SectionComplete = "Готово",
+        SectionInvalid = "Исправить",
+        SectionOptional = "Необязательно",
+        SectionProgress = (done, total) => $"{done} из {total}",
+        ErrorsToFix = n => $"Нужно исправить {n} " + RussianPlural(n, "ошибку", "ошибки", "ошибок"),
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}, {row}): {message}",
+        Checking = "Проверка…",
+        ShowPassword = "Показать пароль",
+        HidePassword = "Скрыть пароль",
+        Show = "Показать",
+        Hide = "Скрыть",
+        PasswordRequirements = "Требования к паролю",
+        RequirementMet = "(выполнено)",
+        RequirementNotMet = "(не выполнено)",
+        Clear = "Очистить",
+        StartDate = "Дата начала",
+        EndDate = "Дата окончания",
+        RatingStar = (star, count) => $"{star} из {count}",
+        SelectPlaceholder = "Выберите…",
+        TagPlaceholder = "Введите тег и нажмите Enter",
+        Tags = "Теги",
+        RemoveTag = tag => $"Удалить {tag}",
+        NewOption = "Новый вариант",
+        NewOptionFor = label => $"Новый вариант для {label}",
+        Create = "Создать",
+        AddItem = "Добавить элемент",
+        NoItemsYet = "Элементов пока нет",
+        RemoveItem = n => $"Удалить элемент {n}",
+        FormTitle = "Форма",
+        UnsavedChanges = "У вас есть несохранённые изменения. Покинуть страницу и отменить их?",
+        ChooseFile = "Выбрать файл",
+        ChooseFiles = "Выбрать файлы",
+        NoFileChosen = "Файл не выбран",
+        RemoveFile = name => $"Удалить {name}",
+        Messages = FormMessageLocales.Ru,
+    };
+}

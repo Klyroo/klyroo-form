@@ -45,7 +45,17 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 ### Can I translate the built-in texts?
 
-Partly. `KlyFormEngine` exposes `SubmitLabel`, and each field exposes `RequiredMessage`, `Label`, `Hint`, `Help` and `Placeholder`, so those follow your language. The other texts are English literals in the components: `Back`, `Next`, `Reset`, `Cancel`, `Show` and `Hide` on password fields, `Saving...`, `No items yet`, the default `Select...` option of choice fields (override it with `Placeholder`), the default `Add a tag and press Enter` placeholder of tag fields (same), `Create` and `New option` on fields with `OnCreateOption`, the `aria-label` texts (`Clear`, `Start date`, `End date`, `Remove item 1`, `3 of 5` on rating stars, `Password requirements` and its `(met)` and `(not met)` markers, and so on), `Add item` (unless you set `AddItemLabel`), the built-in validation messages (`Value must be at least ...`, `The end date must not be before the start date`), and on `KlyFormPage` the section sidebar, the status badges, the summary line and the Submit button.
+Yes, the components follow the locale of Klyroo.UI. Every text the components and the controller produce (buttons, `Saving...`, accessible names, the error summary, the section badges of `KlyFormPage`, the unsaved-changes question and the built-in validation messages) comes in the twelve languages of Klyroo.UI, as a `FormTexts` set per locale in `FormLocales`: a user who switches language with `KlyLocaleSelect` gets the form in that language too. English and French are reviewed by a native speaker; the other ten sets are drafts waiting for review. Change the texts of a locale at startup:
+
+```csharp
+builder.Services.AddKlyrooForm(f => f.Texts("fr", t => t with
+{
+    Submit = "Envoyer",
+    Messages = t.Messages with { Required = "Merci de renseigner ce champ" },
+}));
+```
+
+Text you write yourself is never translated: `Label`, `Hint`, `Help`, `Placeholder`, `RequiredMessage`, the labels of password requirements, option labels and the messages of your own validators. `SubmitLabel` on `KlyFormEngine` still overrides the submit text. Without Blazor, `new FormController(schema) { Messages = FormMessageLocales.Fr }` (or `FormSchema.Messages`) gives the controller the French validation messages; the components give it the messages of their locale unless the schema or your code chose one.
 
 ### Can I bind a form to a model class?
 

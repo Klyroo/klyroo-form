@@ -26,7 +26,7 @@
                     }
                 </div>
                 <div class="flex items-center gap-2 text-xs text-(--klyroo-text-muted)" data-slot="form-page-summary">
-                    <span>@(blockingCount == 0 ? "Everything is ready." : $"{blockingCount} left to complete.")</span>
+                    <span>@(blockingCount == 0 ? Texts.AllReady : Texts.LeftToComplete(blockingCount))</span>
                 </div>
             </header>
         }
@@ -39,16 +39,16 @@
             {
                 <aside class="lg:col-span-3" data-slot="form-page-nav">
                     <nav class="sticky top-4 flex flex-col gap-1 rounded-(--klyroo-radius-md) border border-(--klyroo-border) bg-(--klyroo-bg) p-3"
-                         aria-label="Form sections">
-                        <span class="mb-1 px-2 text-[11px] font-bold uppercase tracking-wider text-(--klyroo-text-muted)">Form sections</span>
+                         aria-label="@Texts.FormSections">
+                        <span class="mb-1 px-2 text-[11px] font-bold uppercase tracking-wider text-(--klyroo-text-muted)">@Texts.FormSections</span>
                         @foreach (var sec in sectionStates)
                         {
                             var statusBadge = sec.Status switch
                             {
-                                FormPageSectionStatus.Complete => ("Completed", KlyColor.Success),
-                                FormPageSectionStatus.Invalid => ("To fix", KlyColor.Error),
-                                FormPageSectionStatus.Optional => ("Optional", KlyColor.Neutral),
-                                _ => ($"{sec.RequiredCount - sec.MissingCount} of {sec.RequiredCount}", KlyColor.Warning),
+                                FormPageSectionStatus.Complete => (Texts.SectionComplete, KlyColor.Success),
+                                FormPageSectionStatus.Invalid => (Texts.SectionInvalid, KlyColor.Error),
+                                FormPageSectionStatus.Optional => (Texts.SectionOptional, KlyColor.Neutral),
+                                _ => (Texts.SectionProgress(sec.RequiredCount - sec.MissingCount, sec.RequiredCount), KlyColor.Warning),
                             };
                             <a href="@($"#{sec.Key}")"
                                class="flex items-center justify-between gap-2 rounded-(--klyroo-radius) px-2.5 py-1.5 text-xs font-medium text-(--klyroo-text) hover:bg-(--klyroo-bg-muted)"
@@ -91,7 +91,7 @@
                                         disabled="@Form.IsSubmitting"
                                         data-slot="form-section-reset"
                                         @onclick="@(() => Form.ResetSection(sectionSchema.Key))">
-                                    Reset
+                                    @Texts.Reset
                                 </button>
                             }
                         </div>
@@ -111,7 +111,7 @@
                             class="inline-flex h-9 items-center rounded-(--klyroo-radius) bg-(--klyroo-primary) px-4 text-xs font-semibold text-(--klyroo-primary-contrast) hover:opacity-90 disabled:opacity-50"
                             disabled="@Form.IsSubmitting"
                             data-slot="form-page-submit">
-                        @(Form.IsSubmitting ? "Saving…" : "Submit")
+                        @(Form.IsSubmitting ? Texts.Saving : Texts.Submit)
                     </button>
                 </div>
             </div>
@@ -120,6 +120,8 @@
 }
 
 @code {
+    private FormTexts Texts => Options.Extension<KlyrooFormOptions>().ResolveTexts(CurrentLocale.Code);
+
     private FormController? _subscribed;
     private readonly CancellationTokenSource _disposed = new();
     private FormJs _js = default!;
@@ -142,6 +144,7 @@
 
     protected override void OnParametersSet()
     {
+        Form.UseLocaleMessages(Texts.Messages);
         if (!ReferenceEquals(_subscribed, Form))
         {
             if (_subscribed is not null) _subscribed.Changed -= OnChanged;

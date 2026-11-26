@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>العربية (ar). Needs review.</summary>
+    public static FormTexts Ar { get; } = new()
+    {
+        CloseForm = "إغلاق النموذج",
+        Back = "رجوع",
+        Next = "التالي",
+        Reset = "إعادة تعيين",
+        Cancel = "إلغاء",
+        Submit = "إرسال",
+        Saving = "جارٍ الحفظ…",
+        FormSections = "أقسام النموذج",
+        AllReady = "كل شيء جاهز.",
+        LeftToComplete = n => $"المتبقي للإكمال: {n}.",
+        SectionComplete = "مكتمل",
+        SectionInvalid = "يحتاج إلى تصحيح",
+        SectionOptional = "اختياري",
+        SectionProgress = (done, total) => $"{done} من {total}",
+        ErrorsToFix = n => $"يوجد {n} من الأخطاء التي يجب تصحيحها",
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}، {row}): {message}",
+        Checking = "جارٍ التحقق…",
+        ShowPassword = "إظهار كلمة المرور",
+        HidePassword = "إخفاء كلمة المرور",
+        Show = "إظهار",
+        Hide = "إخفاء",
+        PasswordRequirements = "متطلبات كلمة المرور",
+        RequirementMet = "(مستوفى)",
+        RequirementNotMet = "(غير مستوفى)",
+        Clear = "مسح",
+        StartDate = "تاريخ البدء",
+        EndDate = "تاريخ الانتهاء",
+        RatingStar = (star, count) => $"{star} من {count}",
+        SelectPlaceholder = "اختر…",
+        TagPlaceholder = "أضف وسمًا واضغط Enter",
+        Tags = "الوسوم",
+        RemoveTag = tag => $"إزالة {tag}",
+        NewOption = "خيار جديد",
+        NewOptionFor = label => $"خيار جديد لـ {label}",
+        Create = "إنشاء",
+        AddItem = "إضافة عنصر",
+        NoItemsYet = "لا توجد عناصر بعد",
+        RemoveItem = n => $"إزالة العنصر {n}",
+        FormTitle = "نموذج",
+        UnsavedChanges = "لديك تغييرات غير محفوظة. هل تريد مغادرة هذه الصفحة وتجاهلها؟",
+        ChooseFile = "اختر ملفًا",
+        ChooseFiles = "اختر ملفات",
+        NoFileChosen = "لم يتم اختيار ملف",
+        RemoveFile = name => $"إزالة {name}",
+        Messages = FormMessageLocales.Ar,
+    };
+}

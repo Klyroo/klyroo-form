@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>简体中文 (zh-Hans). Needs review.</summary>
+    public static FormTexts ZhCn { get; } = new()
+    {
+        CloseForm = "关闭表单",
+        Back = "上一步",
+        Next = "下一步",
+        Reset = "重置",
+        Cancel = "取消",
+        Submit = "提交",
+        Saving = "正在保存…",
+        FormSections = "表单分区",
+        AllReady = "全部就绪。",
+        LeftToComplete = n => $"还有 {n} 项待完成。",
+        SectionComplete = "已完成",
+        SectionInvalid = "需修正",
+        SectionOptional = "可选",
+        SectionProgress = (done, total) => $"{done}/{total}",
+        ErrorsToFix = n => $"有 {n} 个错误需要修正",
+        FieldError = (label, message) => $"{label}：{message}",
+        CellError = (column, list, row, message) => $"{column}（{list}，第 {row} 行）：{message}",
+        Checking = "正在检查…",
+        ShowPassword = "显示密码",
+        HidePassword = "隐藏密码",
+        Show = "显示",
+        Hide = "隐藏",
+        PasswordRequirements = "密码要求",
+        RequirementMet = "（已满足）",
+        RequirementNotMet = "（未满足）",
+        Clear = "清除",
+        StartDate = "开始日期",
+        EndDate = "结束日期",
+        RatingStar = (star, count) => $"{star}/{count}",
+        SelectPlaceholder = "请选择…",
+        TagPlaceholder = "输入标签后按 Enter",
+        Tags = "标签",
+        RemoveTag = tag => $"移除 {tag}",
+        NewOption = "新选项",
+        NewOptionFor = label => $"{label} 的新选项",
+        Create = "创建",
+        AddItem = "添加项",
+        NoItemsYet = "暂无项目",
+        RemoveItem = n => $"移除第 {n} 项",
+        FormTitle = "表单",
+        UnsavedChanges = "您有未保存的更改。要离开此页面并放弃更改吗？",
+        ChooseFile = "选择文件",
+        ChooseFiles = "选择文件",
+        NoFileChosen = "未选择文件",
+        RemoveFile = name => $"移除 {name}",
+        Messages = FormMessageLocales.ZhCn,
+    };
+}

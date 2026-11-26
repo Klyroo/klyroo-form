@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>Deutsch (de). Needs review.</summary>
+    public static FormTexts De { get; } = new()
+    {
+        CloseForm = "Formular schließen",
+        Back = "Zurück",
+        Next = "Weiter",
+        Reset = "Zurücksetzen",
+        Cancel = "Abbrechen",
+        Submit = "Absenden",
+        Saving = "Wird gespeichert…",
+        FormSections = "Formularabschnitte",
+        AllReady = "Alles bereit.",
+        LeftToComplete = n => $"Noch {n} auszufüllen.",
+        SectionComplete = "Abgeschlossen",
+        SectionInvalid = "Zu korrigieren",
+        SectionOptional = "Optional",
+        SectionProgress = (done, total) => $"{done} von {total}",
+        ErrorsToFix = n => n == 1 ? "Es gibt 1 Fehler zu beheben" : $"Es gibt {n} Fehler zu beheben",
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}, {row}): {message}",
+        Checking = "Wird geprüft…",
+        ShowPassword = "Passwort anzeigen",
+        HidePassword = "Passwort ausblenden",
+        Show = "Anzeigen",
+        Hide = "Ausblenden",
+        PasswordRequirements = "Passwortanforderungen",
+        RequirementMet = "(erfüllt)",
+        RequirementNotMet = "(nicht erfüllt)",
+        Clear = "Leeren",
+        StartDate = "Startdatum",
+        EndDate = "Enddatum",
+        RatingStar = (star, count) => $"{star} von {count}",
+        SelectPlaceholder = "Auswählen…",
+        TagPlaceholder = "Tag hinzufügen und Eingabetaste drücken",
+        Tags = "Tags",
+        RemoveTag = tag => $"{tag} entfernen",
+        NewOption = "Neue Option",
+        NewOptionFor = label => $"Neue Option für {label}",
+        Create = "Erstellen",
+        AddItem = "Eintrag hinzufügen",
+        NoItemsYet = "Noch keine Einträge",
+        RemoveItem = n => $"Eintrag {n} entfernen",
+        FormTitle = "Formular",
+        UnsavedChanges = "Sie haben ungespeicherte Änderungen. Diese Seite verlassen und die Änderungen verwerfen?",
+        ChooseFile = "Datei auswählen",
+        ChooseFiles = "Dateien auswählen",
+        NoFileChosen = "Keine Datei ausgewählt",
+        RemoveFile = name => $"{name} entfernen",
+        Messages = FormMessageLocales.De,
+    };
+}

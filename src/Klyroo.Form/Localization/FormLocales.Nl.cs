@@ -1,0 +1,56 @@
+namespace Klyroo.Form;
+
+public static partial class FormLocales
+{
+    // Draft translation, marked for review by a native speaker before a stable release.
+    /// <summary>Nederlands (nl). Needs review.</summary>
+    public static FormTexts Nl { get; } = new()
+    {
+        CloseForm = "Formulier sluiten",
+        Back = "Terug",
+        Next = "Volgende",
+        Reset = "Herstellen",
+        Cancel = "Annuleren",
+        Submit = "Verzenden",
+        Saving = "Opslaan…",
+        FormSections = "Formuliersecties",
+        AllReady = "Alles is klaar.",
+        LeftToComplete = n => $"Nog {n} in te vullen.",
+        SectionComplete = "Voltooid",
+        SectionInvalid = "Te corrigeren",
+        SectionOptional = "Optioneel",
+        SectionProgress = (done, total) => $"{done} van {total}",
+        ErrorsToFix = n => n == 1 ? "Er is 1 fout om te herstellen" : $"Er zijn {n} fouten om te herstellen",
+        FieldError = (label, message) => $"{label}: {message}",
+        CellError = (column, list, row, message) => $"{column} ({list}, {row}): {message}",
+        Checking = "Controleren…",
+        ShowPassword = "Wachtwoord tonen",
+        HidePassword = "Wachtwoord verbergen",
+        Show = "Tonen",
+        Hide = "Verbergen",
+        PasswordRequirements = "Wachtwoordvereisten",
+        RequirementMet = "(voldaan)",
+        RequirementNotMet = "(niet voldaan)",
+        Clear = "Wissen",
+        StartDate = "Startdatum",
+        EndDate = "Einddatum",
+        RatingStar = (star, count) => $"{star} van {count}",
+        SelectPlaceholder = "Selecteren…",
+        TagPlaceholder = "Voeg een tag toe en druk op Enter",
+        Tags = "Tags",
+        RemoveTag = tag => $"{tag} verwijderen",
+        NewOption = "Nieuwe optie",
+        NewOptionFor = label => $"Nieuwe optie voor {label}",
+        Create = "Maken",
+        AddItem = "Item toevoegen",
+        NoItemsYet = "Nog geen items",
+        RemoveItem = n => $"Item {n} verwijderen",
+        FormTitle = "Formulier",
+        UnsavedChanges = "Je hebt niet-opgeslagen wijzigingen. Deze pagina verlaten en ze weggooien?",
+        ChooseFile = "Bestand kiezen",
+        ChooseFiles = "Bestanden kiezen",
+        NoFileChosen = "Geen bestand gekozen",
+        RemoveFile = name => $"{name} verwijderen",
+        Messages = FormMessageLocales.Nl,
+    };
+}

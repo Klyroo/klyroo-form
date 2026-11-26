@@ -358,6 +358,8 @@ public sealed class FormSchema
     public bool ShowStepper { get; init; } = true;
     /// <summary>Which checks validation runs. The default is <see cref="FormValidationMode.All"/>.</summary>
     public FormValidationMode ValidateMode { get; init; } = FormValidationMode.All;
+    /// <summary>The built-in validation messages of this form. When <c>null</c> (the default) the controller uses the English messages, or those of the current locale when a Klyroo.Form component renders it. Set it to fix the language of the form whatever the locale is.</summary>
+    public FormMessages? Messages { get; init; }
     /// <summary>Keys excluded from dirty tracking. A key also excludes the keys that start with it followed by a dot.</summary>
     public IReadOnlyList<string>? IgnoreDirtyPaths { get; init; }
     /// <summary>Fields of a single-block form. Ignored when <see cref="Steps"/> or <see cref="Sections"/> is not empty.</summary>
@@ -422,6 +424,49 @@ public sealed partial class FormController
 
     /// <summary>The schema this controller runs.</summary>
     public FormSchema Schema { get; }
+
+    private FormMessages? _messages;
+    private bool _messagesExplicit;
+
+    /// <summary>
+    /// The built-in validation messages in use: the ones set here, else <see cref="FormSchema.Messages"/>, else the ones a Klyroo.Form component gave for its locale, else English.
+    /// Setting it fixes the language of this controller: components no longer replace it. Errors already computed are computed again with the new messages.
+    /// </summary>
+    /// <exception cref="ArgumentNullException">The value is <c>null</c>.</exception>
+    public FormMessages Messages
+    {
+        get => _messages ?? Schema.Messages ?? FormMessages.Default;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            _messagesExplicit = true;
+            ApplyMessages(value);
+        }
+    }
+
+    // What a component does for its locale: only when neither the schema nor the code chose the language.
+    internal void UseLocaleMessages(FormMessages messages)
+    {
+        if (_messagesExplicit || Schema.Messages is not null) return;
+        ApplyMessages(messages);
+    }
+
+    private void ApplyMessages(FormMessages messages)
+    {
+        if (ReferenceEquals(Messages, messages)) return;
+        _messages = messages;
+        foreach (var field in ActiveFields.Where(f => _validationErrors.ContainsKey(f.Key)).ToList())
+        {
+            ValidateFieldCore(field);
+        }
+        foreach (var cell in _cellErrors.Keys.ToList())
+        {
+            var arrayField = ActiveFields.FirstOrDefault(f => f.Key == cell.Array);
+            var child = arrayField?.Fields?.FirstOrDefault(c => c.Key == cell.Child);
+            if (arrayField is not null && child is not null) ValidateCell(arrayField, child, cell.Row);
+        }
+        Changed?.Invoke();
+    }
     /// <summary>Zero-based index of the current step. It stays 0 for a form without steps.</summary>
     public int CurrentStepIndex { get; private set; }
     /// <summary><c>true</c> while <see cref="SubmitAsync()"/> is running.</summary>
@@ -1131,7 +1176,7 @@ public sealed partial class FormController
         if (Schema.ValidateMode is FormValidationMode.All or FormValidationMode.RequiredOnly
             && IsFieldRequired(field) && IsMissingValue(field, val))
         {
-            return field.RequiredMessage ?? "This field is required";
+            return field.RequiredMessage ?? Messages.Required;
         }
 
         if (Schema.ValidateMode == FormValidationMode.RequiredOnly) return null;
@@ -1141,18 +1186,18 @@ public sealed partial class FormController
         {
             if (field.Min is { } min && num < min)
             {
-                return $"Value must be at least {min.ToString(CultureInfo.InvariantCulture)}";
+                return Messages.MinValue(min);
             }
             if (field.Max is { } max && num > max)
             {
-                return $"Value must be at most {max.ToString(CultureInfo.InvariantCulture)}";
+                return Messages.MaxValue(max);
             }
         }
 
         // Text length
         if (field.MaxLength is { } maxLength && val is string text && text.Length > maxLength)
         {
-            return $"Must be at most {maxLength.ToString(CultureInfo.InvariantCulture)} characters";
+            return Messages.MaxLength(maxLength);
         }
 
         // Date range order
@@ -1161,7 +1206,7 @@ public sealed partial class FormController
             && DateOnly.TryParseExact(range[1], "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var end)
             && end < start)
         {
-            return "The end date must not be before the start date";
+            return Messages.DateRangeOrder;
         }
 
         // Password requirements
