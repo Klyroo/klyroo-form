@@ -22,10 +22,11 @@ Klyroo.Form (Blazor, builds on Klyroo.UI)
 
   KlyFormEngine              renders a schema or a controller
   KlyFormPage                renders sections with a completion status
+  KlySchemaField             renders one field; both components above use it
   KlyFormProvider            hosts the overlay opened by FormService
 ```
 
-A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and, for `KlyFormEngine`, the controller it creates when you pass a schema.
+A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords, the text being typed in a tag or create-option input and, for `KlyFormEngine`, the controller it creates when you pass a schema.
 
 For forms bound to a model class with data annotations, Klyroo.UI provides `KlyForm`, which works on an `EditContext`. Klyroo.Form is for forms described as data, where the fields, conditions and steps are decided at runtime or you want to run the form without a UI. It has no integration with `DataAnnotations`.
 
@@ -39,7 +40,7 @@ For forms bound to a model class with data annotations, Klyroo.UI provides `KlyF
 
 The others are ignored: a schema with steps never reads its `Fields`.
 
-Field keys are flat strings and identify values in the state and in the output. Containers (`Group`, `Card`, `Object`, `Tabs`) only affect layout: their children keep their own keys and become top-level entries of the output, so an `Object` field named `address` does not produce a nested `address` value. Repeatable lists (`ArrayList`, `ArrayTable`) are the exception: they are leaves whose value is a list of row dictionaries.
+Field keys are flat strings and identify values in the state and in the output. Containers (`Group`, `Card`, `Object`, `Tabs`) only affect layout: their children keep their own keys and become top-level entries of the output, so an `Object` field named `address` does not produce a nested `address` value. A container never has a value of its own, even without children, and then renders nothing. Repeatable lists (`ArrayList`, `ArrayTable`) are the exception: they are leaves whose value is a list of row dictionaries.
 
 ## State and initialization
 
@@ -50,7 +51,7 @@ The controller holds values in a dictionary of `object?` keyed by field key. Whe
 3. For each field without an input value, the default applies: `DefaultFactory`, else `DefaultValue`, else an empty list for repeatable lists, else `null`.
 4. The result is copied into an initial snapshot.
 
-The built-in controls write strings for text-like kinds, `double` for `Number` and `Slider`, `bool` for `Checkbox` and `Switch`, and the option value (a string) for choices. `GetValue<T>` converts with the invariant culture, so `GetValue<int>("age")` works on a `double`.
+The built-in controls write strings for text-like kinds (dates, times, colors and phone numbers included), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value (a string) for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` and choices with `Multiple`. `GetValue<T>` converts with the invariant culture, so `GetValue<int>("age")` works on a `double`.
 
 Stateless kinds (`Info`, `Divider`, `Section`, `Button`) have no value: they are never validated and never appear in the output.
 
@@ -63,6 +64,7 @@ SetValue(path, value, markTouched)
    |  clears an error set with SetError on the path
    |  touched if markTouched or the field's Trigger is Input
    |  validates the field if touched and Trigger is not Submit
+   |  (with Trigger Submit, clears its validation error instead)
    |  calls Watch, raises Changed
 MarkTouched(path)        touched, validates unless Trigger is Submit
 Validate() / SubmitAsync()   touch and validate every field they check
@@ -76,9 +78,13 @@ One validation pass on a field applies these checks in order, and the first fail
 4. Password requirements, for `Password` fields, in the same modes.
 5. Custom `Validators`, in the same modes. They also run for empty values.
 
-`FormSchema.ValidateMode` selects the checks: `All`, `RequiredOnly`, `ValidatorsOnly` or `None`. Hidden and ignored fields are skipped.
+A `DateRange` also fails when its end is before its start, and a required one needs both dates.
 
-`GetError` and `Errors` return what should be displayed. `HasBlockingErrors` is broader: it reports any validation error, touched or not.
+`FormSchema.ValidateMode` selects the checks: `All`, `RequiredOnly`, `ValidatorsOnly` or `None`. Only the fields in effect are checked (see the next section).
+
+Each cell of a repeatable list is validated with the rules of its child field, row by row: `Validate()` checks every cell, and an edited cell follows the trigger of its child like a field does. Cell errors are keyed by a path such as `lines[0].sku`, read with `GetArrayItemError`, and count in `HasBlockingErrors`. Removing a row moves the errors of the following rows up.
+
+`GetError` and `Errors` return what should be displayed. `HasBlockingErrors` is broader: it reports any validation error of a field in effect, touched or not.
 
 Errors that your own code sets with `SetError`, such as a server response, are a separate set. They are always visible, they disappear on the next `SetValue` for that field, and when you mark one `blocking` it also makes `Validate()` and `SubmitAsync()` fail until it is cleared.
 
@@ -86,9 +92,11 @@ The controller validates synchronously. Anything that needs I/O belongs in `OnBe
 
 ## Conditions and hidden fields
 
-`Condition` decides whether a field is shown. A hidden field is not rendered, not validated and not part of `BuildOutput()`, but its value stays in the state. This is applied per field: the controller does not look at the condition of a container when it handles the children, so conditions on containers only change what is rendered.
+`Condition` decides whether a field is shown. A hidden field is not rendered, not validated and not part of `BuildOutput()`, but its value stays in the state. The same applies to everything a hidden thing contains: the children of a hidden container, the fields of a hidden tab or section, and the fields of a step that `SkipWhen` skips. `ActiveFields` lists the fields that remain, which are exactly the ones validation checks and the output contains. Validation also drops the errors of fields that left that list.
 
-`Disabled` and `DisabledWhen` are rendering hints. A disabled field is still validated and still in the output, and `SetValue` still changes it.
+`Disabled` and `DisabledWhen` are rendering hints. A disabled field is still validated and still in the output, and `SetValue` still changes it. On a repeatable list they also disable the cells and the add and remove buttons.
+
+`Watch` runs after the value of its field changes: through `SetValue`, through `ResetField` when the value differs, and for a repeatable list after a row is added or removed or a cell changes (a child's `Watch` receives the cell value). `Reset` does not call it, because it loads a complete state that is already consistent.
 
 ## Dirty tracking
 
@@ -100,12 +108,12 @@ The snapshot is replaced in three cases: `Reset`, construction, and a successful
 
 In a wizard, `NextStepAsync` follows this sequence and stops at the first `false`:
 
-1. It does nothing if the form has no steps, is on its last step, or is submitting.
+1. It does nothing if the form has no steps, is on its last step (every later step is skipped), or is submitting.
 2. It validates the current step only.
 3. It runs `OnBeforeNext` with the index of the current step.
 4. It moves to the next step whose `SkipWhen` is not true, clears the touched state and validation errors, and raises `Changed`.
 
-`PreviousStepAsync` mirrors it without validation. Moving between steps keeps all values. `SubmitAsync` validates every field of every step, skipped ones included.
+`PreviousStepAsync` mirrors it without validation. Moving between steps keeps all values. A new controller and `Reset` start on the first step that is not skipped, and `IsFirstStep` and `IsLastStep` look past skipped steps, so the components hide Back and show Submit at the right place. `SubmitAsync` validates the fields of the current step and of every step that is not skipped; the fields of skipped steps are neither validated nor output.
 
 A page form has no navigation. `GetSectionStates` computes a status for each visible section from the current values and errors: `Invalid` if any field has an error, otherwise `Pending` if a required field is empty, otherwise `Optional` if the section is optional and empty, otherwise `Complete`.
 
@@ -122,9 +130,9 @@ SubmitAsync()
    IsSubmitting = false         (also when a hook throws)
 ```
 
-The components then call their `OnSubmit` callback with `BuildOutput()`: the visible, stateful fields, after `TransformOutput`, as a flat dictionary. If `OnBeforeSubmit` returns `false` or a hook throws, the snapshot is not replaced and the form stays dirty.
+The components then call their `OnSubmit` callback with `BuildOutput()`: the stateful fields in effect, after `TransformOutput`, as a flat dictionary. If `OnBeforeSubmit` returns `false` or a hook throws, the snapshot is not replaced and the form stays dirty.
 
-`FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`. Both carry the output at that moment.
+`FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 
 ## Core and Blazor
 
@@ -153,4 +161,4 @@ Validation failures are not exceptions. They are values: `Validate()` and `Submi
 - **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object.
 - **Synchronous validators, async hooks.** Rules are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Server checks go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
 - **A mutable controller with an event.** The state is mutated in place and `Changed` tells observers. It is small, and it also means you own synchronization if you share a controller across threads.
-- **Minimal built-in rendering.** `KlyFormEngine` uses native inputs and renders nine of the 31 kinds as text inputs. The nine kinds without a dedicated control are listed in the [FAQ](faq.md); the controller handles their values like any other.
+- **Native controls, no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events only. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.

@@ -11,20 +11,20 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 ## Features
 
 - **Headless controller**: `FormController` manages values, touched state, errors, dirty tracking, steps and submission with no UI dependency, and `Klyroo.Form.Core` is NativeAOT compatible.
-- **Declarative schema**: `FormSchema` and `FormFieldSchema` describe the form as data. `FormFieldKind` has 31 values; `KlyFormEngine` renders 22 of them with a dedicated control and falls back to a text input for the other nine (see the [FAQ](docs/faq.md)).
+- **Declarative schema**: `FormSchema` and `FormFieldSchema` describe the form as data. `FormFieldKind` has 31 values, and `KlyFormEngine` and `KlyFormPage` render each one with a dedicated native control, from date ranges, ratings and tag inputs to collapsible containers, tabs and repeatable lists whose cells are validated.
 - **Validation**: required and required-when checks, number bounds, password requirements, custom validator rules, four validation modes and three triggers (blur, input, submit).
 - **Server errors**: `SetError` attaches a message to a field, optionally blocking submission until the user edits it.
-- **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields are left out of validation and output.
+- **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields, the children of hidden containers and the fields of skipped steps are left out of validation and output.
 - **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.
 - **Wizards and pages**: multi-step forms with skippable steps and async before-next hooks, and sectioned pages that show a completion status per section.
-- **Overlays**: `FormService.CreateFormAsync` opens a form in a dialog hosted by `KlyFormProvider` and returns the result as a task.
+- **Overlays**: `FormService.CreateFormAsync` opens a form in a dialog, a side drawer or a fullscreen view hosted by `KlyFormProvider` and returns the result as a task.
 
 ## Packages
 
 | Package | Description |
 | :--- | :--- |
 | [`Klyroo.Form.Core`](https://www.nuget.org/packages/Klyroo.Form.Core) | Headless engine: `FormSchema`, `FormController` and `FormService`. No UI dependency, trimmable, NativeAOT compatible. |
-| [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyFormEngine`, `KlyFormPage` and `KlyFormProvider`, and the `AddKlyrooForm()` registration. Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
+| [`Klyroo.Form`](https://www.nuget.org/packages/Klyroo.Form) | Blazor components `KlyFormEngine`, `KlyFormPage`, `KlySchemaField` and `KlyFormProvider`, and the `AddKlyrooForm()` registration. Builds on Klyroo.UI and references `Klyroo.Form.Core`. |
 
 ## Installation
 

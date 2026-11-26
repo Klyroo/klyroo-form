@@ -20,7 +20,7 @@ Both packages target `net10.0`. `Klyroo.Form.Core` has no package or project dep
 
 ## Render modes
 
-`KlyFormEngine`, `KlyFormPage` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onsubmit`) and make no JavaScript interop calls of their own. They need an interactive render mode to respond to input.
+`KlyFormEngine`, `KlyFormPage`, `KlySchemaField` and `KlyFormProvider` are built from standard Blazor events (`@oninput`, `@onchange`, `@onclick`, `@onkeydown`, `@onsubmit`) and make no JavaScript interop calls of their own. They need an interactive render mode to respond to input.
 
 **Interactive Server.** Works. Add `@rendermode InteractiveServer` to the page, or set the render mode globally. `FormService` is registered as a scoped service, so it lives as long as the circuit, and a `KlyFormProvider` in the layout serves the whole circuit.
 
@@ -79,7 +79,4 @@ If your pages do not use a `BlazorWebView`, reference only `Klyroo.Form.Core`. A
 
 ## Known limitations
 
-- The overlay modes `Drawer` and `Fullscreen` render like `Modal`.
-- `KlyFormPage` renders every field as a text input.
-- `KlyFormEngine` has no dedicated control for nine field kinds and renders a text input instead. The [FAQ](faq.md#a-field-kind-shows-a-text-input) lists them.
 - The built-in labels and messages are English, and only some of them can be changed. See the [FAQ](faq.md#can-i-translate-the-built-in-texts).

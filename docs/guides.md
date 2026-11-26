@@ -135,7 +135,7 @@ A field whose `Condition` returns `false` is not rendered, is skipped by validat
 
 `TransformOutput` changes the value only in the output, here to normalize a VAT number. The state keeps what the user typed, so the field does not change under their cursor.
 
-A `Condition` on a container (`Group`, `Card`, `Object` or `Tabs`) hides the container but does not hide its children from validation and output. Put the condition on the children too, as `company` and `vat` do above.
+A `Condition` on a container (`Group`, `Card`, `Object` or `Tabs`) hides its children too, with the same effect: they are not validated and not output, and their values stay in the state. So `company` and `vat` above could share a single condition on a `Group` that holds both.
 
 ## Build a multi-step wizard
 
@@ -177,8 +177,7 @@ Goal: split a long form into steps, skip one that does not apply, and run an asy
                 SkipWhen = form => form.GetValue<string>("plan") == "free",
                 Fields =
                 [
-                    new FormFieldSchema { Key = "vat", Label = "VAT number",
-                        RequiredWhen = form => form.GetValue<string>("plan") != "free" },
+                    new FormFieldSchema { Key = "vat", Label = "VAT number", Required = true },
                 ],
             },
             new FormStepSchema
@@ -197,9 +196,9 @@ Goal: split a long form into steps, skip one that does not apply, and run an asy
 }
 ```
 
-`Steps` replaces `Fields` and `Sections`. The controller validates only the current step when the user presses Next, then runs `OnBeforeNext` with the index of the step being left. Returning `false` keeps the user on the step. The step with `SkipWhen` returning `true` is passed over in both directions, and the stepper does not list it.
+`Steps` replaces `Fields` and `Sections`. The controller validates only the current step when the user presses Next, then runs `OnBeforeNext` with the index of the step being left. Returning `false` keeps the user on the step. The step with `SkipWhen` returning `true` is passed over in both directions, and the stepper does not list it. If the steps after the current one are all skipped, the current step is the last one: the engine shows the submit button there instead of Next. A form whose first step is skipped starts on the next one.
 
-`SubmitAsync()` validates every field of every step, including the steps that were skipped. A field in a skippable step therefore must not be unconditionally required, or a user who skipped the step could never submit. `vat` uses `RequiredWhen` with the opposite of the `SkipWhen` test for that reason.
+`SubmitAsync()` validates the fields of the steps that are not skipped, and `BuildOutput()` leaves the skipped ones out. A field in a skippable step can therefore be `Required`, as `vat` is: a user on the free plan never sees the billing step and is never asked for a VAT number.
 
 The error in `OnBeforeNext` is blocking: pressing Next again fails validation straight away, without another call to the directory, until the user edits `slug`.
 
@@ -262,7 +261,7 @@ Goal: show every group of settings on one page, with a completion status per sec
 
 The controller is created with initial input, so the form starts clean and `IsDirty` turns `true` on the first edit. `NavigationLock` is a standard Blazor component: it asks the browser to confirm external navigation while `IsDirty` is `true`, and `OnBeforeInternalNavigation` lets you prompt for in-app navigation.
 
-`KlyFormPage` renders every field as a text input, whatever its kind. Use `KlyFormEngine` with `Steps` or `Fields` when you need selects, checkboxes or textareas.
+`KlyFormPage` renders fields exactly like `KlyFormEngine`: the same controls per kind, labels, containers, tabs and repeatable lists. The page is a `form` element, so pressing Enter in a text field submits it. `FormSchema.Columns` sets the number of columns of the field grids, and `FormPageSectionSchema.Span` lets two sections share a row on large screens (`Span = 6` each).
 
 ## Open a form in a dialog from anywhere
 
@@ -315,9 +314,9 @@ Then open a form from any component in the same scope:
 }
 ```
 
-`CreateFormAsync` shows the form in the provider and returns a task. It completes with `IsCompleted` set to `true` and the output after a successful submit, or with `false` if the user cancels. `FormShellMode.Modal` is the default. `Drawer` and `Fullscreen` are accepted, but the provider currently renders all three in the same centered dialog and only sets a `data-mode` attribute.
+`CreateFormAsync` shows the form in the provider and returns a task. It completes with `IsCompleted` set to `true` and the output after a successful submit, or with `false` if the user cancels. `FormShellMode.Modal` is the default and renders a centered dialog; `Drawer` renders a full-height panel docked to the end of the viewport, and `Fullscreen` covers the whole viewport. The overlay carries the mode in a `data-mode` attribute.
 
-Do the work after the `await`, as above. The schema hooks `OnBeforeSubmit` and `OnSubmit` run twice for a form opened through the provider, because the engine submits and then the service submits again, so a side effect in `OnSubmit` would fire twice. Calling `CreateFormAsync` while another form is open replaces it, and the replaced form's task never completes.
+Do the work after the `await`, as above. The schema hooks `OnBeforeSubmit` and `OnSubmit` run once per submit. Calling `CreateFormAsync` while another form is open replaces it, and the replaced form's task completes with `IsCompleted` set to `false`, as if the user had closed it.
 
 ## Edit repeatable rows
 
@@ -335,23 +334,23 @@ var lines = new FormFieldSchema
     AddItemLabel = "Add line",
     Fields =
     [
-        new FormFieldSchema { Key = "sku", Label = "SKU" },
-        new FormFieldSchema { Key = "qty", Label = "Quantity", Kind = FormFieldKind.Number, DefaultValue = 1.0 },
+        new FormFieldSchema { Key = "sku", Label = "SKU", Required = true, MaxLength = 12 },
+        new FormFieldSchema { Key = "qty", Label = "Quantity", Kind = FormFieldKind.Number, Min = 1, DefaultValue = 1.0 },
     ],
     Validators =
     [
-        new FormValidatorRule("sku", "Every line needs a SKU", (value, _) =>
+        new FormValidatorRule("unique", "Each SKU can appear once", (value, _) =>
             value is List<Dictionary<string, object?>> rows
-            && rows.All(row => !FormController.IsEmptyValue(row.GetValueOrDefault("sku")))),
+            && rows.Select(row => row.GetValueOrDefault("sku")?.ToString()).Distinct().Count() == rows.Count),
     ],
 };
 
 var schema = new FormSchema { FormKey = "invoice", Fields = [lines] };
 ```
 
-`ArrayList` and `ArrayTable` hold a `List<Dictionary<string, object?>>`, one dictionary per row, keyed by the child field keys. `KlyFormEngine` shows an add button (labelled by `AddItemLabel`), a text input per child and a remove button per row. The two kinds are rendered identically. In code, use `AddArrayItem`, `SetArrayItemValue`, `RemoveArrayItem` and `GetArrayItems`.
+`ArrayList` and `ArrayTable` hold a `List<Dictionary<string, object?>>`, one dictionary per row, keyed by the child field keys. `KlyFormEngine` and `KlyFormPage` show an add button (labelled by `AddItemLabel`), the control of each child's kind per cell and a remove button per row. The two kinds are rendered identically. In code, use `AddArrayItem`, `SetArrayItemValue`, `RemoveArrayItem` and `GetArrayItems`.
 
-The controller does not validate the cells: `Required` on a child field is ignored, and so are `Min` and `Max`. Put a validator on the list field itself, which receives the whole list, as `sku` does above. Because the built-in inputs are text, cell values typed by the user are strings, even for a child of kind `Number`; the default of `1.0` is a `double`, so convert both when you read them.
+Each cell is validated with the rules of its child field: `Required`, `Min`, `Max`, `MaxLength`, password requirements and `Validators`. `Validate()` and a submit check every cell, and a cell the user edited is checked as it changes, following the child's `Trigger`. The error shows under the cell, and `GetArrayItemError("lines", 0, "sku")` or `GetError("lines[0].sku")` reads it. A rule that spans rows, like `unique` above, goes on the list field, which receives the whole list. A `Number` cell holds a `double`, like a `Number` field. `Required` on the list itself requires at least one row, `Disabled` disables the cells and the buttons, a child's `Condition` hides its column, and a child's `Watch` runs with the cell value when the cell changes.
 
 ## Prefill and reset a form
 

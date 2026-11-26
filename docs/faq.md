@@ -30,50 +30,23 @@ Troubleshooting, known limitations and common questions. Each entry is something
 
 ### A validation error does not show
 
-**Cause:** errors are shown only for touched fields. A field becomes touched when `SetValue` is called with `markTouched: true`, when it loses focus in `KlyFormEngine`, when it has `Trigger = Input` and changes, or when `Validate()` or `SubmitAsync()` runs. Before that, `GetError` returns `null` even though a validation error may exist.
+**Cause:** errors are shown only for touched fields. A field becomes touched when `SetValue` is called with `markTouched: true`, when it loses focus in `KlyFormEngine` or `KlyFormPage`, when it has `Trigger = Input` and changes, or when `Validate()` or `SubmitAsync()` runs. Before that, `GetError` returns `null` even though a validation error may exist.
 
-**Fix:** call `Validate()` to touch and check every field, call `MarkTouched(key)` for one field, or pass `markTouched: true` when you set a value from code. A field with `Trigger = FormValidationTrigger.Submit` is also only validated by `Validate()` or a submit.
-
-### Fields inside a hidden group are still validated and submitted
-
-**Cause:** the controller evaluates `Condition` per field and does not look at the condition of a container. A `Group`, `Card`, `Object` or `Tabs` field with a `Condition` is hidden, but its children are flattened into the form and handled as ordinary fields.
-
-**Fix:** put the same `Condition` on the children. A hidden tab (`FormTabItemSchema.Condition`) has the same property.
-
-### Required child fields of a repeatable list are not enforced
-
-**Cause:** the controller treats `ArrayList` and `ArrayTable` as leaves and does not validate the cells of their rows. `Required`, `Min`, `Max` and validators on child fields are ignored. Cell edits also do not call `Watch`.
-
-**Fix:** put a validator on the list field, which receives the whole `List<Dictionary<string, object?>>`. See [Edit repeatable rows](guides.md#edit-repeatable-rows).
-
-### The Next button does nothing on the last visible step
-
-**Cause:** the engine shows Next on every step except the last declared one. If the steps after the current one are all skipped by `SkipWhen`, `NextStepAsync` has nowhere to go and returns `false`, and there is no submit button yet.
-
-**Fix:** do not end a wizard with a step that can be skipped. Make the last step unconditional, even if it only shows a summary.
-
-### A field kind shows a text input
-
-**Cause:** `FormFieldKind` has 31 values. `KlyFormEngine` has a dedicated rendering for 22 of them: `Text`, `Password`, `Textarea`, `Number`, `Slider`, `Checkbox`, `Switch`, `Radio`, `Select`, `AutoComplete`, `Date`, `Time`, `Hidden`, `Info`, `Divider`, `Section`, `Group`, `Card`, `Object`, `Tabs`, `ArrayList` and `ArrayTable`. `Switch` renders as a checkbox and `AutoComplete` as a native select. The other nine fall back to a text input: `CheckboxGroup`, `DateTime`, `DateRange`, `PhoneNumber`, `Rating`, `ColorPicker`, `OneTimeCode`, `Tag` and `Button`.
-
-**Fix:** use a kind that has a control, or render your own control for that field and drive it through `FormController.SetValue`. The controller treats all kinds the same way for state, validation and output, except the stateless ones.
+**Fix:** call `Validate()` to touch and check every field, call `MarkTouched(key)` for one field, or pass `markTouched: true` when you set a value from code. A field with `Trigger = FormValidationTrigger.Submit` is only validated by `Validate()` or a submit, and editing it clears its error until the next one. A cell of a repeatable list follows the same rules: `MarkArrayItemTouched` touches one cell, and its error is in `GetArrayItemError` or under its path (`lines[0].sku`) in `Errors`.
 
 ## Known limitations
 
-- `Drawer` and `Fullscreen` shell modes render like `Modal`, in a centered dialog.
-- `KlyFormPage` renders every field as a text input, and its labels are not programmatically associated with their inputs. `KlyFormEngine` links each label to its control.
-- `FormFieldSchema.Multiple`, `OnCreateOption`, `Collapsible`, `DefaultCollapsed`, `DisplayKind`, `DisplayTone`, `FormSchema.Columns`, `FormStepSchema.Description`, `FormStepSchema.Root` and `FormPageSectionSchema.Span` are not used by the built-in components. `FormOptionItem.Description`, `Group` and `Icon` are not rendered either.
-- Password requirements are validated but not shown as a checklist.
-- Cells of repeatable lists are plain text inputs, so their values are strings.
+- `FormStepSchema.Root` is reserved: neither the controller nor the components read it.
 - The controller is not thread safe.
-- Opening a form with `FormService` while another is open replaces it, and the first task never completes.
 - Validators are synchronous. Use `OnBeforeSubmit` or `OnBeforeNext` with `SetError` for checks that need I/O.
+- A `Condition` on a child of a repeatable list hides that column in every row: it receives the controller, not the row, so it cannot hide a single cell.
+- Tabs have no arrow-key navigation: each tab button is reached with Tab.
 
 ## Questions
 
 ### Can I translate the built-in texts?
 
-Partly. `KlyFormEngine` exposes `SubmitLabel`, and each field exposes `RequiredMessage`, `Label`, `Hint`, `Help` and `Placeholder`, so those follow your language. The other texts are English literals in the components: `Back`, `Next`, `Reset`, `Cancel`, `Show` and `Hide` on password fields, `Saving...`, `No items yet`, the default `Select...` option of choice fields (override it with `Placeholder`), the `aria-label` texts, `Add item` (unless you set `AddItemLabel`), the number and bounds messages (`Value must be at least ...`), and on `KlyFormPage` the section sidebar, the status badges, the summary line and the Submit button.
+Partly. `KlyFormEngine` exposes `SubmitLabel`, and each field exposes `RequiredMessage`, `Label`, `Hint`, `Help` and `Placeholder`, so those follow your language. The other texts are English literals in the components: `Back`, `Next`, `Reset`, `Cancel`, `Show` and `Hide` on password fields, `Saving...`, `No items yet`, the default `Select...` option of choice fields (override it with `Placeholder`), the default `Add a tag and press Enter` placeholder of tag fields (same), `Create` and `New option` on fields with `OnCreateOption`, the `aria-label` texts (`Clear`, `Start date`, `End date`, `Remove item 1`, `3 of 5` on rating stars, `Password requirements` and its `(met)` and `(not met)` markers, and so on), `Add item` (unless you set `AddItemLabel`), the built-in validation messages (`Value must be at least ...`, `The end date must not be before the start date`), and on `KlyFormPage` the section sidebar, the status badges, the summary line and the Submit button.
 
 ### Can I bind a form to a model class?
 
@@ -85,8 +58,8 @@ No. Validation is expressed with `Required`, `RequiredWhen`, `Min`, `Max`, `Pass
 
 ### What types do the values have?
 
-The built-in controls store strings for text-like kinds, `double` for `Number` and `Slider`, `bool` for `Checkbox` and `Switch`, and the option value for choices. From code you can store anything, but dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content. `GetValue<T>` converts with the invariant culture and returns `default` when it cannot.
+The built-in controls store strings for text-like kinds (including dates, times, colors and phone numbers), `double` for `Number` and `Slider`, `int` for `Rating`, `bool` for `Checkbox` and `Switch`, the option value for single choices, and a `List<string>` for `CheckboxGroup`, `Tag`, `DateRange` (start and end) and a `Select` or `AutoComplete` with `Multiple`. Cells of repeatable lists use the same controls, so a `Number` cell holds a `double`. From code you can store anything, but dirty tracking compares values with `Equals`, apart from string lists and repeatable lists, which are compared by content. `GetValue<T>` converts with the invariant culture and returns `default` when it cannot.
 
 ### How do labels and errors reach assistive technology?
 
-In `KlyFormEngine` the label of a text, number, select or similar control is tied to it with `for` and `id`, errors are rendered with `role="alert"`, the stepper marks the current step with `aria-current`, and the close and clear buttons have an `aria-label`. This describes the markup; the library has no automated accessibility audit of the form components in this repository.
+In `KlyFormEngine`, `KlyFormPage` and `KlySchemaField` the label of a single control is tied to it with `for` and `id`, and controls made of several inputs (radio and checkbox lists, ratings, date ranges) are a `radiogroup` or `group` with an `id` and `aria-labelledby` pointing at the visible label. A control with an error gets `aria-invalid="true"`, and `aria-describedby` lists the ids of its description, help and error; errors are also rendered with `role="alert"`. Required controls carry `aria-required`, a `Switch` has `role="switch"`, password requirements are a list the password input points to, the stepper marks the current step with `aria-current`, and the icon-only buttons have an `aria-label`. This describes the markup; the library has no automated accessibility audit of the form components in this repository.
