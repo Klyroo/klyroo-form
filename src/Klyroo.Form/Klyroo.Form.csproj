@@ -4,7 +4,7 @@
     <RootNamespace>Klyroo.Form</RootNamespace>
     <PackageId>Klyroo.Form</PackageId>
     <PackageTags>klyroo;blazor;forms;form-builder;wizard;validation;maui</PackageTags>
-    <Description>Klyroo Form for Blazor Web &amp; .NET MAUI Hybrid: KlyFormEngine, KlyFormPage, KlyFormProvider.</Description>
+    <Description>Klyroo Form for Blazor Web &amp; .NET MAUI Hybrid: KlyDynamicFormEngine, KlyDynamicFormPage, KlyFormProvider.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);BL0007</NoWarn>
     <IsTrimmable>true</IsTrimmable>

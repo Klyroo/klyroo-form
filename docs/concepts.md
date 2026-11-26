@@ -7,37 +7,47 @@ This page explains how the pieces of Klyroo.Form fit together and why they work 
 ```text
 Klyroo.Form.Core (no UI dependency)
 
-  FormSchema                 plain data: fields, steps or sections, hooks
-    FormFieldSchema          one field, container or layout element
-    FormStepSchema           one step of a wizard
-    FormPageSectionSchema    one section of a page
+  FormSchema.For<TModel>        typed mode: declares fields, steps, rules and hooks from a model
+    FormSchema<TModel>          immutable schema, holds FormField<TModel, TValue> handles
          |
          v
-  FormController             state: values, touched, errors, dirty, current step
+    FormController<TModel>      state read and written as the members of the model
+
+  Klyroo.Form.Dynamic           runtime mode: a form is data, values are object? keyed by name
+    DynamicFormSchema           plain data: fields, steps or sections, hooks
+      DynamicFieldSchema        one field, container or layout element
+      DynamicStepSchema         one step of a wizard
+      DynamicSectionSchema      one section of a page
+         |
+         v
+    DynamicFormController       state: values, touched, errors, dirty, current step
          ^
          | opens and completes
-  FormService                CreateFormAsync() -> Task<FormSubmitOutcome>
+    DynamicFormService          CreateFormAsync() -> Task<DynamicFormOutcome>
+
+  Both modes compile to one internal FieldNode tree and run on one internal FormEngine.
+  IFormRuntime and IFormFieldAccess give a driver (an agent) a JSON view of either controller.
 
 Klyroo.Form (Blazor, builds on Klyroo.UI)
 
-  KlyFormEngine              renders a schema or a controller
-  KlyFormPage                renders sections with a completion status
-  KlySchemaField             renders one field; both components above use it
-  KlyFormProvider            hosts the overlay opened by FormService, in a KlyModal or KlySlideover
-  KlyFormErrorSummary        lists the errors and announces them; both form components render it
-  KlyFormNavigationGuard     blocks navigation while the controller is dirty
+  KlyDynamicFormEngine          renders a dynamic schema or controller
+  KlyDynamicFormPage            renders sections with a completion status
+  KlyDynamicFieldView           renders one field; both components above use it
+  KlyFormProvider               hosts the overlay opened by DynamicFormService, in a KlyModal or KlySlideover
+  KlyFormErrorSummary           lists the errors and announces them; both form components render it
+  KlyFormNavigationGuard        blocks navigation while the controller is dirty
 ```
 
-A `FormSchema` is declarative and holds no state, so one schema can back many controllers. A `FormController` is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyFormEngine`, the controller it creates when you pass a schema.
+A schema is declarative and holds no state, so one schema can back many controllers. A controller is the runtime: it owns the values and everything derived from them. The components only render a controller and forward user input to it. They keep no form state of their own, apart from the selected tab, the revealed passwords and the text being typed in a tag, autocomplete or create-option input, which they attach to the controller so every component rendering it shares them, and, for `KlyDynamicFormEngine`, the controller it creates when you pass a schema. The typed components (`KlyFormEngine<TModel>` and its siblings) arrive in the next change; today the components render the runtime mode.
 
-For forms bound to a model class with data annotations, Klyroo.UI provides `KlyForm`, which works on an `EditContext`. Klyroo.Form is for forms described as data, where the fields, conditions and steps are decided at runtime or you want to run the form without a UI. It has no integration with `DataAnnotations`.
+The typed mode is for forms bound to a model class, where the compiler checks the members and the types of the values. The runtime mode is for forms described as data, where the fields, conditions and steps are decided at runtime, and for code that works with values as text and JSON. Klyroo.UI also provides `KlyForm`, which works on an `EditContext`; Klyroo.Form is for forms described as a schema, with conditions, steps and a headless controller.
 
 ## The schema
 
-`FormSchema` has three ways to declare its content, and exactly one is used:
+`DynamicFormSchema` has three ways to declare its content, and exactly one is used:
 
 1. `Steps`, when it is not empty. The form is a wizard.
-2. `Sections`, when there are no steps. The form is a page, rendered by `KlyFormPage`.
+2. `Sections`, when there are no steps. The form is a page, rendered by `KlyDynamicFormPage`.
 3. `Fields`, otherwise.
 
 The others are ignored: a schema with steps never reads its `Fields`.
@@ -46,7 +56,7 @@ Field keys are flat strings and identify values in the state and in the output. 
 
 ## State and initialization
 
-The controller holds values in a dictionary of `object?` keyed by field key. When you construct it, or call `Reset`, it fills the state like this:
+The engine holds control values in a dictionary of `object?` keyed by field key. In the runtime mode that is what you read and write. In the typed mode a codec converts at the boundary of the controller: `Get` turns the stored value into the type of the member and `Set` turns your value into what the control stores, so the engine can still hold a text such as `abc` in a number field while the user is typing, and report `Enter a number` without losing it. The same codec reads and writes invariant text and JSON. When you construct a controller, or call `Reset`, it fills the state like this:
 
 1. Values from the initial input are copied.
 2. For each field that has an input value, `TransformInput` converts it.
@@ -82,11 +92,11 @@ One validation pass on a field applies these checks in order, and the first fail
 
 A `DateRange` also fails when its end is before its start, and a required one needs both dates.
 
-`FormSchema.ValidateMode` selects the checks: `All`, `RequiredOnly`, `ValidatorsOnly` or `None`. Only the fields in effect are checked (see the next section).
+`DynamicFormSchema.ValidateMode` selects the checks: `All`, `RequiredOnly`, `ValidatorsOnly` or `None`. Only the fields in effect are checked (see the next section).
 
 Each cell of a repeatable list is validated with the rules of its child field, row by row: `Validate()` checks every cell, and an edited cell follows the trigger of its child like a field does. Cell errors are keyed by a path such as `lines[0].sku`, read with `GetArrayItemError`, and count in `HasBlockingErrors`. Removing a row moves the errors of the following rows up.
 
-After `SetValue`, `ResetField` or a change of a repeatable list, the controller validates again the other touched fields that currently show an error, and the touched fields that list the changed key in `FormFieldSchema.DependsOn`. That keeps cross-field rules (a confirmation, `RequiredWhen`) from leaving stale errors or a wrong `HasBlockingErrors`. Untouched fields and fields with the `Submit` trigger are not validated this way.
+After `SetValue`, `ResetField` or a change of a repeatable list, the controller validates again the other touched fields that currently show an error, and the touched fields that list the changed key in `DynamicFieldSchema.DependsOn`. That keeps cross-field rules (a confirmation, `RequiredWhen`) from leaving stale errors or a wrong `HasBlockingErrors`. Untouched fields and fields with the `Submit` trigger are not validated this way.
 
 `GetError` and `Errors` return what should be displayed. `HasBlockingErrors` is broader: it reports any validation error of a field in effect, touched or not.
 
@@ -136,17 +146,19 @@ SubmitAsync() / SubmitAsync(handler, ct)
    IsSubmitting = false                 (also when a hook or the handler throws)
 ```
 
+The typed controller runs the same lifecycle with the model in it: `SubmitAsync(save, target)` validates, writes the values into the target (or creates a model), runs the model checks, `OnBeforeSubmit` and `OnSubmit` on that model, then `save`. A step that fails, or a `save` that returns `false` or throws, puts the target back as it was, which a plain submit has no need for.
+
 `SubmitAsync(handler)` exists so that the save step runs inside the lifecycle: `IsSubmitting` stays `true` while it works, and the snapshot is retaken only when it returns `true`. The components expose it as `OnSave` (`Func<output, CancellationToken, Task<bool>>`). Their `OnSubmit` callback is raised afterwards, with `BuildOutput()`, and only on success: the stateful fields in effect, after `TransformOutput`, as a flat dictionary. If `OnBeforeSubmit` or the handler returns `false`, or a hook throws, the snapshot is not replaced and the form stays dirty.
 
 An error set with `SetError` on a key that matches no field is a form-level error (`SetFormError` uses the key `FormErrorKey`). A blocking one makes `Validate()` fail whatever step is validated, and `GetErrorEntries()` lists it after the field errors, which is what the error summary renders.
 
-`FormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
+`DynamicFormService` wraps this for overlays. `CreateFormAsync` creates a controller, shows it in the provider and returns a task. Submitting completes the task with `IsCompleted = true`; closing completes it with `false`, and so does opening another form, which replaces the first. All carry the output at that moment.
 
 ## Localization
 
 Numbers and file sizes in the built-in messages follow the language of the set: French reports `3,5` and `1,5 Mo`, English `3.5` and `1.5 MB` (`FormMessages.FileSize` formats a size, and each locale chooses its decimal separator and unit names).
 
-The controller has no locale, so its built-in validation messages (required, number bounds, text length, date range order, files) are a `FormMessages` record: English by default, `FormSchema.Messages` or `FormController.Messages` to choose another, and `FormMessageLocales` for the twelve built-in sets, which work without Blazor. A message that contains a number or a name is a function, so each language can order the words and choose its plural forms. `RequiredMessage` on a field and the messages of your own validators are never translated.
+The controller has no locale, so its built-in validation messages (required, number bounds, text length, date range order, files) are a `FormMessages` record: English by default, `DynamicFormSchema.Messages` or `DynamicFormController.Messages` to choose another, and `FormMessageLocales` for the twelve built-in sets, which work without Blazor. A message that contains a number or a name is a function, so each language can order the words and choose its plural forms. `RequiredMessage` on a field and the messages of your own validators are never translated.
 
 The components add the texts of their own: `FormTexts`, one set per locale of Klyroo.UI in `FormLocales`, picked with the locale of the component (`KlyLocales.ResolveCode`, so `pt-PT` gets `pt` and an unknown language gets English). A set holds a `FormMessages`, and a component gives it to the controller it renders unless the schema or your code already chose one. `AddKlyrooForm(f => f.Texts("fr", t => t with { ... }))` changes a set; the texts become read-only once a component has resolved one. English and French are reviewed by a native speaker, the other sets are drafts.
 
@@ -154,7 +166,7 @@ The components add the texts of their own: `FormTexts`, one set per locale of Kl
 
 | | `Klyroo.Form.Core` | `Klyroo.Form` |
 | :--- | :--- | :--- |
-| Contains | Schema types, `FormController`, `FormService`, `FormMessages`, `FormModel` (typed binding) | `KlyFormEngine`, `KlyFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
+| Contains | `FormSchema`, `FormController<TModel>`, the `Klyroo.Form.Dynamic` schema types, `DynamicFormController`, `DynamicFormService`, `IFormRuntime`, `FormMessages` | `KlyDynamicFormEngine`, `KlyDynamicFormPage`, `KlyFormProvider`, `KlyFormNavigationGuard`, `FormTexts`, `AddKlyrooForm()` |
 | Dependencies | None | Klyroo.UI and `Klyroo.Form.Core` |
 | Runs in | Any .NET 10 host, including NativeAOT | Blazor (Interactive Server, WebAssembly, Auto) and .NET MAUI Blazor Hybrid |
 | Use it for | Tests, view models, background logic | Rendering |
@@ -163,7 +175,7 @@ The split exists so that the behavior of a form (what is required, what is hidde
 
 ## Render modes and threading
 
-The controller raises `Changed` synchronously, on the thread that made the change. `KlyFormEngine`, `KlyFormPage` and `KlyFormProvider` subscribe to it and re-render through `InvokeAsync`, so a change from another thread does not touch the renderer from the wrong context. The controller itself is made of plain dictionaries and is not thread safe: serialize access if more than one thread uses it.
+The controller raises `Changed` synchronously, on the thread that made the change. `KlyDynamicFormEngine`, `KlyDynamicFormPage` and `KlyFormProvider` subscribe to it and re-render through `InvokeAsync`, so a change from another thread does not touch the renderer from the wrong context. The controller itself is made of plain dictionaries and is not thread safe: serialize access if more than one thread uses it.
 
 The components use Blazor events for everything the form does. The only JavaScript interop is a best-effort call that moves focus (to the first invalid field after a failed submit or Next, or when an entry of the error summary is clicked), through the small `klyroo-form.js` module shipped with the package: when the call fails, as in prerendering or a test host without JavaScript, the form still works and focus just stays where it was. The overlay of `KlyFormProvider` is a Klyroo.UI modal, which brings its own script. In Static SSR the markup renders but there is nothing to run the event handlers, so the controls are not interactive. [Platforms](platforms.md) covers render modes, .NET MAUI and NativeAOT.
 
@@ -173,8 +185,8 @@ Validation failures are not exceptions. They are values: `Validate()` and `Submi
 
 ## Design decisions and trade-offs
 
-- **Untyped values keyed by strings.** A form is a dictionary of `object?`, which makes forms that are built from data or change shape at runtime easy, and means there is no compile-time check that a key exists or that a value has the type you expect. You map the output dictionary to your own type, or let `FormModel` do it: it declares the fields from a model type with member expressions, so a rename is a compile error, and moves the values both ways (see [Bind a C# model](guides.md#bind-a-c-model)). The dictionary stays the truth underneath: the model is a typed view of it.
-- **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object. A bound model follows the convention: `p => p.Address.City` gives the key `Address.City`, and the values are copied into and out of the nested object when the model is loaded and written.
-- **Synchronous validators, async rules and hooks.** `Validators` are `Func<object?, FormController, bool>`, so validation can run on every keystroke without awaiting. Per-field server checks are `AsyncValidators`, which run apart from the synchronous path and are awaited by submission; checks that belong to the whole submission go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
+- **Typed facade over an untyped engine.** The engine stores control values as `object?` keyed by string, because it must hold what a control produces, including a text that is not a number yet. The typed mode puts a facade on it: handles carry the type of the value, so a rename or a wrong type is a compile error, and a codec converts at the boundary. The runtime mode exposes the dictionary directly, which makes forms built from data easy and means nothing checks that a key exists or that a value has the type you expect. Both are views of the same engine and share its behavior and its tests (see [Bind a C# model](guides.md#bind-a-c-model)).
+- **Flat keys.** Containers do not nest values, which keeps paths simple and dirty tracking cheap, and means an `address.street` structure is a naming convention (`address.street` as the key, for example), not a nested object. A typed schema follows the convention: `m => m.Address.City` gives the key `Address.City`, and the values are copied into and out of the nested object when the model is loaded and written.
+- **Synchronous validators, async rules and hooks.** Rules are `Func<TValue, bool>` (`Func<object?, DynamicFormController, bool>` in the runtime mode), so validation can run on every keystroke without awaiting. Per-field server checks are `AsyncValidators`, which run apart from the synchronous path and are awaited by submission; checks that belong to the whole submission go in `OnBeforeSubmit` or `OnBeforeNext` and report through `SetError`.
 - **A mutable controller with an event.** The state is mutated in place and `Changed` tells observers. It is small, and it also means you own synchronization if you share a controller across threads.
 - **Native controls, almost no JavaScript.** The components render every kind with native elements (`select`, `datalist`, `details`, date and color inputs, radio-based stars) and Blazor events, plus one optional focus helper. The tag and create-option inputs avoid submitting the form on Enter with a `form` attribute that points at no form, instead of a script.

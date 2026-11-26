@@ -1,6 +1,6 @@
 # Klyroo.Form.DataAnnotations
 
-Builds a [Klyroo.Form](https://github.com/klyroo/klyroo-form) form from a C# model and its `System.ComponentModel.DataAnnotations` attributes, so a Blazor developer can bind a form to a typed model the way they expect.
+Builds a typed [Klyroo.Form](https://github.com/klyroo/klyroo-form) schema from a C# model and its `System.ComponentModel.DataAnnotations` attributes, so a .NET developer can bind a form to a model the way they expect.
 
 ```csharp
 public sealed class Signup
@@ -23,10 +23,12 @@ public sealed class Signup
     public string ConfirmPassword { get; set; } = "";
 }
 
-var form = FormModel.For<Signup>(b => b.FromDataAnnotations());
+var schema = FormSchema.For<Signup>(s => s.FromDataAnnotations());
 
-// Blazor
-// <KlyFormEngine Schema="form.Schema" Input="form.ToInput(new Signup())" OnSave="form.OnSaveOutput(SaveAsync)" />
+var form = new FormController<Signup>(schema, new Signup());
+await form.SubmitAsync(async (signup, ct) => await SaveAsync(signup, ct));   // signup is a Signup
+
+// Blazor: the typed components arrive in the next change
 ```
 
 What it maps:
@@ -36,6 +38,6 @@ What it maps:
 - `[MinLength]`, `[RegularExpression]`, `[EmailAddress]`, `[Phone]`, `[Url]`, `[CreditCard]` and `[Compare]` become validator rules that run while the user edits, with the message of the attribute (English, or the `ErrorMessage` or resource you give). The message of a validator rule is worked out when the rule fails, so it follows the UI culture of the validation, and the label, description, placeholder and `[Required]` message are fixed when the form is built.
 - Your own `ValidationAttribute`, attributes on the class and `IValidatableObject` run at submit on the model built from the form values. Their errors go to the field of the member they name, or to the form.
 
-The binding is trim safe: nothing is compiled, and the model type is annotated so its public properties are kept. The package needs `Klyroo.Form.Core`, so it works in a headless app too.
+The schema is trim safe: nothing is compiled, and the model type is annotated so its public properties are kept. `FromDataAnnotations()` declares the other members of the model through `AllMembers()`, and `UseDataAnnotations()` reads the attributes of the fields you declared. The package needs `Klyroo.Form.Core`, so it works in a headless app too.
 
 The full guide, with the limits, is in the [Bind a C# model](https://github.com/klyroo/klyroo-form/blob/main/docs/guides.md#bind-a-c-model) guide. The repository is at <https://github.com/klyroo/klyroo-form>.

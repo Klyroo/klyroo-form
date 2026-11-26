@@ -2,6 +2,8 @@
 
 This tutorial builds a contact form twice. First you run it headless, as a console program, to see how the controller validates and submits. Then you render the same schema in a Blazor app. It takes about ten minutes.
 
+Klyroo.Form has two ways to declare a form. The **typed** one binds a form to a C# model (`FormSchema.For<TModel>`, `FormController<TModel>`), and is shown at the end. The **runtime** one, in the `Klyroo.Form.Dynamic` namespace, describes a form as data and keys values by name (`DynamicFormSchema`, `DynamicFormController`); it suits forms built from data or changing shape at runtime, and it is what the first three steps use because it needs no model class. Both run on the same engine.
+
 Check the [prerequisites](../README.md#prerequisites) first: the .NET 10 SDK, and for the components a Blazor app with Klyroo.UI set up.
 
 ## 1. Run a form without a UI
@@ -18,21 +20,22 @@ Replace `Program.cs` with a schema and a controller:
 
 ```csharp
 using Klyroo.Form;
+using Klyroo.Form.Dynamic;
 
-var schema = new FormSchema
+var schema = new DynamicFormSchema
 {
     FormKey = "contact",
     Fields =
     [
-        new FormFieldSchema { Key = "name", Label = "Name", Required = true },
-        new FormFieldSchema
+        new DynamicFieldSchema { Key = "name", Label = "Name", Required = true },
+        new DynamicFieldSchema
         {
             Key = "email",
             Label = "Email",
             Required = true,
             Validators =
             [
-                new FormValidatorRule("email", "Enter a valid email address",
+                new DynamicValidatorRule("email", "Enter a valid email address",
                     (value, _) => value?.ToString()?.Contains('@') == true),
             ],
         },
@@ -44,7 +47,7 @@ var schema = new FormSchema
     },
 };
 
-var form = new FormController(schema);
+var form = new DynamicFormController(schema);
 
 form.SetValue("name", "Alice", markTouched: true);
 form.SetValue("email", "alice", markTouched: true);
@@ -68,7 +71,7 @@ False
 
 What happened:
 
-- `FormSchema` is plain data. Each `FormFieldSchema` has a `Key`, which is the name of the value in the form state and in the output.
+- `DynamicFormSchema` is plain data. Each `DynamicFieldSchema` has a `Key`, which is the name of the value in the form state and in the output.
 - `SetValue` stores a value. `markTouched: true` marks the field as touched, and only touched fields show their error, so `GetError("email")` returns the message. A field that the user has not interacted with stays quiet until you call `Validate()` or submit.
 - `SubmitAsync` validates every field. The first submit fails because the email has no `@`, so `OnSubmit` does not run. The second passes validation, runs `OnSubmit`, and returns `true`.
 - After a successful submit the controller takes a new snapshot of the values, so `IsDirty` is `false` again.
@@ -87,10 +90,11 @@ The package builds on Klyroo.UI and brings it in as a dependency.
 
 ### Register the services
 
-Call `AddKlyrooForm()` in `Program.cs`. It registers `FormService` and calls `AddKlyrooUi()`:
+Call `AddKlyrooForm()` in `Program.cs`. It registers `DynamicFormService` and calls `AddKlyrooUi()`:
 
 ```csharp
 using Klyroo.Form;
+using Klyroo.Form.Dynamic;
 
 builder.Services.AddKlyrooForm();
 ```
@@ -103,6 +107,7 @@ In `_Imports.razor`:
 
 ```razor
 @using Klyroo.Form
+@using Klyroo.Form.Dynamic
 ```
 
 ### Load the stylesheets
@@ -125,7 +130,7 @@ Create `Components/Pages/Contact.razor`:
 @page "/contact"
 @rendermode InteractiveServer
 
-<KlyFormEngine Schema="_schema" SubmitLabel="Send" OnSubmit="Send" />
+<KlyDynamicFormEngine Schema="_schema" SubmitLabel="Send" OnSubmit="Send" />
 
 @if (_sent is not null)
 {
@@ -135,19 +140,19 @@ Create `Components/Pages/Contact.razor`:
 @code {
     private string? _sent;
 
-    private readonly FormSchema _schema = new()
+    private readonly DynamicFormSchema _schema = new()
     {
         FormKey = "contact",
         Title = "Contact us",
         Fields =
         [
-            new FormFieldSchema { Key = "name", Label = "Name", Required = true },
-            new FormFieldSchema { Key = "email", Label = "Email", Required = true,
-                Validators = [new FormValidatorRule("email", "Enter a valid email address",
+            new DynamicFieldSchema { Key = "name", Label = "Name", Required = true },
+            new DynamicFieldSchema { Key = "email", Label = "Email", Required = true,
+                Validators = [new DynamicValidatorRule("email", "Enter a valid email address",
                     (value, _) => value?.ToString()?.Contains('@') == true)] },
-            new FormFieldSchema { Key = "topic", Label = "Topic", Kind = FormFieldKind.Select,
+            new DynamicFieldSchema { Key = "topic", Label = "Topic", Kind = FormFieldKind.Select,
                 Options = [new("sales", "Sales"), new("support", "Support")] },
-            new FormFieldSchema { Key = "message", Label = "Message", Kind = FormFieldKind.Textarea, Required = true },
+            new DynamicFieldSchema { Key = "message", Label = "Message", Kind = FormFieldKind.Textarea, Required = true },
         ],
     };
 
@@ -164,42 +169,40 @@ Run the app and open `/contact`. Press Send with the form empty: each required f
 Three details to know:
 
 - `@rendermode InteractiveServer` is needed unless your app already renders interactively everywhere. In Static SSR the form appears but does not react to input.
-- Keep the schema in a field. `KlyFormEngine` creates a new controller whenever it receives a different `FormSchema` instance, which would discard what the user typed if the schema were built inline in the markup.
-- `OnSubmit` on the component runs after validation, the schema hooks and `OnSave` succeed. It receives the same dictionary as `FormController.BuildOutput()`. To call your API while the form shows its saving state, pass `OnSave` (it returns `true` on success): see [Save from the component](guides.md#save-from-the-component-and-keep-the-form-busy).
+- Keep the schema in a field. `KlyDynamicFormEngine` creates a new controller whenever it receives a different `DynamicFormSchema` instance, which would discard what the user typed if the schema were built inline in the markup.
+- `OnSubmit` on the component runs after validation, the schema hooks and `OnSave` succeed. It receives the same dictionary as `DynamicFormController.BuildOutput()`. To call your API while the form shows its saving state, pass `OnSave` (it returns `true` on success): see [Save from the component](guides.md#save-from-the-component-and-keep-the-form-busy).
 
-## 4. Bind a C# model (optional)
+## 4. Bind a C# model (typed mode)
 
-If you would rather write a class than a dictionary, `Klyroo.Form.Core` builds the same form from a model, and `Klyroo.Form.DataAnnotations` reads the attributes on it:
+If you would rather write a class than a dictionary, `Klyroo.Form.Core` builds the same form from a model. Fields are handles the builder returns, and values are read and written as the member types:
 
 ```csharp
+using Klyroo.Form;
+
 public sealed class Contact
 {
-    [Required, Display(Name = "Your name")]
     public string Name { get; set; } = "";
 
-    [Required, EmailAddress]
     public string Email { get; set; } = "";
 
-    [DataType(DataType.MultilineText)]
     public string? Message { get; set; }
 }
 
-var form = FormModel.For<Contact>(b => b.FromDataAnnotations());
+var schema = FormSchema.For<Contact>(s =>
+{
+    s.Field(c => c.Name, f => f.Required().Label("Your name"));
+    s.Field(c => c.Email, f => f.Required().Rule(e => e.Contains('@'), "Enter a valid email address"));
+    s.Field(c => c.Message, f => f.AsTextarea().MaxLength(500));
+});
+
+var form = new FormController<Contact>(schema);
+form.Set(schema.Field(c => c.Name), "Alice", markTouched: true);
+form.Set(schema.Field(c => c.Email), "alice@example.com");
+
+var saved = await form.SubmitAsync((contact, ct) => Task.FromResult(true)); // contact is a Contact
 ```
 
-In the page, render `form.Schema` and receive a `Contact`:
-
-```razor
-<KlyFormEngine Schema="_form.Schema" OnSave="_form.OnSaveOutput(SendAsync)" />
-
-@code {
-    private static readonly FormModel<Contact> _form = FormModel.For<Contact>(b => b.FromDataAnnotations());
-
-    private Task<bool> SendAsync(Contact contact, CancellationToken ct) => Task.FromResult(true);
-}
-```
-
-Without the extra package the same works with explicit fields, `FormModel.For<Contact>(b => b.Field(c => c.Name, f => f.Required()))`. The [Bind a C# model](guides.md#bind-a-c-model) guide has the complete example and the limits.
+`Klyroo.Form.DataAnnotations` reads the attributes of the model instead: `FormSchema.For<Contact>(s => s.FromDataAnnotations())`. The typed Blazor components arrive in the next change; until then, render a model through the runtime mode above or drive a `FormController<TModel>` from your own view. The [Bind a C# model](guides.md#bind-a-c-model) guide has the complete example and the limits.
 
 ## Next steps
 

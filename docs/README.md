@@ -6,7 +6,7 @@
 
 ## How-to guides
 
-- [Guides](guides.md): custom validation, server errors, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, binding a C# model with data annotations, testing.
+- [Guides](guides.md): custom validation, server errors, conditional fields, wizards, section pages, dialogs, repeatable rows, prefill and reset, binding a C# model (typed schema and data annotations), testing.
 
 ## Reference
 
@@ -16,4 +16,8 @@
 
 ## Explanation
 
-- [Concepts](concepts.md): the schema, the controller, validation, steps, submission and the split between the two packages.
+- [Concepts](concepts.md): the typed and runtime modes, the engine under both, validation, steps, submission and the split between the two packages.
+
+## Internals
+
+- [Internal contract](internal-contract.md): the engine, the node tree, the codec and `IFormRuntime`, for the components and the agent bridge that build on them.
