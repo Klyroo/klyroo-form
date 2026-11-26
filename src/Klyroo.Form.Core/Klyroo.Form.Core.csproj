@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Klyroo.Form</RootNamespace>
     <PackageId>Klyroo.Form.Core</PackageId>
+    <PackageTags>klyroo;forms;form-builder;schema;validation;headless;nativeaot</PackageTags>
     <Description>Klyroo Form Core: Headless schema-driven form controller, validation, dirty tracking and multi-step wizard engine. Zero UI dependency, NativeAOT compatible.</Description>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <IsTrimmable>true</IsTrimmable>
