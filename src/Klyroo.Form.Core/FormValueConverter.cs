@@ -72,6 +72,8 @@ internal static class FormValueConverter
         return value is not null;
     }
 
+    internal static string ToInvariantText(object raw) => ToText(raw) ?? "";
+
     private static string? ToText(object raw) => raw switch
     {
         string s => s,
@@ -264,4 +266,49 @@ internal static class FormValueConverter
         }
         return false;
     }
+
+    // A value read from a draft (JSON gives strings, doubles, booleans and lists) in the type the controls of this field use.
+    internal static object? NormalizeForField(FormFieldSchema field, object? value)
+    {
+        if (value is null) return null;
+        switch (field.Kind)
+        {
+            case FormFieldKind.ArrayList or FormFieldKind.ArrayTable:
+                var rows = new List<Dictionary<string, object?>>();
+                if (value is System.Collections.IEnumerable items and not string)
+                {
+                    foreach (var item in items)
+                    {
+                        if (item is not IEnumerable<KeyValuePair<string, object?>> map) continue;
+                        var row = new Dictionary<string, object?>(StringComparer.Ordinal);
+                        foreach (var (key, cell) in map)
+                        {
+                            var child = field.Fields?.FirstOrDefault(c => c.Key == key);
+                            row[key] = child is null ? cell : NormalizeForField(child, cell);
+                        }
+                        rows.Add(row);
+                    }
+                }
+                return rows;
+            case FormFieldKind.Number or FormFieldKind.Slider:
+                return TryConvert<double>(value, out var number) ? number : null;
+            case FormFieldKind.Rating:
+                return TryConvert<int>(value, out var rating) ? rating : null;
+            case FormFieldKind.Checkbox or FormFieldKind.Switch:
+                return TryConvert<bool>(value, out var flag) ? flag : null;
+            case FormFieldKind.CheckboxGroup or FormFieldKind.Tag or FormFieldKind.DateRange:
+                return StringList(value);
+            case FormFieldKind.Select or FormFieldKind.AutoComplete when field.Multiple:
+                return StringList(value);
+            default:
+                return value is string ? value : ToInvariantText(value);
+        }
+    }
+
+    private static List<string>? StringList(object value) => value switch
+    {
+        string s => s.Length == 0 ? [] : [s],
+        System.Collections.IEnumerable items => items.Cast<object?>().Select(i => i is null ? "" : ToInvariantText(i)).ToList(),
+        _ => null,
+    };
 }

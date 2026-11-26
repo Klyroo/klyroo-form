@@ -256,11 +256,9 @@ Goal: show every group of settings on one page, with a completion status per sec
 ```razor
 @page "/settings"
 @rendermode InteractiveServer
-@inject IJSRuntime JS
 
-<NavigationLock ConfirmExternalNavigation="@_form.IsDirty" OnBeforeInternalNavigation="ConfirmLeave" />
-
-<KlyFormPage Form="_form" OnSubmit="Save" />
+<KlyFormNavigationGuard Form="_form" />
+<KlyFormPage Form="_form" OnSave="SaveAsync" />
 
 @code {
     private readonly FormController _form = new(
@@ -288,25 +286,32 @@ Goal: show every group of settings on one page, with a completion status per sec
         },
         new Dictionary<string, object?> { ["name"] = "Acme", ["domain"] = "acme.example" });
 
-    private async Task ConfirmLeave(LocationChangingContext context)
+    private async Task<bool> SaveAsync(IReadOnlyDictionary<string, object?> data, CancellationToken ct)
     {
-        if (_form.IsDirty && !await JS.InvokeAsync<bool>("confirm", "Discard your changes?"))
-        {
-            context.PreventNavigation();
-        }
-    }
-
-    private Task Save(IReadOnlyDictionary<string, object?> data)
-    {
-        Console.WriteLine($"Saved {data["name"]}");
-        return Task.CompletedTask;
+        await workspaces.SaveAsync(data, ct);
+        return true;
     }
 }
 ```
 
 `KlyFormPage` takes a controller, not a schema, because it needs the controller to compute section states. It lists the sections in a sidebar with a status: `Complete`, `Pending` (a required field is empty), `Invalid` (a field has an error) or `Optional` (the section is marked optional and empty). Each section has its own Reset button once one of its fields has changed.
 
-The controller is created with initial input, so the form starts clean and `IsDirty` turns `true` on the first edit. `NavigationLock` is a standard Blazor component: it asks the browser to confirm external navigation while `IsDirty` is `true`, and `OnBeforeInternalNavigation` lets you prompt for in-app navigation.
+The controller is created with initial input, so the form starts clean and `IsDirty` turns `true` on the first edit. `KlyFormNavigationGuard` is a `NavigationLock` that follows the controller. It subscribes to `Changed` and re-renders itself when `IsDirty` flips, which a `NavigationLock` placed on the page cannot do: a page that renders the form through `KlyFormPage` never re-renders when the user types, so `ConfirmExternalNavigation="@_form.IsDirty"` on the page stays at the value it had on the first render and the browser prompt never switches on. While the form is dirty the guard asks the browser to confirm leaving the site or closing the tab, and it asks `window.confirm` before in-app navigation, or calls your `ConfirmLeave` (return `true` to leave) if you prefer your own dialog. Because `OnSave` returning `true` retakes the baseline, the guard lets the page navigate after a successful save.
+
+To keep unsaved edits across a reload, store a draft and restore it on the new controller:
+
+```csharp
+// while the user edits, for example on form.Changed
+await storage.SetAsync("settings-draft", _form.ExportState().ToJson());
+
+// when the page loads, with the controller built from the saved data as before
+if (await storage.GetAsync("settings-draft") is { } json)
+{
+    _form.RestoreDraft(FormDraft.FromJson(json));
+}
+```
+
+`RestoreDraft` puts the values back without changing the baseline, so the restored fields count as unsaved changes (`IsDirty` is `true` and the guard protects them). `Reset(input)` would have made the draft the new baseline and the form clean. `ExportState()` leaves password and one-time code fields out unless you pass `includeSensitive: true`, because a draft usually lives on the user's device.
 
 `KlyFormPage` renders fields exactly like `KlyFormEngine`: the same controls per kind, labels, containers, tabs and repeatable lists. The page is a `form` element, so pressing Enter in a text field submits it. `FormSchema.Columns` sets the number of columns of the field grids, and `FormPageSectionSchema.Span` lets two sections share a row on large screens (`Span = 6` each).
 

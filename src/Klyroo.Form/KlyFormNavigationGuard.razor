@@ -1,0 +1,60 @@
+@namespace Klyroo.Form
+@implements IDisposable
+@inject IJSRuntime Js
+
+@* Re-renders when IsDirty flips, which is what turns the browser prompt for external navigation on and off. *@
+<NavigationLock ConfirmExternalNavigation="@(!Disabled && ConfirmExternalNavigation && Form.IsDirty)"
+                OnBeforeInternalNavigation="OnBeforeInternalNavigationAsync" />
+
+@code {
+    private FormController? _subscribed;
+    private bool _dirty;
+
+    /// <summary>The controller to protect. Navigation is blocked while <see cref="FormController.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
+    [Parameter, EditorRequired] public FormController Form { get; set; } = default!;
+
+    /// <summary>Asks the browser to confirm leaving the site, reloading or closing the tab while the form is dirty. The browser shows its own text; it cannot be changed. The default is <c>true</c>.</summary>
+    [Parameter] public bool ConfirmExternalNavigation { get; set; } = true;
+
+    /// <summary>Called when the user navigates inside the app while the form is dirty. Return <c>true</c> to let the navigation go ahead and <c>false</c> to stay, for example after asking in a <c>KlyModal</c>. Without it the guard asks with <c>window.confirm</c> and <see cref="Message"/>.</summary>
+    [Parameter] public Func<LocationChangingContext, Task<bool>>? ConfirmLeave { get; set; }
+
+    /// <summary>The question of the default confirmation. The default is <c>You have unsaved changes. Leave this page and discard them?</c>.</summary>
+    [Parameter] public string Message { get; set; } = "You have unsaved changes. Leave this page and discard them?";
+
+    /// <summary>Turns the guard off, for example while the page saves and navigates on its own. The default is <c>false</c>.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(_subscribed, Form))
+        {
+            if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;
+            _subscribed = Form;
+            if (_subscribed is not null) _subscribed.Changed += OnFormChanged;
+        }
+        _dirty = Form.IsDirty;
+    }
+
+    private void OnFormChanged()
+    {
+        var dirty = Form.IsDirty;
+        if (dirty == _dirty) return;
+        _dirty = dirty;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task OnBeforeInternalNavigationAsync(LocationChangingContext context)
+    {
+        if (Disabled || !Form.IsDirty) return;
+        var leave = ConfirmLeave is not null
+            ? await ConfirmLeave(context)
+            : await Js.InvokeAsync<bool>("confirm", context.CancellationToken, Message);
+        if (!leave) context.PreventNavigation();
+    }
+
+    public void Dispose()
+    {
+        if (_subscribed is not null) _subscribed.Changed -= OnFormChanged;
+    }
+}

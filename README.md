@@ -17,6 +17,7 @@ You describe a form as data (fields, conditions, validators, steps) and a `FormC
 - **Conditional fields**: `Condition`, `RequiredWhen`, `DisabledWhen` and `SkipWhen` are plain delegates evaluated against the controller, and hidden fields, the children of hidden containers and the fields of skipped steps are left out of validation and output.
 - **Dirty tracking**: the controller compares values with an initial snapshot, resets a field or a section, and takes a new snapshot after a successful submit.
 - **Wizards and pages**: multi-step forms with skippable steps and async before-next hooks, and sectioned pages that show a completion status per section.
+- **Unsaved changes**: `KlyFormNavigationGuard` blocks navigation while the form is dirty, and `ExportState()` and `RestoreDraft()` keep a draft across a reload with the original baseline, so the restored draft is still dirty.
 - **Overlays**: `FormService.CreateFormAsync` opens a form in a modal dialog, a side drawer or a fullscreen view hosted by `KlyFormProvider` (on `KlyModal` and `KlySlideover`: focus trap, Escape, focus restored) and returns the result as a task.
 
 ## Packages

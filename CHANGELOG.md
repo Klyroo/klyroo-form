@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Added
 
+- `KlyFormNavigationGuard`, a `NavigationLock` that follows `FormController.IsDirty`: it asks the browser to confirm external navigation while the form is dirty and confirms in-app navigation with `window.confirm` or your `ConfirmLeave`.
+- `FormController.ExportState()` and `RestoreDraft()` with `FormDraft` (and `ToJson` and `FromJson`, written without reflection). A restored draft keeps the original baseline, so it is still dirty; passwords and one-time codes are left out unless asked for.
 - `FormController.TryGetValue<T>`, and a `GetValue<T>` that converts the formats the controls store: `Nullable<T>`, `DateOnly` (`yyyy-MM-dd`), `TimeOnly` (`HH:mm`), `DateTime` (`yyyy-MM-ddTHH:mm`), `DateTimeOffset`, `TimeSpan`, `Guid`, enums (by name or member number), `bool` text and numbers in the invariant culture. It uses no reflection over the target type, so it stays AOT and trim compatible.
 - `FormFieldSchema.DependsOn` names the fields whose value a field's rules read. A change of one of them validates the touched field again, so cross-field errors (a confirmation, `RequiredWhen`) appear and clear as the other field changes.
 - `FormController.SubmitAsync(handler, cancellationToken)` runs your save step inside the submission: `IsSubmitting` stays `true` while it works and the dirty snapshot is retaken only when it returns `true`. `KlyFormEngine` and `KlyFormPage` expose it as `OnSave` (`Func<output, CancellationToken, Task<bool>>`) and refuse a second submit while one runs.
@@ -45,6 +47,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Fixed
 
+- The sections guide put `NavigationLock ConfirmExternalNavigation="@_form.IsDirty"` on a page that never re-renders when the user types, so the browser prompt never turned on. `KlyFormNavigationGuard` re-renders itself when `IsDirty` changes.
 - The overlay of `KlyFormProvider` was a `div` with `role="dialog"`: focus was not trapped, Escape did nothing and focus was lost on close.
 - `GetValue<T>` returned `default` for `Nullable<T>`, `DateOnly`, `TimeOnly`, `DateTime`, `Guid` and enum targets, which `Convert.ChangeType` cannot produce from the strings the controls store.
 - A cross-field error stayed on screen after the other field was fixed (a confirm password that now matched, a `RequiredWhen` whose condition no longer held), and `HasBlockingErrors` stayed `true`. After a value changes, the controller now validates again the touched fields that show an error.
