@@ -8,7 +8,11 @@ namespace Klyroo.Form;
 // made are undone. The same journal undoes a whole write after it succeeded, when a save step that was given the model reports a failure.
 internal sealed class FormWritePlan
 {
-    private sealed record Step(Action Apply, Action Undo);
+    private sealed class Step(Action apply, Action undo)
+    {
+        public Action Apply { get; } = apply;
+        public Action Undo { get; } = undo;
+    }
 
     private readonly List<Step> _steps = [];
     private int _applied;

@@ -4,18 +4,19 @@ namespace Klyroo.Form;
 
 internal delegate bool JsonControlReader(JsonElement element, FieldNode field, IReadOnlyList<FormOptionItem> options, out object? control, out string? reason);
 
-internal sealed record ValidatorRule(
-    string Key,
-    string Message,
-    Func<object?, FormEngine, bool> Validate)
+// Plain classes, not records: nothing compares, prints or copies a rule, and a record would add ten members to the assembly for each.
+internal sealed class ValidatorRule(string key, string message, Func<object?, FormEngine, bool> validate)
 {
+    public string Key { get; } = key;
+    public string Message { get; } = message;
+    public Func<object?, FormEngine, bool> Validate { get; } = validate;
     public Func<FormMessages, string?>? LocalizedMessage { get; init; }
 }
 
-internal sealed record AsyncValidatorRule(
-    string Key,
-    Func<object?, FormEngine, CancellationToken, ValueTask<string?>> Validate)
+internal sealed class AsyncValidatorRule(string key, Func<object?, FormEngine, CancellationToken, ValueTask<string?>> validate)
 {
+    public string Key { get; } = key;
+    public Func<object?, FormEngine, CancellationToken, ValueTask<string?>> Validate { get; } = validate;
     public TimeSpan Debounce { get; init; } = TimeSpan.FromMilliseconds(300);
 }
 

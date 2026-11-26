@@ -8,6 +8,8 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- `Klyroo.Form.Core` is about 4 KB smaller: the four internal helper types that were records (`ValidatorRule`, `AsyncValidatorRule`, `RawNumber` and the write plan step) are plain classes, because nothing compared, printed or copied them and each record added ten members to the assembly. No public API changes.
+
 - **Breaking:** the tone and the kind of an info block are enums. `FormSchemaBuilder<TModel>.Info(..., tone:)` takes a `FormInfoTone?` (`Neutral`, `Info`, `Success`, `Warning`, `Error`), and `DynamicFieldSchema.DisplayTone` and `DisplayKind` are a `FormInfoTone?` and a `FormInfoKind?` (`Callout`, `Text`). The markup is the same; the case-insensitive text and the fallback to the default for an unknown value are gone with the text.
 - BREAKING (markup): the element ids of a form carry a number that is unique per form instance, so two forms with the same field keys on one page (an inline form and an overlay of the same schema) no longer share ids: `kly-ff-email` is now `kly-ff-3-email`, and the same goes for the ids of the label, description, help, error, tab, list cell and error summary elements. `for`, `aria-describedby`, `aria-labelledby`, the error summary links and the focus after a failed submit use them. A CSS or test selector on `#kly-ff-...` should select on `[data-form-field=...]` (or on the suffix of the id) instead.
 

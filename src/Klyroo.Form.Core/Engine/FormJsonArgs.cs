@@ -3,7 +3,12 @@ using System.Text.Json;
 
 namespace Klyroo.Form;
 
-internal sealed record RawNumber(string Text, double Approximate);
+// A plain class, not a record: it is only ever tested for its type and read.
+internal sealed class RawNumber(string text, double approximate)
+{
+    public string Text { get; } = text;
+    public double Approximate { get; } = approximate;
+}
 
 internal static class FormJsonArgs
 {
