@@ -158,8 +158,8 @@
     /// <summary>How the form is presented. Anything other than <see cref="FormShellMode.Inline"/> adds a close button to the header when <see cref="OnCancel"/> is bound.</summary>
     [Parameter] public FormShellMode Shell { get; set; } = FormShellMode.Inline;
 
-    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;FormFieldContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
-    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>? FieldTemplates { get; set; }
+    /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>, each a <c>RenderFragment&lt;FormControlContext&gt;</c> that draws the control. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>.</summary>
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormControlContext>>? FieldTemplates { get; set; }
 
     /// <summary>Text of the submit button. The default is the <c>Submit</c> text of the current locale (<see cref="FormTexts.Submit"/>).</summary>
     [Parameter] public string? SubmitLabel { get; set; }

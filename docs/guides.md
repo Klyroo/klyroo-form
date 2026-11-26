@@ -476,7 +476,7 @@ Keys of the input that match no field are kept in `InternalState` but never appe
 Goal: use a control the library does not have, such as a star picker or a map, as a field that is validated, dirty-tracked and part of the output like any other.
 
 ```razor
-@* StarPicker.razor: a Razor component that edits one field through its FormFieldContext *@
+@* StarPicker.razor: a Razor component that edits one field through its FormControlContext *@
 @using Klyroo.Form
 
 <div id="@Context.Id" role="radiogroup" aria-labelledby="@Context.LabelledBy" aria-describedby="@Context.DescribedBy"
@@ -490,7 +490,7 @@ Goal: use a control the library does not have, such as a star picker or a map, a
 </div>
 
 @code {
-    [Parameter, EditorRequired] public FormFieldContext Context { get; set; } = default!;
+    [Parameter, EditorRequired] public FormControlContext Context { get; set; } = default!;
 }
 ```
 
@@ -507,9 +507,9 @@ builder.Services.AddKlyrooForm(f => f.CustomField("stars", ctx => builder =>
 new FormFieldSchema { Key = "rating", Kind = FormFieldKind.Custom, CustomKey = "stars", Label = "How was it?", Required = true }
 ```
 
-A custom field is a normal stateful field: it holds whatever value you store (a string, a number, a list), is checked by `Required` and `Validators`, and is in `BuildOutput()`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control. `FormFieldContext` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy` and `LabelledBy` for the ARIA attributes. For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Context.LabelledBy`, or at the label id yourself.
+A custom field is a normal stateful field: it holds whatever value you store (a string, a number, a list), is checked by `Required` and `Validators`, and is in `BuildOutput()`. The component draws the label, description, help, error and the reset button around your control, so the renderer only draws the control. `FormControlContext` gives it what the built-in controls use: `Id` (put it on the control so the label points at it), `Value` and `Current()`, `Set(value)` while the user edits, `Commit(value)` for a complete change that should show its error at once, `Blur()` when focus leaves, `Error`, `Disabled`, `Required`, `Validating`, and `DescribedBy` and `LabelledBy` for the ARIA attributes. For a control made of several inputs, put `role="group"` or `radiogroup` on its root and point `aria-labelledby` at `Context.LabelledBy`, or at the label id yourself.
 
-To register the renderer for one form instead of the whole app, pass it in the `FieldTemplates` parameter of `KlyFormEngine`, `KlyFormPage` or `KlySchemaField`: a `Dictionary<string, RenderFragment<FormFieldContext>>` that wins over the registry and reaches fields inside containers, tabs and the cells of repeatable lists. A custom field whose key has no renderer shows a notice instead of a control. Because `FormFieldContext` has a public constructor, you can also build one in a unit test: `new FormFieldContext(form, field, "id")` then call `Set`, `Commit` and `Blur` and read the controller.
+To register the renderer for one form instead of the whole app, pass it in the `FieldTemplates` parameter of `KlyFormEngine`, `KlyFormPage` or `KlySchemaField`: a `Dictionary<string, RenderFragment<FormControlContext>>` that wins over the registry and reaches fields inside containers, tabs and the cells of repeatable lists. A custom field whose key has no renderer shows a notice instead of a control. Because `FormControlContext` has a public constructor, you can also build one in a unit test: `new FormControlContext(form, field, "id")` then call `Set`, `Commit` and `Blur` and read the controller.
 
 ## Upload files
 

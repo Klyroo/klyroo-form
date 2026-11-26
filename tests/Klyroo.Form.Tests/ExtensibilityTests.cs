@@ -20,7 +20,7 @@ public sealed class ExtensibilityTests : BunitContext
     private static FormController Form(params FormFieldSchema[] fields) => new(new FormSchema { FormKey = "ext", Fields = fields });
 
     // A custom control: an input wired to the field through its context.
-    private static RenderFragment<FormFieldContext> TextBox(string marker = "custom") => ctx => builder =>
+    private static RenderFragment<FormControlContext> TextBox(string marker = "custom") => ctx => builder =>
     {
         builder.OpenElement(0, "input");
         builder.AddAttribute(1, "id", ctx.Id);
@@ -34,14 +34,14 @@ public sealed class ExtensibilityTests : BunitContext
         builder.CloseElement();
     };
 
-    // FormFieldContext
+    // FormControlContext
 
     [Fact]
-    public void FormFieldContext_edits_the_field_through_the_controller_and_describes_its_ids()
+    public void FormControlContext_edits_the_field_through_the_controller_and_describes_its_ids()
     {
         var field = new FormFieldSchema { Key = "name", Label = "Name", Description = "d", Help = "h", Required = true };
         var form = Form(field);
-        var ctx = new FormFieldContext(form, field, "kly-name");
+        var ctx = new FormControlContext(form, field, "kly-name");
 
         Assert.Same(form, ctx.Form);
         Assert.Same(field, ctx.Field);
@@ -62,7 +62,7 @@ public sealed class ExtensibilityTests : BunitContext
 
         ctx.Commit("");
         Assert.Equal("This field is required", form.GetError("name"));
-        var withError = new FormFieldContext(form, field, "kly-name");
+        var withError = new FormControlContext(form, field, "kly-name");
         Assert.Equal("This field is required", withError.Error);
         Assert.Equal("kly-name-description kly-name-help kly-name-error", withError.DescribedBy);
 
@@ -73,7 +73,7 @@ public sealed class ExtensibilityTests : BunitContext
     }
 
     [Fact]
-    public void FormFieldContext_reports_disabled_and_validating_and_converts_the_value()
+    public void FormControlContext_reports_disabled_and_validating_and_converts_the_value()
     {
         var field = new FormFieldSchema
         {
@@ -86,12 +86,12 @@ public sealed class ExtensibilityTests : BunitContext
         form.SetValue("off", true);
         form.SetValue("n", 4.0, markTouched: true);
 
-        var ctx = new FormFieldContext(form, field, "id");
+        var ctx = new FormControlContext(form, field, "id");
 
         Assert.True(ctx.Disabled);
         Assert.True(ctx.Validating);
         Assert.Equal(4, ctx.Current<int>());
-        Assert.Throws<ArgumentNullException>(() => new FormFieldContext(null!, field, "id"));
+        Assert.Throws<ArgumentNullException>(() => new FormControlContext(null!, field, "id"));
     }
 
     // Custom
@@ -158,7 +158,7 @@ public sealed class ExtensibilityTests : BunitContext
                 Kind = FormFieldKind.Card,
                 Fields = [new FormFieldSchema { Key = "nested", Kind = FormFieldKind.Custom, CustomKey = "textbox" }],
             });
-        var templates = new Dictionary<string, RenderFragment<FormFieldContext>> { ["textbox"] = TextBox("param") };
+        var templates = new Dictionary<string, RenderFragment<FormControlContext>> { ["textbox"] = TextBox("param") };
 
         var cut = ctx.Render<KlyFormEngine>(p => p.Add(c => c.Form, form).Add(c => c.FieldTemplates, templates));
 
@@ -169,7 +169,7 @@ public sealed class ExtensibilityTests : BunitContext
     [Fact]
     public void Custom_fields_render_in_tabs_pages_and_cells_of_lists()
     {
-        var templates = new Dictionary<string, RenderFragment<FormFieldContext>> { ["textbox"] = TextBox("param") };
+        var templates = new Dictionary<string, RenderFragment<FormControlContext>> { ["textbox"] = TextBox("param") };
         var lines = new FormFieldSchema
         {
             Key = "lines",

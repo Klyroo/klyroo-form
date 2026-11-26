@@ -8,7 +8,7 @@ namespace Klyroo.Form;
 /// <example>
 /// <code>
 /// // A custom control: an input wired to the field, labelled and described like the built-in ones.
-/// RenderFragment&lt;FormFieldContext&gt; renderer = ctx => builder =>
+/// RenderFragment&lt;FormControlContext&gt; renderer = ctx => builder =>
 /// {
 ///     builder.OpenElement(0, "input");
 ///     builder.AddAttribute(1, "id", ctx.Id);
@@ -21,7 +21,7 @@ namespace Klyroo.Form;
 /// };
 /// </code>
 /// </example>
-public sealed class FormFieldContext
+public sealed class FormControlContext
 {
     private readonly Func<object?> _current;
     private readonly Action<object?> _set;
@@ -33,7 +33,7 @@ public sealed class FormFieldContext
     /// <param name="field">The field.</param>
     /// <param name="id">The id of the control. The ids of the description, help and error elements are this id followed by <c>-description</c>, <c>-help</c> and <c>-error</c>.</param>
     /// <exception cref="ArgumentNullException">An argument is <c>null</c>.</exception>
-    public FormFieldContext(FormController form, FormFieldSchema field, string id)
+    public FormControlContext(FormController form, FormFieldSchema field, string id)
         : this(
             form,
             field,
@@ -54,7 +54,7 @@ public sealed class FormFieldContext
     {
     }
 
-    internal FormFieldContext(
+    internal FormControlContext(
         FormController form,
         FormFieldSchema field,
         string id,

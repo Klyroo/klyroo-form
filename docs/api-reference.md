@@ -37,6 +37,40 @@ The built-in `FormMessages`, one set per locale of Klyroo.UI and keyed by the sa
 
 ### Classes
 
+#### `FormControlContext`
+
+`Klyroo.Form` · class
+
+Everything a control needs to edit one field: the value and how to change it, the error, the state flags and the ids that tie the control to its label, description, help and error. `KlyFormEngine` and `KlyFormPage` build one for each control they render, and pass it to the renderer of a `FormFieldKind.Custom` field. The same type serves a field and a cell of a repeatable list. A context is a snapshot of one render: build a new one (the components do) after the form changes.
+
+| Constructor | Description |
+| :--- | :--- |
+| `FormControlContext(FormController form, FormFieldSchema field, string id)` | Creates the context of a field of `form`, with the state, error and ids the built-in controls use. `FormControlContext.Set`, `FormControlContext.Commit` and `FormControlContext.Blur` act on the field through the controller. |
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `DescribedBy` | `string?` | The ids of the description, help and error elements to put in `aria-describedby`, space separated, or `null`. |
+| `Disabled` | `bool` | `true` when the field is disabled (`FormFieldSchema.Disabled` or `FormFieldSchema.DisabledWhen`, or its list is). Render the control disabled. |
+| `Error` | `string?` | The error to show, or `null`. The error text itself is rendered by the component around the control. |
+| `ErrorId` | `string` | The id of the error element. It exists only while `FormControlContext.Error` is not `null`. |
+| `Field` | `FormFieldSchema` | The field being edited. For a cell of a repeatable list, the child field of the column. |
+| `Form` | `FormController` | The controller that holds the value. |
+| `Id` | `string` | The `id` the control must use, so that the label points at it. |
+| `IsCell` | `bool` | `true` when the control is a cell of a repeatable list. |
+| `LabelledBy` | `string?` | The ids of the elements that label a control made of several inputs (`aria-labelledby`), or `null` when a `label` element points at `FormControlContext.Id`. |
+| `Required` | `bool` | `true` when the field is required (`FormFieldSchema.Required` or `FormFieldSchema.RequiredWhen`). Set `aria-required` on the control. |
+| `Slot` | `string` | The `data-slot` the built-in controls carry (`form-control`, or `form-array-input` in a cell of a repeatable list). |
+| `Validating` | `bool` | `true` while an asynchronous rule of the field runs (see `FormController.IsValidating`). |
+| `Value` | `object?` | The value when this context was built. Use `FormControlContext.Current` for the live value inside an event handler. |
+
+| Method | Returns | Description |
+| :--- | :--- | :--- |
+| `Blur()` | `void` | Tells the form the control lost focus: the field is marked touched and validated, which is what makes its error show. |
+| `Commit(object? value)` | `void` | Changes the value and marks the field touched, for a change that is complete in one gesture: a click, a selection, a removal. The error shows at once. |
+| `Current()` | `object?` | Gets the live value, which may be newer than `FormControlContext.Value`. In a cell, the value of the cell. |
+| `Current<T>()` | `T` | Gets the live value converted to `T` like `FormController.GetValue`` does. |
+| `Set(object? value)` | `void` | Changes the value while the user is editing, for example on every keystroke. The field is validated as `FormController.SetValue` does: only once touched, and per its trigger. |
+
 #### `FormController`
 
 `Klyroo.Form` · class
@@ -116,40 +150,6 @@ Runtime state of a `FormSchema`: field values, an initial snapshot for dirty tra
 | `TryGetValue<T>(string path, out T value)` | `bool` | Tries to get the current value converted to `T`, with the conversions of `FormController.GetValue``. |
 | `Validate(bool currentStepOnly = false)` | `bool` | Validates the fields in effect (see `FormController.ActiveFields`) according to `FormSchema.ValidateMode`, including each cell of their repeatable lists, and marks them touched so their errors show. Validation errors of fields that are not in effect, such as hidden ones, are removed. |
 | `ValidateAsync(bool currentStepOnly = false, CancellationToken cancellationToken = null)` | `Task<bool>` | Validates like `FormController.Validate`, then runs the asynchronous rules (see `FormFieldSchema.AsyncValidators`) of the validated fields that have a non-empty value, pass their synchronous checks and have no result yet for the current value, in parallel across fields, and validates again with their results. `FormController.SubmitAsync` and `FormController.NextStepAsync` call it. |
-
-#### `FormFieldContext`
-
-`Klyroo.Form` · class
-
-Everything a control needs to edit one field: the value and how to change it, the error, the state flags and the ids that tie the control to its label, description, help and error. `KlyFormEngine` and `KlyFormPage` build one for each control they render, and pass it to the renderer of a `FormFieldKind.Custom` field. The same type serves a field and a cell of a repeatable list. A context is a snapshot of one render: build a new one (the components do) after the form changes.
-
-| Constructor | Description |
-| :--- | :--- |
-| `FormFieldContext(FormController form, FormFieldSchema field, string id)` | Creates the context of a field of `form`, with the state, error and ids the built-in controls use. `FormFieldContext.Set`, `FormFieldContext.Commit` and `FormFieldContext.Blur` act on the field through the controller. |
-
-| Property | Type | Description |
-| :--- | :--- | :--- |
-| `DescribedBy` | `string?` | The ids of the description, help and error elements to put in `aria-describedby`, space separated, or `null`. |
-| `Disabled` | `bool` | `true` when the field is disabled (`FormFieldSchema.Disabled` or `FormFieldSchema.DisabledWhen`, or its list is). Render the control disabled. |
-| `Error` | `string?` | The error to show, or `null`. The error text itself is rendered by the component around the control. |
-| `ErrorId` | `string` | The id of the error element. It exists only while `FormFieldContext.Error` is not `null`. |
-| `Field` | `FormFieldSchema` | The field being edited. For a cell of a repeatable list, the child field of the column. |
-| `Form` | `FormController` | The controller that holds the value. |
-| `Id` | `string` | The `id` the control must use, so that the label points at it. |
-| `IsCell` | `bool` | `true` when the control is a cell of a repeatable list. |
-| `LabelledBy` | `string?` | The ids of the elements that label a control made of several inputs (`aria-labelledby`), or `null` when a `label` element points at `FormFieldContext.Id`. |
-| `Required` | `bool` | `true` when the field is required (`FormFieldSchema.Required` or `FormFieldSchema.RequiredWhen`). Set `aria-required` on the control. |
-| `Slot` | `string` | The `data-slot` the built-in controls carry (`form-control`, or `form-array-input` in a cell of a repeatable list). |
-| `Validating` | `bool` | `true` while an asynchronous rule of the field runs (see `FormController.IsValidating`). |
-| `Value` | `object?` | The value when this context was built. Use `FormFieldContext.Current` for the live value inside an event handler. |
-
-| Method | Returns | Description |
-| :--- | :--- | :--- |
-| `Blur()` | `void` | Tells the form the control lost focus: the field is marked touched and validated, which is what makes its error show. |
-| `Commit(object? value)` | `void` | Changes the value and marks the field touched, for a change that is complete in one gesture: a click, a selection, a removal. The error shows at once. |
-| `Current()` | `object?` | Gets the live value, which may be newer than `FormFieldContext.Value`. In a cell, the value of the cell. |
-| `Current<T>()` | `T` | Gets the live value converted to `T` like `FormController.GetValue`` does. |
-| `Set(object? value)` | `void` | Changes the value while the user is editing, for example on every keystroke. The field is validated as `FormController.SetValue` does: only once touched, and per its trigger. |
 
 #### `FormFieldSchema`
 
@@ -530,7 +530,7 @@ Kind of a field in a `FormFieldSchema`. The kind decides how the field is stored
 | `Object` | Container with the same behavior as `FormFieldKind.Group`. Child values are not nested under the object key. |
 | `ArrayList` | Repeatable list of rows, each row holding the fields declared in `FormFieldSchema.Fields`. The value is a `List<Dictionary<string, object?>>`. Rows are edited with `AddArrayItem`, `SetArrayItemValue` and `RemoveArrayItem`, each cell is rendered with the control of its child kind, and each cell is validated with the rules of its child field. |
 | `ArrayTable` | Same value and behavior as `FormFieldKind.ArrayList`; `KlyFormEngine` renders both identically. |
-| `Custom` | A control you provide. `FormFieldSchema.CustomKey` names its renderer, a `RenderFragment<FormFieldContext>` registered with `KlyrooFormOptions.CustomField` or passed in the `FieldTemplates` parameter of the components. The field is stateful like any input: it holds any value you store, is validated with `FormFieldSchema.Required` and `FormFieldSchema.Validators`, and is part of the output. The components render its label, description, help and error around your control. |
+| `Custom` | A control you provide. `FormFieldSchema.CustomKey` names its renderer, a `RenderFragment<FormControlContext>` registered with `KlyrooFormOptions.CustomField` or passed in the `FieldTemplates` parameter of the components. The field is stateful like any input: it holds any value you store, is validated with `FormFieldSchema.Required` and `FormFieldSchema.Validators`, and is part of the output. The components render its label, description, help and error around your control. |
 | `File` | File input rendered with the Blazor `InputFile`. The value is a `FormFileValue` (or `null`), or a `List<FormFileValue>` with `FormFieldSchema.Multiple`. `FormFieldSchema.Accept`, `FormFieldSchema.MaxFileSize` and the number of files are checked on validation. A file is never part of a draft (`FormController.ExportState`), since its content cannot be restored. |
 
 #### `FormPageSectionStatus`
@@ -598,7 +598,7 @@ Renders a `FormSchema` as a form: header, optional stepper with the description 
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`, each a `RenderFragment<FormFieldContext>` that draws the control. They win over the ones registered with `KlyrooFormOptions.CustomField`. |
+| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormControlContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`, each a `RenderFragment<FormControlContext>` that draws the control. They win over the ones registered with `KlyrooFormOptions.CustomField`. |
 | `Form` | `FormController?` | The controller to render. Use it when you need to read or change the form from code. Takes precedence over `KlyFormEngine.Schema`. |
 | `Input` | `IReadOnlyDictionary<string, object?>?` | Initial values by field key for the controller created from `KlyFormEngine.Schema`. Ignored when `KlyFormEngine.Form` is set. |
 | `OnCancel` | `EventCallback<IReadOnlyDictionary<string, object?>>` | Called with the current output when the user presses Cancel or the close button. When bound, the Cancel button is shown. |
@@ -647,7 +647,7 @@ Renders a sectioned form as a page: a sidebar listing each section with its comp
 
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
-| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`, each a `RenderFragment<FormFieldContext>` that draws the control. They win over the ones registered with `KlyrooFormOptions.CustomField`. |
+| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormControlContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`, each a `RenderFragment<FormControlContext>` that draws the control. They win over the ones registered with `KlyrooFormOptions.CustomField`. |
 | `Form` | `FormController` | The controller to render. Its schema must declare `FormSchema.Sections`. |
 | `OnSave` | `Func<IReadOnlyDictionary<string, object?>, CancellationToken, Task<bool>>?` | Your save step: called with `FormController.BuildOutput` after validation and the schema hooks passed, while the form is still submitting. Return `true` when the save succeeded; the form is then clean and `KlyFormPage.OnSubmit` is raised. Return `false` to keep the edits dirty, after reporting the reason with `FormController.SetError` or `FormController.SetFormError`. The token is cancelled when the component is disposed. |
 | `OnSubmit` | `EventCallback<IReadOnlyDictionary<string, object?>>` | Called with `FormController.BuildOutput` after the form is submitted successfully, that is after validation, the schema hooks and `KlyFormPage.OnSave` passed. The submission is over at that point and the form is clean. |
@@ -675,7 +675,7 @@ Renders one field of a `FormController` with the control of its `FormFieldKind`,
 | Parameter | Type | Description |
 | :--- | :--- | :--- |
 | `Field` | `FormFieldSchema` | The field to render, usually one of `FormController.CurrentVisibleTopFields`. Containers render their children with nested `KlySchemaField` components. |
-| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`. They win over the ones registered with `KlyrooFormOptions.CustomField`, and reach the fields inside containers, tabs and lists. |
+| `FieldTemplates` | `IReadOnlyDictionary<string, RenderFragment<FormControlContext>>?` | Renderers of the `FormFieldKind.Custom` fields by `FormFieldSchema.CustomKey`. They win over the ones registered with `KlyrooFormOptions.CustomField`, and reach the fields inside containers, tabs and lists. |
 | `Form` | `FormController` | The controller that holds the value of the field. |
 
 Also accepts the parameters of `KlyComponentBase`.
@@ -729,7 +729,7 @@ Configuration of Klyroo.Form: the built-in texts of each locale. It is an extens
 
 | Method | Returns | Description |
 | :--- | :--- | :--- |
-| `CustomField(string key, RenderFragment<FormFieldContext> renderer)` | `KlyrooFormOptions` | Registers the renderer of `FormFieldKind.Custom` fields whose `FormFieldSchema.CustomKey` is `key`, for every form of the app. The renderer draws the control from a `FormFieldContext`; the components draw the label, description, help and error around it. The `FieldTemplates` parameter of a component wins over it for that component. Registering a key again replaces its renderer. |
+| `CustomField(string key, RenderFragment<FormControlContext> renderer)` | `KlyrooFormOptions` | Registers the renderer of `FormFieldKind.Custom` fields whose `FormFieldSchema.CustomKey` is `key`, for every form of the app. The renderer draws the control from a `FormControlContext`; the components draw the label, description, help and error around it. The `FieldTemplates` parameter of a component wins over it for that component. Registering a key again replaces its renderer. |
 | `Texts(string localeCode, Func<FormTexts, FormTexts> change)` | `KlyrooFormOptions` | Changes the texts of a locale, like `KlyLocales.Extend` does for Klyroo.UI: `change` receives the set the locale resolves to and returns the one to use, usually `t => t with { ... }`. `localeCode` is a code of `KlyLocales.All` ("fr"), or the code of a locale you added ("en-AU", "tlh"): a locale without a set of its own starts from the set `KlyLocales.ResolveCode` picks for it, then its changes apply. The built-in validation messages are part of the set (`FormTexts.Messages`). The texts become read-only the first time a component resolves one. |
 
 ### Records

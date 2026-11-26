@@ -28,7 +28,7 @@
     protected override void OnParametersSet() => Form?.UseLocaleMessages(Texts.Messages);
 
     /// <summary>Renderers of the <see cref="FormFieldKind.Custom"/> fields by <see cref="FormFieldSchema.CustomKey"/>. They win over the ones registered with <see cref="KlyrooFormOptions.CustomField"/>, and reach the fields inside containers, tabs and lists.</summary>
-    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormFieldContext>>? FieldTemplates { get; set; }
+    [Parameter] public IReadOnlyDictionary<string, RenderFragment<FormControlContext>>? FieldTemplates { get; set; }
 
     private int Cols => FormLayout.Columns(Form.Schema);
 
@@ -120,7 +120,7 @@
         var groupControl = IsGroupControl(field);
         var validating = form.IsValidating(field.Key);
 
-        var binding = new FormFieldContext(
+        var binding = new FormControlContext(
             form,
             field,
             fieldId,
@@ -415,7 +415,7 @@
                                     var cellRequired = form.IsFieldRequired(child);
                                     var cellGroup = IsGroupControl(child);
                                     var cellShowLabel = !string.IsNullOrEmpty(child.Label) && !HasInlineLabel(child.Kind);
-                                    var cellBinding = new FormFieldContext(
+                                    var cellBinding = new FormControlContext(
                                         form,
                                         child,
                                         cellId,
@@ -495,7 +495,7 @@
         </div>;
     }
 
-    private RenderFragment RenderControl(FormController form, FormFieldSchema field, FormFieldContext b)
+    private RenderFragment RenderControl(FormController form, FormFieldSchema field, FormControlContext b)
     {
         var invalid = b.Error is not null ? "true" : null;
         var required = b.Required ? "true" : null;
@@ -804,7 +804,7 @@
         }
     }
 
-    private RenderFragment ClearButton(FormFieldContext b, object? cleared) =>
+    private RenderFragment ClearButton(FormControlContext b, object? cleared) =>
         @<button type="button"
                  class="@ClearButtonClass"
                  aria-label="@Texts.Clear"
@@ -812,7 +812,7 @@
                  data-slot="form-control-clear"
                  @onclick="@(() => b.Commit(cleared))">✕</button>;
 
-    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, FormFieldContext b, bool multiple)
+    private RenderFragment RenderChoiceList(FormController form, FormFieldSchema field, FormControlContext b, bool multiple)
     {
         var options = form.GetFieldOptions(field);
         var selected = multiple ? AsStringList(b.Value) : [];
@@ -873,7 +873,7 @@
         </div>;
     }
 
-    private RenderFragment RenderCustom(FormFieldSchema field, FormFieldContext b)
+    private RenderFragment RenderCustom(FormFieldSchema field, FormControlContext b)
     {
         var renderer = ResolveRenderer(field.CustomKey);
         return renderer is null
@@ -882,14 +882,14 @@
     }
 
     // The FieldTemplates parameter wins over the renderers registered in AddKlyrooForm.
-    private RenderFragment<FormFieldContext>? ResolveRenderer(string? key)
+    private RenderFragment<FormControlContext>? ResolveRenderer(string? key)
     {
         if (string.IsNullOrEmpty(key)) return null;
         if (FieldTemplates is not null && FieldTemplates.TryGetValue(key, out var template)) return template;
         return Options.Extension<KlyrooFormOptions>().TryGetCustomField(key, out var registered) ? registered : null;
     }
 
-    private RenderFragment RenderFile(FormFieldSchema field, FormFieldContext b)
+    private RenderFragment RenderFile(FormFieldSchema field, FormControlContext b)
     {
         var files = FilesOf(b.Value);
         var version = Ui.FileInputVersions.GetValueOrDefault(b.Id);
@@ -937,7 +937,7 @@
         _ => [],
     };
 
-    private static void OnFilesChosen(FormFieldSchema field, FormFieldContext b, InputFileChangeEventArgs e)
+    private static void OnFilesChosen(FormFieldSchema field, FormControlContext b, InputFileChangeEventArgs e)
     {
         if (e.FileCount == 0) return;
         var picked = e.GetMultipleFiles(e.FileCount).Select(ToFileValue).ToList();
@@ -948,7 +948,7 @@
         new(file.Name, file.Size, file.ContentType, ct => ValueTask.FromResult(file.OpenReadStream(Math.Max(file.Size, 1), ct)), file.LastModified);
 
     // The browser input keeps showing its selection and does not fire change for the same file again, so a removal gives it a new identity.
-    private void RemoveFile(FormFieldSchema field, FormFieldContext b, FormFileValue file)
+    private void RemoveFile(FormFieldSchema field, FormControlContext b, FormFileValue file)
     {
         Ui.FileInputVersions[b.Id] = Ui.FileInputVersions.GetValueOrDefault(b.Id) + 1;
         if (!field.Multiple)
@@ -960,7 +960,7 @@
         b.Commit(rest.Count == 0 ? null : rest);
     }
 
-    private RenderFragment RenderTags(FormFieldSchema field, FormFieldContext b)
+    private RenderFragment RenderTags(FormFieldSchema field, FormControlContext b)
     {
         var tags = AsStringList(b.Value);
         var draft = Ui.Drafts.GetValueOrDefault(b.Id, "");
@@ -999,7 +999,7 @@
         </div>;
     }
 
-    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, FormFieldContext b)
+    private RenderFragment RenderCreateOption(FormController form, FormFieldSchema field, FormControlContext b)
     {
         var draftKey = $"{b.Id}-create";
         var draft = Ui.Drafts.GetValueOrDefault(draftKey, "");
@@ -1034,7 +1034,7 @@
         }
     }
 
-    private void OnTagInput(FormFieldContext b, string? raw)
+    private void OnTagInput(FormControlContext b, string? raw)
     {
         raw ??= "";
         var parts = raw.Split(',');
@@ -1050,7 +1050,7 @@
         Ui.Drafts[b.Id] = parts[^1];
     }
 
-    private void OnTagKeyDown(FormFieldContext b, KeyboardEventArgs e)
+    private void OnTagKeyDown(FormControlContext b, KeyboardEventArgs e)
     {
         if (e.Key != "Enter") return;
         var tags = AsStringList(b.Current());
@@ -1113,7 +1113,7 @@
     }
 
     // The text the user types stays on screen until the input loses focus; the state gets the matching option value.
-    private void OnAutoCompleteInput(FormFieldContext b, IReadOnlyList<FormOptionItem> options, string? text)
+    private void OnAutoCompleteInput(FormControlContext b, IReadOnlyList<FormOptionItem> options, string? text)
     {
         Ui.Drafts[b.Id] = text ?? "";
         b.Set(ResolveAutoComplete(options, text));
@@ -1158,7 +1158,7 @@
         if (!Ui.RevealedPasswords.Remove(id)) Ui.RevealedPasswords.Add(id);
     }
 
-    private static void OnNumberInput(FormFieldContext b, string? raw)
+    private static void OnNumberInput(FormControlContext b, string? raw)
     {
         if (string.IsNullOrWhiteSpace(raw))
         {
