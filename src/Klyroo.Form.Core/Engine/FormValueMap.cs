@@ -66,7 +66,7 @@ internal static class FormValueMap
         var type = Nullable.GetUnderlyingType(memberType) ?? memberType;
         s.Kind = kind;
         s.Label = Humanize(name);
-        if (kind == FormFieldKind.Select && type.IsEnum)
+        if (kind is FormFieldKind.Select or FormFieldKind.Radio && type.IsEnum)
         {
             s.Options = Enum.GetNames(type).Select(n => new FormOptionItem(n, Humanize(n))).ToList();
             s.Clearable = Nullable.GetUnderlyingType(memberType) is not null || clearOptional;
