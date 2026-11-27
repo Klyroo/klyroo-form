@@ -178,7 +178,16 @@ internal sealed class FormButtonView : FormNodeView
     public async Task ClickAsync()
     {
         if (!_button.IsEnabled || Node.OnClick is null) return;
-        await Node.OnClick(Context.Engine);
+        try
+        {
+            await Node.OnClick(Context.Engine);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException)
+        {
+            // A handler that throws must not end the app from an async void event: it becomes a notice in the form, as a failed save does.
+            System.Diagnostics.Trace.TraceError($"Klyroo.Form: the button '{Node.Key}' failed: {ex}");
+            Context.Engine.SetFormError(FormTexts.Current.SomethingWentWrong, blocking: false);
+        }
     }
 
     public override void Refresh() => _button.IsEnabled = !Context.Engine.IsFieldDisabled(Node);

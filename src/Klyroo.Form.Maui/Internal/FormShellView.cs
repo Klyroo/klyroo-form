@@ -174,7 +174,13 @@ internal sealed class FormShellView : FormShellBase
     }
 
     /// <summary>Moves to the previous step. True when the step changed.</summary>
-    public Task<bool> PreviousAsync() => Engine.PreviousStepAsync();
+    public async Task<bool> PreviousAsync()
+    {
+        var form = Engine;
+        var moved = false;
+        await FormRun.RunAsync(async () => moved = await form.PreviousStepAsync(), form, FormTexts.Current, Token);
+        return moved;
+    }
 
     /// <summary>Calls the cancel handler of the component, as the Cancel button and the close button do.</summary>
     public async Task CancelAsync()

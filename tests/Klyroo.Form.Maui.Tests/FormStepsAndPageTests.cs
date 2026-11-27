@@ -79,6 +79,23 @@ public class FormStepsAndPageTests
     }
 
     [Fact]
+    public async Task A_hook_that_throws_when_going_back_becomes_a_notice_and_the_form_stays_on_its_step()
+    {
+        var schema = new DynamicFormSchema
+        {
+            Steps = [new DynamicStepSchema { Key = "a", Title = "A", Fields = [FormKit.Field("x")] }, new DynamicStepSchema { Key = "b", Title = "B", Fields = [FormKit.Field("y")] }],
+            OnBeforePrevious = (_, _) => throw new InvalidOperationException("boom"),
+        };
+        var engine = FormKit.Engine(schema);
+        await engine.ShellView!.NextAsync();
+
+        Assert.False(await engine.ShellView.PreviousAsync());
+
+        Assert.Equal(1, engine.EffectiveController!.CurrentStepIndex);
+        Assert.Contains(FormTexts.Current.SomethingWentWrong, engine.EffectiveController.FormErrors);
+    }
+
+    [Fact]
     public async Task The_return_key_before_the_last_step_means_next_not_submit()
     {
         var engine = FormKit.Engine(Wizard());

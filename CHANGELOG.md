@@ -6,6 +6,10 @@ All notable changes to this project are documented in this file. The format is b
 
 ## [Unreleased]
 
+### Added
+
+- `Klyroo.Form.Maui`, native .NET MAUI views with no WebView for the controllers of `Klyroo.Form.Core`, drawn with the inputs of `Klyroo.UI.Maui`: `KlyFormEngine<TModel>`, `KlyFormPage<TModel>`, `KlyFormFieldView<TModel>`, `KlyFieldTemplate<TModel, TValue>`, `KlyFormProvider` (with a `FormService` for typed overlays), `KlyFormErrorSummary`, `KlyFormNavigationGuard` (through `Shell.Navigating`), and `KlyDynamicFormEngine`, `KlyDynamicFormPage` and `KlyDynamicFieldView` for runtime schemas. It is not in `Klyroo.Form.slnx` (it needs the MAUI workload). `Klyroo.Form.Core` shows its internals to it and to its tests, as it does to `Klyroo.Form`.
+
 ### Changed
 
 - The ecosystem table of the README describes Klyroo.Display by what it keeps (code highlighting, secret and file list components, media player controls and file preview), since its read-only display blocks are typed components of Klyroo.UI.

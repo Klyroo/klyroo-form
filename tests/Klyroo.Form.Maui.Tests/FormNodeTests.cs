@@ -85,6 +85,18 @@ public class FormNodeTests
     }
 
     [Fact]
+    public async Task A_button_handler_that_throws_becomes_a_notice_in_the_form()
+    {
+        var engine = FormKit.Engine(FormKit.Schema(new DynamicFieldSchema { Key = "b", Kind = FormFieldKind.Button, OnClick = _ => throw new InvalidOperationException("boom") }));
+        var button = Assert.Single(engine.ShellView!.Views<FormButtonView>());
+
+        await button.ClickAsync();
+
+        Assert.Contains(FormTexts.Current.SomethingWentWrong, engine.EffectiveController!.FormErrors);
+        Assert.True(engine.ShellView!.Summary.Box.IsVisible);
+    }
+
+    [Fact]
     public async Task A_button_is_disabled_with_the_form_and_does_nothing_then()
     {
         var clicked = 0;
