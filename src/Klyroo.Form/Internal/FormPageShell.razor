@@ -34,11 +34,13 @@
 
         <KlyFormErrorSummary Form="@((IFormRuntime)form.Owner!)" />
 
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-12">
+        @* The sidebar sits beside the sections when the form itself is wide, not the window: a form inside a column stacks them. *@
+        <div class="@@container">
+        <div class="grid grid-cols-1 gap-6 @@3xl:grid-cols-12">
             @* Sidebar navigation *@
             @if (sectionStates.Count > 0)
             {
-                <aside class="lg:col-span-3" data-slot="form-page-nav">
+                <aside class="@@3xl:col-span-3" data-slot="form-page-nav">
                     <nav class="sticky top-4 flex flex-col gap-1 rounded-(--klyroo-radius-md) border border-(--klyroo-border) bg-(--klyroo-bg) p-3"
                          aria-label="@Texts.FormSections">
                         <span class="mb-1 px-2 text-[11px] font-bold uppercase tracking-wider text-(--klyroo-text-muted)">@Texts.FormSections</span>
@@ -56,7 +58,7 @@
                                data-slot="form-page-nav-item"
                                data-section="@sec.Key"
                                data-status="@sec.Status.ToString().ToLowerInvariant()">
-                                <span class="truncate">@sec.Label</span>
+                                <span class="min-w-0">@sec.Label</span>
                                 <KlyBadge Label="@statusBadge.Item1" Color="statusBadge.Item2" Variant="KlyVariant.Subtle" Size="KlySize.Sm" />
                             </a>
                         }
@@ -65,14 +67,14 @@
             }
 
             @* Sections stack *@
-            <div class="@(sectionStates.Count > 0 ? "lg:col-span-9" : "lg:col-span-12") flex flex-col gap-4" data-slot="form-page-sections">
+            <div class="@(sectionStates.Count > 0 ? "@3xl:col-span-9" : "@3xl:col-span-12") flex flex-col gap-4" data-slot="form-page-sections">
                 <div class="grid grid-cols-12 gap-4">
                 @foreach (var sectionSchema in form.Schema.Sections.Where(form.IsSectionVisible))
                 {
                     var state = sectionStates.First(s => s.Key == sectionSchema.Key);
                     <section id="@sectionSchema.Key"
                              style="@($"--kly-section-span: span {Math.Clamp(sectionSchema.Span, 1, 12)} / span {Math.Clamp(sectionSchema.Span, 1, 12)}")"
-                             class="col-span-12 lg:[grid-column:var(--kly-section-span)] flex flex-col gap-3 rounded-(--klyroo-radius-md) border @(state.Dirty ? "border-(--klyroo-primary-text)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-4"
+                             class="col-span-12 @@3xl:[grid-column:var(--kly-section-span)] flex flex-col gap-3 rounded-(--klyroo-radius-md) border @(state.Dirty ? "border-(--klyroo-primary-text)" : "border-(--klyroo-border)") bg-(--klyroo-bg) p-4"
                              data-slot="form-page-section"
                              data-key="@sectionSchema.Key"
                              data-dirty="@(state.Dirty ? "true" : "false")"
@@ -116,6 +118,7 @@
                     </button>
                 </div>
             </div>
+        </div>
         </div>
     </form>
 }
