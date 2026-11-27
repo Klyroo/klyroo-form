@@ -12,6 +12,8 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Klyroo.Form" />
     <InternalsVisibleTo Include="Klyroo.Form.DataAnnotations" />
+    <InternalsVisibleTo Include="Klyroo.Form.Maui" />
+    <InternalsVisibleTo Include="Klyroo.Form.Maui.Tests" />
     <InternalsVisibleTo Include="Klyroo.Form.Tests" />
   </ItemGroup>
 </Project>

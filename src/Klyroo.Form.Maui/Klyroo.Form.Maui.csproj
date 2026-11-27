@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Native .NET MAUI views for Klyroo.Form: the form, the page, the field, the error summary, the overlay provider and the navigation guard, drawn with the Klyroo.UI.Maui inputs. No WebView, no Blazor. Same version as the library: build/Version.props. -->
+  <PropertyGroup>
+    <!-- The plain framework target is what the unit tests run on; the platform targets are what an app uses. -->
+    <TargetFrameworks>$(KlyrooMauiTfm);$(KlyrooMauiTfm)-android</TargetFrameworks>
+    <TargetFrameworks Condition="!$([MSBuild]::IsOSPlatform('linux'))">$(TargetFrameworks);$(KlyrooMauiTfm)-ios;$(KlyrooMauiTfm)-maccatalyst</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);$(KlyrooMauiTfm)-windows10.0.19041.0</TargetFrameworks>
+
+    <UseMaui>true</UseMaui>
+    <SingleProject>false</SingleProject>
+    <RootNamespace>Klyroo.Form.Maui</RootNamespace>
+    <PackageId>Klyroo.Form.Maui</PackageId>
+    <Description>Native .NET MAUI views (no WebView) for Klyroo.Form: KlyFormEngine, KlyFormPage, KlyFormFieldView, KlyFormProvider, KlyFormErrorSummary, KlyFormNavigationGuard and their runtime-schema counterparts, over the Klyroo.Form.Core controllers and the Klyroo.UI.Maui inputs.</Description>
+    <PackageTags>maui;dotnet-maui;android;ios;forms;form-builder;wizard;validation</PackageTags>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+    <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Klyroo.Form.Core\Klyroo.Form.Core.csproj" />
+    <ProjectReference Include="..\..\..\klyroo-ui\src\Klyroo.UI.Maui\Klyroo.UI.Maui.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Klyroo.Form.Maui.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Klyroo.UI.Maui" />
+  </ItemGroup>
+
+</Project>
