@@ -14,7 +14,7 @@
           @onsubmit="OnSubmitAsync" @onsubmit:preventDefault @attributes="AdditionalAttributes">
         @if (!string.IsNullOrEmpty(form.Schema.Title) || !string.IsNullOrEmpty(form.Schema.Description))
         {
-            <header class="flex flex-wrap items-start justify-between gap-4 border-b border-(--klyroo-border) pb-4" data-slot="form-page-header">
+            <header class="flex flex-wrap items-baseline justify-between gap-4 border-b border-(--klyroo-border) pb-4" data-slot="form-page-header">
                 <div class="flex flex-col gap-1">
                     @if (!string.IsNullOrEmpty(form.Schema.Eyebrow))
                     {
