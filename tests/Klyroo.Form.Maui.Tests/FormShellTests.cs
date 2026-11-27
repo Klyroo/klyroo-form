@@ -323,18 +323,62 @@ public class FormShellTests
         Assert.Equal([(0, 0, 2), (1, 0, 1)], placement.Select(p => (p.Row, p.Column, p.ColumnSpan)).ToArray());
     }
 
+    [Theory]
+    [InlineData(300, true)]
+    [InlineData(479, true)]
+    [InlineData(480, false)]
+    [InlineData(900, false)]
+    public void A_narrow_form_puts_every_field_on_its_own_row_and_a_wide_one_keeps_the_columns(double width, bool compact)
+    {
+        var grid = new FormGrid(12, 480);
+        grid.SetItems([(new BoxView(), 6), (new BoxView(), 6), (new BoxView(), 4)]);
+
+        ((IView)grid).Arrange(new Rect(0, 0, width, 400));
+
+        Assert.Equal(compact, grid.Compact);
+        Assert.Equal(compact ? new[] { 0, 1, 2 } : new[] { 0, 0, 1 }, grid.Placement.Select(p => p.Row).ToArray());
+        Assert.Equal(compact ? 1 : 12, grid.ColumnDefinitions.Count);
+        Assert.All(grid.Placement, p => Assert.True(p.ColumnSpan <= grid.ColumnDefinitions.Count));
+    }
+
     [Fact]
-    public void A_narrow_form_puts_every_field_on_its_own_row_and_a_wide_one_goes_back_to_the_columns()
+    public void A_form_that_grows_wide_again_goes_back_to_its_columns()
+    {
+        var grid = new FormGrid(12, 480);
+        grid.SetItems([(new BoxView(), 6), (new BoxView(), 6)]);
+
+        ((IView)grid).Arrange(new Rect(0, 0, 300, 400));
+        Assert.True(grid.Compact);
+        ((IView)grid).Arrange(new Rect(0, 0, 800, 400));
+
+        Assert.False(grid.Compact);
+        Assert.Equal([0, 0], grid.Placement.Select(p => p.Row).ToArray());
+    }
+
+    [Fact]
+    public void A_grid_with_a_compact_width_of_zero_never_goes_compact()
+    {
+        var grid = new FormGrid(12, 0);
+        grid.SetItems([(new BoxView(), 6), (new BoxView(), 6)]);
+
+        ((IView)grid).Arrange(new Rect(0, 0, 100, 400));
+
+        Assert.False(grid.Compact);
+    }
+
+    [Fact]
+    public void The_same_views_with_the_same_spans_do_not_rebuild_the_grid()
     {
         var grid = new FormGrid(12, 480);
         var views = new[] { new BoxView(), new BoxView() };
         grid.SetItems([(views[0], 6), (views[1], 6)]);
-        Assert.Equal([0, 0], grid.Placement.Select(p => p.Row).ToArray());
+        var first = grid.Children.ToList();
 
-        grid.CompactWidth = 480;
-        Assert.False(grid.Compact);
-        grid.CompactWidth = 0;
-        Assert.False(grid.Compact);
+        grid.SetItems([(views[0], 6), (views[1], 6)]);
+
+        Assert.Equal(first, grid.Children.ToList());
+        grid.SetItems([(views[0], 12), (views[1], 6)]);
+        Assert.Equal(12, grid.Placement[0].ColumnSpan);
     }
 
     [Fact]

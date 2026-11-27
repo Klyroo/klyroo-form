@@ -37,7 +37,6 @@ public class KlyFormNavigationGuard : View
     }
 
     /// <summary>The controller to protect: a <c>FormController&lt;TModel&gt;</c> or a <c>DynamicFormController</c>. Navigation is held while <see cref="IFormRuntime.IsDirty"/> is <c>true</c>, so the guard stops once a submission succeeds and the snapshot is retaken.</summary>
-    /// <exception cref="ArgumentException">The value is a runtime that Klyroo.Form did not create.</exception>
     public IFormRuntime? Form { get => (IFormRuntime?)GetValue(FormProperty); set => SetValue(FormProperty, value); }
 
     /// <summary>The question of the default confirmation. The default is the <see cref="FormTexts.UnsavedChanges"/> text.</summary>
@@ -58,6 +57,9 @@ public class KlyFormNavigationGuard : View
     /// <summary>The shell the guard listens to, or <c>null</c> outside a Shell.</summary>
     internal Shell? ListeningTo => _shell;
 
+    /// <summary>Where the guard finds the shell of the app. Tests give it another one.</summary>
+    internal Func<Shell?> CurrentShell { get; set; } = () => Shell.Current;
+
     /// <summary>Asks the question, with the default confirmation. Returns <c>true</c> when the form is clean (or the guard is off) or the user leaves, <c>false</c> when the user stays. Call it from your own back handling outside a Shell.</summary>
     /// <returns>Whether leaving the page is allowed.</returns>
     public async Task<bool> ConfirmLeaveAsync() => !IsGuarding || await AskAsync();
@@ -65,7 +67,7 @@ public class KlyFormNavigationGuard : View
     /// <summary>Starts listening to <see cref="Shell.Navigating"/>. It runs when the guard enters a page; a guard that is not in a Shell listens to nothing.</summary>
     internal void Attach()
     {
-        var shell = Shell.Current;
+        var shell = CurrentShell();
         if (ReferenceEquals(shell, _shell)) return;
         Detach();
         _shell = shell;
@@ -81,11 +83,14 @@ public class KlyFormNavigationGuard : View
     /// <summary>Which navigations leave the page: pushing another page on top does not.</summary>
     internal static bool Leaves(ShellNavigationSource source) => source is not (ShellNavigationSource.Push or ShellNavigationSource.Insert);
 
-    private async void OnNavigating(object? sender, ShellNavigatingEventArgs e)
+    private async void OnNavigating(object? sender, ShellNavigatingEventArgs e) => await HandleNavigatingAsync(sender as Shell, e);
+
+    /// <summary>What the guard does when the shell starts a navigation: holds it with a deferral while it asks, and cancels it when the user stays.</summary>
+    internal async Task HandleNavigatingAsync(Shell? shell, ShellNavigatingEventArgs e)
     {
         if (!IsGuarding || !e.CanCancel || !Leaves(e.Source)) return;
         // Only the page the guard is in: another page of the stack does not answer for this form.
-        if (FormUi.FindAncestor<Page>(this) is { } page && sender is Shell shell && shell.CurrentPage is { } current && !ReferenceEquals(current, page)) return;
+        if (FormUi.FindAncestor<Page>(this) is { } page && shell?.CurrentPage is { } current && !ReferenceEquals(current, page)) return;
 
         var deferral = e.GetDeferral();
         try

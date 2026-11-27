@@ -42,6 +42,9 @@ public sealed record FormTexts
         set => _current = value ?? throw new ArgumentNullException(nameof(value));
     }
 
+    /// <summary>Puts <see cref="Current"/> back to its default. Tests use it.</summary>
+    internal static void ResetCurrent() => _current = null;
+
     private static FormTexts ForCulture()
     {
         var name = System.Globalization.CultureInfo.CurrentUICulture.Name;

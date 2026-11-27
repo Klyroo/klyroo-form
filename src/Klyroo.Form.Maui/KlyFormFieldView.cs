@@ -27,11 +27,7 @@ public sealed class KlyFormFieldView<[DynamicallyAccessedMembers(FormModelTrim.M
     {
         _host = new FieldViewHost(this);
         ParentChanged += (_, _) => Reconfigure();
-        Loaded += (_, _) =>
-        {
-            Reconfigure();
-            _host.Resume();
-        };
+        Loaded += (_, _) => Rebind();
         Unloaded += (_, _) => _host.Suspend();
     }
 
@@ -49,6 +45,13 @@ public sealed class KlyFormFieldView<[DynamicallyAccessedMembers(FormModelTrim.M
 
     /// <summary>Stops listening to the controller.</summary>
     public void Dispose() => _host.Dispose();
+
+    /// <summary>Looks for the controller again, as when the view enters a page: an enclosing form view can be attached after the view was made. Also resumes listening to it.</summary>
+    internal void Rebind()
+    {
+        Reconfigure();
+        _host.Resume();
+    }
 
     private void Reconfigure()
     {
