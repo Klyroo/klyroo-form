@@ -134,6 +134,16 @@ public sealed class ModelBindingTests
     }
 
     [Fact]
+    public void An_enum_rendered_as_radio_buttons_still_gets_its_members_as_options()
+    {
+        var schema = FormSchema.For<Person>(s => s.Field(p => p.Role, f => f.AsRadio()));
+        var role = schema.Node("Role");
+        Assert.Equal(FormFieldKind.Radio, role.Kind);
+        Assert.Equal(["Guest", "TeamMember", "Admin"], role.Options!.Select(o => o.Value));
+        Assert.Equal("Team member", role.Options![1].Label);
+    }
+
+    [Fact]
     public void An_integer_member_is_a_whole_number_within_the_range_of_its_type()
     {
         var schema = FormSchema.For<Person>(s => s.AllMembers());
