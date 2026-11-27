@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file. The format is b
 
 ### Changed
 
+- The ecosystem table of the README describes Klyroo.Display by what it keeps (code highlighting, secret and file list components, media player controls and file preview), since its read-only display blocks are typed components of Klyroo.UI.
 - `Klyroo.Form.Core` is about 4 KB smaller: the four internal helper types that were records (`ValidatorRule`, `AsyncValidatorRule`, `RawNumber` and the write plan step) are plain classes, because nothing compared, printed or copied them and each record added ten members to the assembly. No public API changes.
 
 - **Breaking:** the tone and the kind of an info block are enums. `FormSchemaBuilder<TModel>.Info(..., tone:)` takes a `FormInfoTone?` (`Neutral`, `Info`, `Success`, `Warning`, `Error`), and `DynamicFieldSchema.DisplayTone` and `DisplayKind` are a `FormInfoTone?` and a `FormInfoKind?` (`Callout`, `Text`). The markup is the same; the case-insensitive text and the fallback to the default for an unknown value are gone with the text.
