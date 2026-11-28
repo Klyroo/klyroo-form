@@ -279,7 +279,7 @@ internal sealed class FormArrayView : FormNodeView
             row.Add(grid, 0);
             row.Add(remove, 1);
             var frame = new Border { StrokeThickness = 1, Content = row };
-            frame.SetRadius(FormThemeExtensions.RadiusOf(1));
+            frame.SetRadius(KlyTheme.RadiusOf(1));
             frame.SetStroke(KlyTheme.Border);
             _rows.Add(frame);
             _items.Add(new RowView(index, row, views, remove));

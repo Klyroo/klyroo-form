@@ -40,7 +40,7 @@ internal sealed class FormPageShellView : FormShellBase
         _headerLine.SetThemeColor(BackgroundColorProperty, KlyTheme.Border);
 
         _navTitle.TextTransform = TextTransform.Uppercase;
-        _nav.SetRadius(FormThemeExtensions.RadiusOf(1.5));
+        _nav.SetRadius(KlyTheme.RadiusOf(1.5));
         _nav.SetThemeColor(BackgroundColorProperty, KlyTheme.Background);
         _nav.SetStroke(KlyTheme.Border);
         _nav.Content = new VerticalStackLayout { Spacing = 6, Children = { _navTitle, _navList } };
@@ -129,7 +129,7 @@ internal sealed class FormPageShellView : FormShellBase
                 grid.Add(label, 0);
                 grid.Add(badge, 1);
                 var row = new Border { StrokeThickness = 0, Padding = new Thickness(10, 8), BackgroundColor = Colors.Transparent, Content = grid, MinimumHeightRequest = 40 };
-                row.SetRadius(FormThemeExtensions.RadiusOf(1));
+                row.SetRadius(KlyTheme.RadiusOf(1));
                 row.AutomationId = Engine.IdPrefix + "nav-" + key;
                 FormUi.Tap(row, () => GoTo(key));
                 _navList.Add(row);

@@ -34,7 +34,7 @@ public class KlyFormErrorSummary : ContentView
     public KlyFormErrorSummary()
     {
         var error = KlyTheme.Resolve(KlyColor.Error);
-        _box.SetRadius(FormThemeExtensions.RadiusOf(1));
+        _box.SetRadius(KlyTheme.RadiusOf(1));
         _box.SetThemeColor(BackgroundColorProperty, error.Fill.WithAlpha(0.10f));
         _box.SetStroke(error.Fill.WithAlpha(0.40f));
         SemanticProperties.SetHeadingLevel(_title, SemanticHeadingLevel.Level2);
